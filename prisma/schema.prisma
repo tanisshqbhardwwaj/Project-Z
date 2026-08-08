@@ -1,0 +1,527 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PartnerRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Locale {
+  en
+  hi
+  en_hi
+}
+
+enum OrgRole {
+  OWNER
+  PARTNER
+  ACCOUNTANT
+  VIEWER
+}
+
+enum MemberStatus {
+  ACTIVE
+  INVITED
+  REMOVED
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum SplitType {
+  EQUAL
+  PERCENT
+  CUSTOM
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK
+  CARD
+  CHEQUE
+  OTHER
+}
+
+enum PaymentType {
+  VENDOR
+  SETTLEMENT
+  OTHER
+}
+
+enum DocumentType {
+  WORK_ORDER
+  RECEIPT
+  INVOICE
+  OTHER
+}
+
+enum ExtractionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVIEWED
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  passwordHash    String?
+  name            String
+  phone           String?
+  emailVerifiedAt DateTime?
+  locale          Locale    @default(en)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  accounts            Account[]
+  sessions            Session[]
+  organizationMembers OrganizationMember[]
+  projectMembers      ProjectMember[]
+  projectsCreated     Project[]            @relation("ProjectCreatedBy")
+  workOrdersCreated   WorkOrder[]          @relation("WorkOrderCreatedBy")
+  expensesCreated     Expense[]            @relation("ExpenseCreatedBy")
+  paymentsCreated     Payment[]            @relation("PaymentCreatedBy")
+  paymentsPaid        Payment[]            @relation("PaymentPaidBy")
+  paymentsReceived    Payment[]            @relation("PaymentReceivedBy")
+  documentsUploaded   Document[]           @relation("DocumentUploadedBy")
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  invitesSent         OrganizationInvite[] @relation("InviteSentBy")
+  projectInvitesSent  ProjectInvite[]      @relation("ProjectInviteSentBy")
+  partnerRequests     ProjectPartnerRequest[] @relation("PartnerRequestUser")
+  partnerReviews      ProjectPartnerRequest[] @relation("PartnerRequestReviewer")
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model Organization {
+  id                    String   @id @default(uuid())
+  name                  String
+  slug                  String   @unique
+  defaultCompletionDays Int      @default(30)
+  currency              String   @default("INR") @db.Char(3)
+  settings              Json     @default("{}")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  members          OrganizationMember[]
+  invites          OrganizationInvite[]
+  projectInvites   ProjectInvite[]
+  partnerRequests  ProjectPartnerRequest[]
+  projects         Project[]
+  workOrders       WorkOrder[]
+  vendors          Vendor[]
+  expenseCategories ExpenseCategory[]
+  expenses         Expense[]
+  payments         Payment[]
+  documents        Document[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  organizationId String
+  userId         String
+  role           OrgRole      @default(PARTNER)
+  status         MemberStatus @default(ACTIVE)
+  invitedAt      DateTime?
+  joinedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, organizationId])
+}
+
+model OrganizationInvite {
+  id             String   @id @default(uuid())
+  organizationId String
+  email          String
+  role           OrgRole  @default(PARTNER)
+  token          String   @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InviteSentBy", fields: [invitedById], references: [id])
+
+  @@index([organizationId, email])
+}
+
+model Project {
+  id                     String        @id @default(uuid())
+  organizationId         String
+  name                   String
+  status                 ProjectStatus @default(DRAFT)
+  contractAmountPaise    BigInt        @default(0)
+  budgetAmountPaise      BigInt?
+  location               String?
+  description            String?
+  expectedStartDate      DateTime?     @db.Date
+  expectedCompletionDate DateTime?     @db.Date
+  completionPercent      Int           @default(0)
+  createdById            String
+  deletedAt              DateTime?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User                @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  workOrder    WorkOrder?
+  members      ProjectMember[]
+  invites      ProjectInvite[]
+  partnerRequests ProjectPartnerRequest[]
+  splitConfig  ProjectSplitConfig?
+  expenses     Expense[]
+  payments     Payment[]
+  documents    Document[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model ProjectMember {
+  id          String    @id @default(uuid())
+  projectId   String
+  userId      String
+  splitType   SplitType @default(EQUAL)
+  splitValue  Decimal?  @db.Decimal(10, 4)
+  createdAt   DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId, userId])
+}
+
+model ProjectInvite {
+  id             String    @id @default(uuid())
+  projectId      String
+  organizationId String
+  email          String?
+  token          String    @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("ProjectInviteSentBy", fields: [invitedById], references: [id])
+  requests     ProjectPartnerRequest[]
+
+  @@index([projectId])
+  @@index([organizationId, email])
+}
+
+model ProjectPartnerRequest {
+  id             String               @id @default(uuid())
+  projectId      String
+  organizationId String
+  userId         String
+  inviteId       String?
+  status         PartnerRequestStatus @default(PENDING)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime             @default(now())
+
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User           @relation("PartnerRequestUser", fields: [userId], references: [id])
+  invite       ProjectInvite? @relation(fields: [inviteId], references: [id])
+  reviewedBy   User?          @relation("PartnerRequestReviewer", fields: [reviewedById], references: [id])
+
+  @@unique([projectId, userId])
+  @@index([projectId, status])
+}
+
+model ProjectSplitConfig {
+  id        String    @id @default(uuid())
+  projectId String    @unique
+  splitType SplitType @default(EQUAL)
+  splits    Json      @default("[]")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model WorkOrder {
+  id              String        @id @default(uuid())
+  organizationId  String
+  projectId       String        @unique
+  workOrderNumber String
+  workOrderDate   DateTime      @db.Date
+  clientName      String
+  headOfAccount   String?
+  timeOfCompletion String?
+  paymentTerms    String?
+  taxInfo         Json?
+  status          ProjectStatus @default(DRAFT)
+  notes           String?
+  createdById     String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("WorkOrderCreatedBy", fields: [createdById], references: [id])
+  documents    Document[]
+
+  @@index([organizationId])
+}
+
+model Vendor {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  phone          String?
+  email          String?
+  address        String?
+  gstNumber      String?
+  notes          String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
+  payments     Payment[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model ExpenseCategory {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Expense {
+  id                String    @id @default(uuid())
+  organizationId    String
+  projectId         String
+  vendorId          String?
+  categoryId        String
+  amountPaise       BigInt
+  paidAmountPaise   BigInt    @default(0)
+  outstandingPaise  BigInt    @default(0)
+  expenseDate       DateTime  @db.Date
+  description       String?
+  receiptHash       String?
+  createdById       String
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor       Vendor?             @relation(fields: [vendorId], references: [id])
+  category     ExpenseCategory     @relation(fields: [categoryId], references: [id])
+  createdBy    User                @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  allocations  PaymentAllocation[]
+  documents    Document[]
+
+  @@index([organizationId])
+  @@index([projectId, expenseDate])
+  @@index([vendorId])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  organizationId    String
+  projectId         String?
+  vendorId          String?
+  paidByUserId      String
+  recipientUserId   String?
+  amountPaise       BigInt
+  paymentMethod     PaymentMethod @default(CASH)
+  referenceNumber   String?
+  paymentDate       DateTime      @db.Date
+  paymentType       PaymentType   @default(VENDOR)
+  notes             String?
+  createdById       String
+  deletedAt         DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project       Project?            @relation(fields: [projectId], references: [id])
+  vendor        Vendor?             @relation(fields: [vendorId], references: [id])
+  paidBy        User                @relation("PaymentPaidBy", fields: [paidByUserId], references: [id])
+  recipient     User?               @relation("PaymentReceivedBy", fields: [recipientUserId], references: [id])
+  createdBy     User                @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  allocations   PaymentAllocation[]
+
+  @@index([organizationId])
+  @@index([vendorId, paymentDate])
+  @@index([projectId])
+  @@index([paidByUserId])
+}
+
+model PaymentAllocation {
+  id          String @id @default(uuid())
+  paymentId   String
+  expenseId   String
+  amountPaise BigInt
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([expenseId])
+}
+
+model Document {
+  id             String       @id @default(uuid())
+  organizationId String
+  projectId      String?
+  expenseId      String?
+  workOrderId    String?
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  storageKey     String
+  fileHash       String?
+  documentType   DocumentType @default(OTHER)
+  uploadedById   String
+  createdAt      DateTime     @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?      @relation(fields: [projectId], references: [id])
+  expense      Expense?      @relation(fields: [expenseId], references: [id])
+  workOrder    WorkOrder?    @relation(fields: [workOrderId], references: [id])
+  uploadedBy   User          @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  extraction   AIExtraction?
+
+  @@index([organizationId])
+}
+
+model AIExtraction {
+  id              String           @id @default(uuid())
+  documentId      String           @unique
+  provider        String
+  model           String
+  status          ExtractionStatus @default(PENDING)
+  rawResponse     Json?
+  extractedFields Json             @default("[]")
+  userCorrections Json?
+  errorMessage    String?
+  extractedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String
+  type           String
+  title          String
+  body           String
+  metadata       Json?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([organizationId])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  action         String
+  entityType     String
+  entityId       String
+  before         Json?
+  after          Json?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+}

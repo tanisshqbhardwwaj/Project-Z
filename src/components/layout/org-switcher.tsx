@@ -1,0 +1,108 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { Building2, ChevronDown, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
+import { useAuthStore } from "@/stores/auth-store";
+import { setActiveOrganizationId } from "@/lib/api/client";
+import { useFetchStore } from "@/stores/fetch-store";
+
+type OrgItem = { id: string; name: string; role: string };
+
+export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
+  const router = useRouter();
+  const { update } = useSession();
+  const { activeOrganizationId, setActiveOrg } = useAuthStore();
+  const [open, setOpen] = useState(false);
+  const [orgs, setOrgs] = useState<OrgItem[]>([]);
+  const [canCreateMore, setCanCreateMore] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/v1/organizations/list")
+      .then((r) => r.json())
+      .then((d) => {
+        setOrgs(d.data?.organizations ?? []);
+        setCanCreateMore(d.data?.canCreateMore ?? false);
+      })
+      .catch(() => {});
+  }, [activeOrganizationId]);
+
+  async function switchOrg(org: OrgItem) {
+    await fetch("/api/v1/organizations/switch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId: org.id }),
+    });
+    await update({ activeOrganizationId: org.id });
+    setActiveOrganizationId(org.id);
+    setActiveOrg(org.id, org.name, org.role);
+    useFetchStore.getState().invalidatePrefix("");
+    setOpen(false);
+    router.refresh();
+  }
+
+  const activeName =
+    orgs.find((o) => o.id === activeOrganizationId)?.name ?? currentOrgName ?? "Organization";
+
+  if (orgs.length <= 1 && !canCreateMore) {
+    return (
+      <div className="flex h-9 max-w-[220px] items-center gap-2">
+        <Building2 className="h-4 w-4 shrink-0 text-primary" />
+        <span className="truncate text-sm font-medium">{activeName}</span>
+      </div>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          className="h-9 max-w-[220px] justify-start gap-2 px-2"
+        >
+          <Building2 className="h-4 w-4 shrink-0 text-primary" />
+          <span className="truncate text-sm font-medium">{activeName}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-2">
+        <p className="px-2 py-1 text-xs text-muted-foreground">
+          Organizations ({orgs.length}/{MAX_ORGANIZATIONS})
+        </p>
+        {orgs.map((org) => (
+          <button
+            key={org.id}
+            type="button"
+            className={cn(
+              "flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-accent",
+              org.id === activeOrganizationId && "bg-accent"
+            )}
+            onClick={() => switchOrg(org)}
+          >
+            <span className="text-sm font-medium">{org.name}</span>
+            <span className="text-xs text-muted-foreground">{org.role}</span>
+          </button>
+        ))}
+        {canCreateMore && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 w-full"
+            onClick={() => {
+              setOpen(false);
+              router.push("/onboarding?new=1");
+            }}
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            New Organization
+          </Button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
