@@ -130,8 +130,12 @@ export function validateProductionEnv(env = process.env) {
   /** @type {string[]} */
   const errors = [];
 
-  // Block accidental paste of local Postgres URL on Vercel
-  if (env.DATABASE_URL && isLocalHost(env.DATABASE_URL)) {
+  // Block accidental paste of local Postgres URL on Vercel (SQLite file URL is OK for Prisma CLI)
+  if (
+    env.DATABASE_URL &&
+    isLocalHost(env.DATABASE_URL) &&
+    !env.DATABASE_URL.startsWith("file:")
+  ) {
     errors.push(
       "DATABASE_URL points to localhost — remove it from Vercel. This app uses Turso (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN) in production."
     );

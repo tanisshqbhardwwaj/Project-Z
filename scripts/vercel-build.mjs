@@ -1,8 +1,16 @@
 import { execSync } from "node:child_process";
 import { printProductionEnvErrors, validateProductionEnv } from "./validate-production-env.mjs";
 
+const LOCAL_PRISMA_URL = "file:./dev.db";
+
 function run(command) {
-  execSync(command, { stdio: "inherit" });
+  execSync(command, { stdio: "inherit", env: process.env });
+}
+
+function ensurePrismaCliDatabaseUrl() {
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = LOCAL_PRISMA_URL;
+  }
 }
 
 if (process.env.VERCEL) {
@@ -21,5 +29,6 @@ if (process.env.VERCEL) {
   }
 }
 
+ensurePrismaCliDatabaseUrl();
 run("npx prisma generate");
 run("npx next build");
