@@ -85,17 +85,17 @@ S3_BUCKET=project-z
 
 ### Run database migrations
 
-After first deploy, in Vercel project → **Settings → General** note the project, then locally:
+After first deploy, in Vercel project → **Settings → Environment Variables** and **Redeploy**:
 
-```bash
-DATABASE_URL="<your-neon-url>" npx prisma migrate deploy
+**CRITICAL:** `DATABASE_URL` must be your **Neon** URL — never `localhost:5433`.
+
+```env
+DATABASE_URL=postgresql://user:pass@ep-xxxx.neon.tech/neondb?sslmode=require
 ```
 
-Or add a **Build Command** override:
+If build fails with `Can't reach database server at localhost:5433`, you pasted your local `.env` into Vercel. Replace it with the Neon connection string.
 
-```bash
-npx prisma migrate deploy && npm run build
-```
+Migrations run automatically during build when `DATABASE_URL` is a cloud database.
 
 ---
 
