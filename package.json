@@ -2,9 +2,14 @@
   "name": "project-z",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/vercel-build.mjs",
+    "build:local": "npx prisma generate && npx next build",
+    "validate:env": "node scripts/validate-production-env.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run --config vitest.config.mts",
@@ -68,6 +73,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4.7.0",
+    "dotenv": "^16.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "jsdom": "^27.0.1",

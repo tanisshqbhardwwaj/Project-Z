@@ -143,9 +143,14 @@ If Vercel + Neon + R2 feels like too many tabs:
 
 | Problem | Fix |
 |---------|-----|
+| Build fails: `localhost:5433` | You pasted local `.env` into Vercel. Use Neon `DATABASE_URL` |
+| Build fails: env validation | Read the bullet list in the build log — each missing var is explained |
+| Prisma `package.json#prisma` warning | Redeploy latest code; config is in `prisma.config.ts` |
 | Login redirect loop | `AUTH_URL` must match exact Vercel URL |
 | Upload fails | Check R2 credentials and bucket name |
-| DB errors | Run `prisma migrate deploy` against Neon |
+| DB errors | Migrations run on build when `DATABASE_URL` is correct |
 | Email not sent | Check Resend dashboard / use `onboarding@resend.dev` for trial |
+
+The build script **blocks deploy** if any production env var is missing, still set to localhost, or still using MinIO defaults — so you get a clear error instead of a broken app.
 
 Your trial URL to share with partners: **`https://YOUR-APP.vercel.app`** — no domain purchase required.

@@ -2,15 +2,23 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 env:
   DATABASE_URL: postgresql://projectz:projectz@localhost:5432/projectz?schema=public
   AUTH_SECRET: ci-test-secret-32-characters-long
+  AUTH_URL: http://localhost:3000
   NEXT_PUBLIC_APP_URL: http://localhost:3000
   AI_PROVIDER: manual
+  RESEND_API_KEY: re_ci_test_key
+  EMAIL_FROM: Project Z <test@example.com>
+  S3_ENDPOINT: http://localhost:9000
+  S3_REGION: auto
+  S3_ACCESS_KEY_ID: ci-access-key
+  S3_SECRET_ACCESS_KEY: ci-secret-key
+  S3_BUCKET: project-z
 
 jobs:
   test:
@@ -39,6 +47,49 @@ jobs:
       - run: npm ci
       - run: npx prisma migrate deploy
       - run: npm run test
-      - run: npm run build
+      - run: npm run build:local
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  vercel-env-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject localhost DATABASE_URL on Vercel builds
+        run: |
+          node --input-type=module -e "
+          import { validateProductionEnv } from './scripts/validate-production-env.mjs';
+          const errors = validateProductionEnv({
+            DATABASE_URL: 'postgresql://u:p@localhost:5433/db',
+            AUTH_SECRET: 'short',
+            AUTH_URL: 'http://localhost:3000',
+            NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
+            RESEND_API_KEY: '',
+            EMAIL_FROM: '',
+            S3_ENDPOINT: 'http://localhost:9000',
+            S3_ACCESS_KEY_ID: 'minioadmin',
+            S3_SECRET_ACCESS_KEY: 'minioadmin',
+            S3_BUCKET: '',
+          });
+          if (errors.length < 5) throw new Error('Expected validation to catch bad env');
+          console.log('✓ Vercel env guard catches misconfiguration');
+          "
+      - name: Accept valid production env
+        run: |
+          node --input-type=module -e "
+          import { validateProductionEnv } from './scripts/validate-production-env.mjs';
+          const errors = validateProductionEnv({
+            DATABASE_URL: 'postgresql://u:p@ep-test.neon.tech/neondb?sslmode=require',
+            AUTH_SECRET: 'ci-test-secret-32-characters-long',
+            AUTH_URL: 'https://project-z.vercel.app',
+            NEXT_PUBLIC_APP_URL: 'https://project-z.vercel.app',
+            RESEND_API_KEY: 're_real_key_123',
+            EMAIL_FROM: 'Project Z <onboarding@resend.dev>',
+            S3_ENDPOINT: 'https://abc123.r2.cloudflarestorage.com',
+            S3_ACCESS_KEY_ID: 'real-access-key',
+            S3_SECRET_ACCESS_KEY: 'real-secret-key',
+            S3_BUCKET: 'project-z',
+          });
+          if (errors.length > 0) throw new Error(errors.join('; '));
+          console.log('✓ Valid production env passes');
+          "

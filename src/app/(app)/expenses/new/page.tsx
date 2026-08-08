@@ -1,5 +1,3 @@
-"use client";
-
 import { Suspense } from "react";
 import { PageLoader } from "@/components/ui/page-loader";
 import NewExpenseForm from "./new-expense-form";

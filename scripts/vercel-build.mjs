@@ -1,26 +1,18 @@
 import { execSync } from "node:child_process";
-
-const databaseUrl = process.env.DATABASE_URL ?? "";
+import { printProductionEnvErrors, validateProductionEnv } from "./validate-production-env.mjs";
 
 function run(command) {
   execSync(command, { stdio: "inherit" });
 }
 
 if (process.env.VERCEL) {
-  if (!databaseUrl) {
-    console.error("\nBuild failed: DATABASE_URL is missing on Vercel.");
-    console.error("Add your Neon Postgres connection string in Vercel → Settings → Environment Variables.\n");
+  const errors = validateProductionEnv();
+  if (errors.length > 0) {
+    printProductionEnvErrors(errors);
     process.exit(1);
   }
 
-  if (databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1")) {
-    console.error("\nBuild failed: DATABASE_URL points to localhost.");
-    console.error("Vercel cannot reach your local Docker Postgres.");
-    console.error("Use a cloud database URL from Neon instead, for example:");
-    console.error("postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require\n");
-    process.exit(1);
-  }
-
+  console.log("✓ Production environment variables validated");
   run("npx prisma migrate deploy");
 }
 
