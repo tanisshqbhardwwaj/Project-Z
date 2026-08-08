@@ -313,8 +313,9 @@ export async function acceptProjectInvite(token: string, userId: string) {
   });
   if (!user) throw new Error("User not found");
 
-  const isLinkInvite = invite.email.endsWith("@placeholder.local");
-  if (!isLinkInvite && invite.email.toLowerCase() !== user.email.toLowerCase()) {
+  const inviteEmail = invite.email ?? "";
+  const isLinkInvite = inviteEmail.endsWith("@placeholder.local");
+  if (!isLinkInvite && inviteEmail.toLowerCase() !== user.email.toLowerCase()) {
     throw new Error("This invitation was sent to a different email address");
   }
 

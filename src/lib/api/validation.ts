@@ -69,7 +69,7 @@ export function issueMessage(issue: ZodIssue): string {
   }
 
   if (issue.code === "too_small") {
-    if ("minimum" in issue && issue.type === "string") {
+    if (issue.origin === "string") {
       return `${label} is too short`;
     }
     return `${label} must be greater than zero`;
