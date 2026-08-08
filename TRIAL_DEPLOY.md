@@ -1,43 +1,48 @@
 # Free Trial Deploy (No Custom Domain)
 
-You can run Project Z online **without buying a domain**. Every service below gives you a free subdomain like `your-app.vercel.app`.
+Deploy Project Z for **$0** using Turso (SQLite) + Vercel + R2. No PostgreSQL or Docker required.
 
-## What you need (all have free tiers)
+## What you need (all free tiers)
 
 | Service | Free URL | Purpose |
 |---------|----------|---------|
-| [GitHub](https://github.com) | — | Code (already set up) |
-| [Neon](https://neon.tech) | — | PostgreSQL database |
-| [Cloudflare R2](https://developers.cloudflare.com/r2/) | — | File storage (work order uploads) |
-| [Vercel](https://vercel.com) | `*.vercel.app` | Host the Next.js app |
-| [Resend](https://resend.com) | — | Email (verification, invites) |
-| [Inngest](https://www.inngest.com) | — | Optional: reliable AI extraction queue |
-
-**Total cost for trial: $0** (within free tier limits)
+| [GitHub](https://github.com) | — | Code |
+| [Turso](https://turso.tech) | — | Database (SQLite, edge-hosted) |
+| [Cloudflare R2](https://developers.cloudflare.com/r2/) | — | File storage |
+| [Vercel](https://vercel.com) | `*.vercel.app` | Host the app |
+| [Resend](https://resend.com) | — | Email |
 
 ---
 
-## Step 1 — Push code to GitHub
+## Step 1 — Turso database (5 min)
 
-Already done if you ran the setup from the agent. Your repo should be on GitHub.
+1. Sign up at https://turso.tech
+2. Install CLI (optional but easiest):
+   ```bash
+   # macOS/Linux
+   curl -sSfL https://get.tur.so/install.sh | bash
+   # Windows — use WSL or create DB in Turso dashboard
+   ```
+3. Create database:
+   ```bash
+   turso auth login
+   turso db create project-z
+   turso db show project-z --url
+   turso db tokens create project-z
+   ```
+4. Copy:
+   - **URL** → `libsql://project-z-xxxxx.turso.io`
+   - **Token** → `eyJhbG...`
+
+No connection strings, no ports, no SSL config — just two env vars.
 
 ---
 
-## Step 2 — Neon Postgres (5 min)
+## Step 2 — Cloudflare R2 (10 min)
 
-1. Sign up at https://neon.tech
-2. Create a project → copy the **connection string**
-3. It looks like: `postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`
-
----
-
-## Step 3 — Cloudflare R2 (10 min)
-
-1. Cloudflare dashboard → **R2** → Create bucket (e.g. `project-z`)
-2. Create **API token** with R2 read/write
-3. Note: Account ID, Access Key, Secret Key, bucket name
-
-For S3 env vars on Vercel:
+1. Cloudflare dashboard → **R2** → Create bucket (`project-z`)
+2. Create API token with read/write
+3. Set on Vercel:
 
 ```env
 S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
@@ -45,97 +50,60 @@ S3_REGION=auto
 S3_ACCESS_KEY_ID=<your-key>
 S3_SECRET_ACCESS_KEY=<your-secret>
 S3_BUCKET=project-z
-S3_PUBLIC_URL=
 ```
 
 ---
 
-## Step 4 — Resend email (5 min)
+## Step 3 — Resend (5 min)
 
-1. Sign up at https://resend.com
-2. For trial, use their test domain or verify your email
-3. Copy API key → `RESEND_API_KEY`
+1. https://resend.com → API key
+2. For trial use: `EMAIL_FROM=Project Z <onboarding@resend.dev>`
 
 ---
 
-## Step 5 — Deploy on Vercel (10 min)
+## Step 4 — Deploy on Vercel (10 min)
 
-1. Go to https://vercel.com → **Add New Project**
-2. Import your **GitHub repo**
-3. Framework: **Next.js** (auto-detected)
-4. Add **Environment Variables**:
+1. https://vercel.com → Import GitHub repo
+2. Add **Environment Variables** (Production):
 
 ```env
-DATABASE_URL=<neon-connection-string>
-AUTH_SECRET=<run: openssl rand -base64 32>
+TURSO_DATABASE_URL=libsql://project-z-xxxxx.turso.io
+TURSO_AUTH_TOKEN=eyJhbG...
+AUTH_SECRET=<openssl rand -base64 32>
 AUTH_URL=https://YOUR-APP.vercel.app
 NEXT_PUBLIC_APP_URL=https://YOUR-APP.vercel.app
 AI_PROVIDER=manual
-RESEND_API_KEY=<resend-key>
+RESEND_API_KEY=re_...
 EMAIL_FROM=Project Z <onboarding@resend.dev>
-S3_ENDPOINT=...
+S3_ENDPOINT=https://...
 S3_REGION=auto
 S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
 S3_BUCKET=project-z
 ```
 
-5. **Deploy**
-6. After first deploy, open Vercel → Settings → Environment Variables and **update** `AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your real `https://xxx.vercel.app` URL, then **Redeploy**
+3. **Remove** any old `DATABASE_URL` pointing at `localhost:5433` from Vercel — the build will fail if it's still there.
+4. Deploy
+5. After first deploy, set `AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your exact `https://xxx.vercel.app` URL, then redeploy.
 
-### Run database migrations
-
-After first deploy, in Vercel project → **Settings → Environment Variables** and **Redeploy**:
-
-**CRITICAL:** `DATABASE_URL` must be your **Neon** URL — never `localhost:5433`.
-
-```env
-DATABASE_URL=postgresql://user:pass@ep-xxxx.neon.tech/neondb?sslmode=require
-```
-
-If build fails with `Can't reach database server at localhost:5433`, you pasted your local `.env` into Vercel. Replace it with the Neon connection string.
-
-Migrations run automatically during build when `DATABASE_URL` is a cloud database.
+Migrations apply automatically to Turso during build.
 
 ---
 
-## Step 6 — Try the app
+## Step 5 — Try the app
 
-Open `https://YOUR-APP.vercel.app`
-
-1. Register → verify email (check Resend logs if using test domain)
-2. Create organization
-3. Upload a work order
+Open `https://YOUR-APP.vercel.app` → Register → Create org → Upload work order.
 
 ---
 
-## Optional: Inngest (AI extraction queue)
+## Why Turso instead of PostgreSQL?
 
-1. https://www.inngest.com → create app
-2. Add keys to Vercel env: `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
-3. Sync URL: `https://YOUR-APP.vercel.app/api/inngest`
-
-Without Inngest, set `AI_PROVIDER=manual` and fill fields by hand (works fine for trial).
-
----
-
-## Alternative: Railway (one dashboard)
-
-If Vercel + Neon + R2 feels like too many tabs:
-
-1. https://railway.app → New Project → Deploy from GitHub
-2. Add **PostgreSQL** plugin (auto `DATABASE_URL`)
-3. Still add R2 for file uploads (or uploads won't work)
-4. You get `https://xxx.up.railway.app` — no domain needed
-
----
-
-## What you do NOT need for trial
-
-- Custom domain
-- Paid hosting
-- MinIO (local only — use R2 in cloud)
-- Docker (Vercel handles build)
+| | PostgreSQL (Neon) | Turso (SQLite) |
+|--|--|--|
+| Free tier | 500MB, can sleep | 5GB storage, 500M rows read/mo |
+| Setup | Connection strings, SSL, pooler | URL + token (2 vars) |
+| Vercel fit | Cold starts, connection limits | HTTP-based, edge-native |
+| Cost at scale | Higher | Cheaper |
 
 ---
 
@@ -143,14 +111,22 @@ If Vercel + Neon + R2 feels like too many tabs:
 
 | Problem | Fix |
 |---------|-----|
-| Build fails: `localhost:5433` | You pasted local `.env` into Vercel. Use Neon `DATABASE_URL` |
-| Build fails: env validation | Read the bullet list in the build log — each missing var is explained |
-| Prisma `package.json#prisma` warning | Redeploy latest code; config is in `prisma.config.ts` |
+| `package.json#prisma` warning | Redeploy latest code — config is in `prisma.config.mjs` |
+| `localhost:5433` in build log | Delete `DATABASE_URL` from Vercel env vars |
+| Build env validation errors | Read bullet list in log — each var explained |
 | Login redirect loop | `AUTH_URL` must match exact Vercel URL |
-| Upload fails | Check R2 credentials and bucket name |
-| DB errors | Migrations run on build when `DATABASE_URL` is correct |
-| Email not sent | Check Resend dashboard / use `onboarding@resend.dev` for trial |
+| Upload fails | Check R2 credentials |
+| npm deprecated warnings | Harmless — from transitive deps, not your app |
 
-The build script **blocks deploy** if any production env var is missing, still set to localhost, or still using MinIO defaults — so you get a clear error instead of a broken app.
+---
 
-Your trial URL to share with partners: **`https://YOUR-APP.vercel.app`** — no domain purchase required.
+## Local dev (no Turso needed)
+
+```bash
+cp .env.example .env
+npm install
+npx prisma migrate deploy
+npm run dev
+```
+
+Uses local SQLite file at `prisma/dev.db` — no Docker Postgres.

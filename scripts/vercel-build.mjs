@@ -13,7 +13,12 @@ if (process.env.VERCEL) {
   }
 
   console.log("✓ Production environment variables validated");
-  run("npx prisma migrate deploy");
+
+  if (process.env.TURSO_DATABASE_URL) {
+    run("node scripts/turso-migrate.mjs");
+  } else {
+    run("npx prisma migrate deploy");
+  }
 }
 
 run("npx prisma generate");

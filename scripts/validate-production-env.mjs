@@ -21,18 +21,27 @@ function isPlaceholder(value) {
   );
 }
 
-/** @type {Array<{ key: string; label: string; validate: (value: string | undefined) => string | null }>} */
+/** @type {Array<{ key: string; label: string; validate: (value: string | undefined, env: NodeJS.ProcessEnv) => string | null }>} */
 const CHECKS = [
   {
-    key: "DATABASE_URL",
-    label: "Database",
+    key: "TURSO_DATABASE_URL",
+    label: "Turso database URL",
     validate(value) {
-      if (!value) return "is missing. Add your Neon Postgres connection string in Vercel → Settings → Environment Variables.";
-      if (isLocalHost(value)) {
-        return "points to localhost. Vercel cannot reach your local Docker Postgres. Paste your Neon URL from https://neon.tech instead.";
+      if (!value) {
+        return "is missing. Create a free database at https://turso.tech → copy the libsql:// URL.";
       }
-      if (!value.startsWith("postgresql://") && !value.startsWith("postgres://")) {
-        return "must start with postgresql:// (Neon connection string).";
+      if (!value.startsWith("libsql://")) {
+        return "must start with libsql:// (from Turso dashboard → Connect).";
+      }
+      return null;
+    },
+  },
+  {
+    key: "TURSO_AUTH_TOKEN",
+    label: "Turso auth token",
+    validate(value) {
+      if (!value) {
+        return "is missing. Run: turso db tokens create YOUR-DB-NAME (or copy from Turso dashboard).";
       }
       return null;
     },
@@ -121,8 +130,15 @@ export function validateProductionEnv(env = process.env) {
   /** @type {string[]} */
   const errors = [];
 
+  // Block accidental paste of local Postgres URL on Vercel
+  if (env.DATABASE_URL && isLocalHost(env.DATABASE_URL)) {
+    errors.push(
+      "DATABASE_URL points to localhost — remove it from Vercel. This app uses Turso (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN) in production."
+    );
+  }
+
   for (const check of CHECKS) {
-    const message = check.validate(env[check.key]);
+    const message = check.validate(env[check.key], env);
     if (message) {
       errors.push(`${check.key} (${check.label}): ${message}`);
     }
@@ -142,7 +158,7 @@ export function printProductionEnvErrors(errors) {
   for (const error of errors) {
     console.error(`  • ${error}`);
   }
-  console.error("\nSee TRIAL_DEPLOY.md for a step-by-step setup guide.\n");
+  console.error("\nSee TRIAL_DEPLOY.md for a step-by-step Turso + Vercel setup guide.\n");
 }
 
 const isDirectRun = process.argv[1]?.endsWith("validate-production-env.mjs");

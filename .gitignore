@@ -34,6 +34,11 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local sqlite dev database
+/prisma/dev.db
+/prisma/dev.db-journal
+/prisma/prisma/
+
 # OCR training data (large; not needed in repo)
 *.traineddata
 

@@ -9,10 +9,7 @@ export async function globalSearch(organizationId: string, query: string) {
       where: {
         organizationId,
         deletedAt: null,
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { location: { contains: q, mode: "insensitive" } },
-        ],
+        OR: [{ name: { contains: q } }, { location: { contains: q } }],
       },
       take: 10,
     }),
@@ -20,10 +17,7 @@ export async function globalSearch(organizationId: string, query: string) {
       where: {
         organizationId,
         deletedAt: null,
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { phone: { contains: q } },
-        ],
+        OR: [{ name: { contains: q } }, { phone: { contains: q } }],
       },
       take: 10,
     }),
@@ -31,7 +25,7 @@ export async function globalSearch(organizationId: string, query: string) {
       where: {
         organizationId,
         deletedAt: null,
-        OR: [{ description: { contains: q, mode: "insensitive" } }],
+        OR: [{ description: { contains: q } }],
       },
       include: { project: { select: { name: true } }, vendor: { select: { name: true } } },
       take: 10,
@@ -40,7 +34,7 @@ export async function globalSearch(organizationId: string, query: string) {
       where: {
         organizationId,
         deletedAt: null,
-        OR: [{ notes: { contains: q, mode: "insensitive" } }, { referenceNumber: { contains: q } }],
+        OR: [{ notes: { contains: q } }, { referenceNumber: { contains: q } }],
       },
       include: { vendor: { select: { name: true } } },
       take: 10,
