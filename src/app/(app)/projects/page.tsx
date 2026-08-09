@@ -9,7 +9,7 @@ import { WorkOrderListActions } from "@/components/project/work-order-list-actio
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
-import { getProjectDisplayName, getProjectSubtitle } from "@/lib/project/display-name";
+import { getProjectDisplayName, getProjectSubtitle, PROJECT_LONG_NAME_CLASS } from "@/lib/project/display-name";
 
 type ProjectItem = {
   id: string;
@@ -84,9 +84,15 @@ export default function ProjectsPage() {
                   <Link href={`/projects/${p.id}`} className="block min-w-0">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                       <div className="min-w-0 flex-1">
-                        <h2 className="text-lg font-semibold leading-snug break-words">{title}</h2>
+                        <h2
+                          className={`text-lg font-semibold ${!subtitle ? PROJECT_LONG_NAME_CLASS : "break-words leading-snug"}`}
+                        >
+                          {title}
+                        </h2>
                         {subtitle && (
-                          <p className="mt-0.5 text-sm leading-snug break-words text-muted-foreground">
+                          <p
+                            className={`mt-0.5 text-sm text-muted-foreground ${PROJECT_LONG_NAME_CLASS}`}
+                          >
                             {subtitle}
                           </p>
                         )}

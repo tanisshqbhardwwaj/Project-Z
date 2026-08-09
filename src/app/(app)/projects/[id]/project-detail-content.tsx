@@ -18,7 +18,7 @@ import { ProjectPartnersDialog } from "@/components/project/project-partners-dia
 import { ProjectNicknameDialog } from "@/components/project/project-nickname-dialog";
 import { ProjectTabs, isValidProjectTab } from "@/components/project/project-tabs";
 import { EditExpenseDialog } from "@/components/finance/edit-expense-dialog";
-import { getProjectDisplayName, getProjectSubtitle } from "@/lib/project/display-name";
+import { getProjectDisplayName, getProjectSubtitle, PROJECT_LONG_NAME_CLASS } from "@/lib/project/display-name";
 import { formatActivityDescription, isEditedActivity } from "@/lib/activity/format-activity";
 import { useFetchStore } from "@/stores/fetch-store";
 
@@ -191,8 +191,14 @@ export default function ProjectDetailContent() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">Work Order</p>
-          <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{displayName}</h1>
-          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+          <h1
+            className={`text-2xl font-bold sm:text-3xl ${!subtitle ? PROJECT_LONG_NAME_CLASS : "leading-tight break-words"}`}
+          >
+            {displayName}
+          </h1>
+          {subtitle && (
+            <p className={`text-sm text-muted-foreground ${PROJECT_LONG_NAME_CLASS}`}>{subtitle}</p>
+          )}
           {project.workOrder && (
             <p className="text-muted-foreground">
               {woLabel} · {project.workOrder.clientName}

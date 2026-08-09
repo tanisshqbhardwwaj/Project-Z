@@ -7,7 +7,9 @@ export function getProjectDisplayName(project: {
   return nick || project.name;
 }
 
-/** Subtitle under nickname in list/detail headers. */
+/** Clamp long official project names to 3 lines in lists and headers. */
+export const PROJECT_LONG_NAME_CLASS =
+  "line-clamp-3 break-words leading-snug";
 export function getProjectSubtitle(project: {
   nickname?: string | null;
   name: string;
