@@ -82,17 +82,22 @@ export default function ProjectsPage() {
                 </div>
                 <CardContent className="p-5 pr-14">
                   <Link href={`/projects/${p.id}`} className="block min-w-0">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                       <div className="min-w-0 flex-1">
-                        <h2 className="text-lg font-semibold leading-snug">{title}</h2>
+                        <h2 className="text-lg font-semibold leading-snug break-words">{title}</h2>
                         {subtitle && (
-                          <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+                          <p className="mt-0.5 text-sm leading-snug break-words text-muted-foreground">
+                            {subtitle}
+                          </p>
                         )}
                         <p className="mt-1 text-sm text-muted-foreground">
                           {p.workOrder?.clientName ?? "—"} · {p.status}
                         </p>
                       </div>
-                      <MoneyDisplay paise={p.contractAmountPaise} className="shrink-0 text-lg" />
+                      <MoneyDisplay
+                        paise={p.contractAmountPaise}
+                        className="shrink-0 text-lg sm:text-right"
+                      />
                     </div>
                   </Link>
                 </CardContent>
