@@ -10,8 +10,9 @@ export async function GET(
   return handleApi(async () => {
     const { id } = await params;
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+    const projectId = new URL(request.url).searchParams.get("projectId") ?? undefined;
 
-    const ledger = await getVendorLedger(id, ctx.organizationId);
+    const ledger = await getVendorLedger(id, ctx.organizationId, { projectId });
     if (!ledger) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Vendor not found" } },

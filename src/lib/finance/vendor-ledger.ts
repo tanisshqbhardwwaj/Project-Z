@@ -33,12 +33,13 @@ export function buildVendorLedger(input: VendorLedgerInput): LedgerEntry[] {
   }> = [];
 
   for (const exp of input.expenses) {
+    const label = exp.description?.trim() || "Items";
     events.push({
       date: exp.expenseDate,
       sortKey: `exp-${exp.id}`,
       billPaise: exp.amountPaise,
       paymentPaise: BigInt(0),
-      description: exp.description ?? "Bill",
+      description: `We bought: ${label}`,
     });
   }
 
@@ -48,7 +49,7 @@ export function buildVendorLedger(input: VendorLedgerInput): LedgerEntry[] {
       sortKey: `pay-${pay.id}`,
       billPaise: BigInt(0),
       paymentPaise: pay.amountPaise,
-      description: `Payment by ${pay.paidByName}${pay.referenceNumber ? ` (${pay.referenceNumber})` : ""}`,
+      description: `${pay.paidByName} paid${pay.referenceNumber ? ` (${pay.referenceNumber})` : ""}`,
     });
   }
 

@@ -115,7 +115,7 @@ export default function ProjectDetailContent() {
           name: string;
           phone: string | null;
           email: string | null;
-          outstanding: string;
+          totalPaid: string;
         }>
       >(`/api/v1/projects/${id}/vendors`)
   );
@@ -418,10 +418,14 @@ export default function ProjectDetailContent() {
               {vendors.map((v) => (
                 <Link key={v.id} href={`/projects/${id}/vendors/${v.id}`}>
                   <Card className="rounded-2xl border-0 shadow-md transition-colors hover:bg-accent/50">
-                    <CardContent className="flex justify-between p-5">
+                    <CardContent className="flex items-center justify-between p-5">
                       <div>
                         <h2 className="text-lg font-semibold">{v.name}</h2>
                         <p className="text-sm text-muted-foreground">{v.phone ?? v.email ?? "—"}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Got from you</p>
+                        <MoneyDisplay paise={v.totalPaid} className="text-lg text-primary" />
                       </div>
                     </CardContent>
                   </Card>

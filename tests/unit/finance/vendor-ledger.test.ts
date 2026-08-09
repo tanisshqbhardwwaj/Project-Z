@@ -31,6 +31,8 @@ describe("vendor-ledger", () => {
     });
 
     expect(entries).toHaveLength(3);
+    expect(entries[0].description).toBe("We bought: Paint");
+    expect(entries[1].description).toBe("Partner B paid");
     expect(getVendorBalance(entries)).toBe(BigInt(0));
     expect(entries[1].balancePaise).toBe(BigInt(500000));
   });

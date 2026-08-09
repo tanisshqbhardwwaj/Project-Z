@@ -20,9 +20,10 @@ export default function NewExpenseForm() {
   const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
+  const prefillVendorId = searchParams.get("vendorId") ?? "";
   const [form, setForm] = useState({
     projectId: searchParams.get("projectId") ?? "",
-    vendorId: "",
+    vendorId: prefillVendorId,
     vendorName: "",
     amount: "",
     expenseDate: new Date().toISOString().split("T")[0],
@@ -36,6 +37,22 @@ export default function NewExpenseForm() {
   useEffect(() => {
     if (!lockedProjectId) router.replace("/projects");
   }, [lockedProjectId, router]);
+
+  useEffect(() => {
+    if (!prefillVendorId) return;
+    apiFetch<Array<{ id: string; name: string }>>("/api/v1/vendors")
+      .then((vendors) => {
+        const vendor = vendors.find((v) => v.id === prefillVendorId);
+        if (vendor) {
+          setForm((current) => ({
+            ...current,
+            vendorId: vendor.id,
+            vendorName: vendor.name,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [prefillVendorId]);
 
   async function submit(skipDuplicate = false) {
     setLoading(true);
