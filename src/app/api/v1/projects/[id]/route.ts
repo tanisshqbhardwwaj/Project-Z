@@ -22,6 +22,7 @@ const hardDeleteSchema = z.object({
 const patchSchema = z.object({
   nickname: z.string().max(40).nullable().optional(),
   name: z.string().min(1).max(500).optional(),
+  status: z.enum(["ACTIVE", "COMPLETED"]).optional(),
 });
 
 export async function GET(
@@ -57,7 +58,7 @@ export async function PATCH(
     const body = await request.json();
     const data = patchSchema.parse(body);
 
-    if (data.nickname === undefined && data.name === undefined) {
+    if (data.nickname === undefined && data.name === undefined && data.status === undefined) {
       throw new ApiError(400, "VALIDATION_ERROR", "Nothing to update");
     }
 
@@ -67,6 +68,7 @@ export async function PATCH(
       userId: ctx.userId,
       nickname: data.nickname,
       name: data.name,
+      status: data.status,
     });
 
     return apiSuccess(serializeBigInt(project));

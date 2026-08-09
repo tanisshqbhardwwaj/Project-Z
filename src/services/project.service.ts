@@ -260,6 +260,7 @@ export async function updateProjectDetails(input: {
   userId: string;
   nickname?: string | null;
   name?: string;
+  status?: ProjectStatus;
 }) {
   const project = await prisma.project.findFirst({
     where: { id: input.projectId, organizationId: input.organizationId, deletedAt: null },
@@ -270,7 +271,7 @@ export async function updateProjectDetails(input: {
   const canManage = await canManageProject(input.userId, input.organizationId, project);
   if (!canManage) throw new Error("Only the work order owner can update project details");
 
-  const data: { nickname?: string | null; name?: string } = {};
+  const data: { nickname?: string | null; name?: string; status?: ProjectStatus } = {};
   if (input.nickname !== undefined) {
     data.nickname = input.nickname?.trim() || null;
   }
@@ -278,6 +279,13 @@ export async function updateProjectDetails(input: {
     const trimmed = input.name.trim();
     if (!trimmed) throw new Error("Project name cannot be empty");
     data.name = trimmed;
+  }
+  if (input.status !== undefined) {
+    data.status = input.status;
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new Error("Nothing to update");
   }
 
   const updated = await prisma.project.update({
