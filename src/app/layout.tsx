@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
@@ -13,10 +13,16 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Project Z — Work Order & Partner Accounting",
   description: "Manage work orders, projects, expenses, and partner settlements",
-  icons: {
-    icon: "/brand-mark.svg",
-    apple: "/brand-mark.svg",
+  appleWebApp: {
+    capable: true,
+    title: "Project Z",
+    statusBarStyle: "default",
   },
+  applicationName: "Project Z",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#FFFFFF",
 };
 
 export default async function RootLayout({
