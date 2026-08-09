@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderKanban, Settings, Plus, User } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Plus, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AppLogo, APP_SHELL_HEADER_HEIGHT } from "@/components/brand/app-logo";
@@ -12,7 +12,7 @@ import { getMobileQuickAction } from "@/lib/navigation/mobile-quick-action";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/projects", icon: FolderKanban, label: "Projects" },
-  { href: "/settings/profile", icon: Settings, label: "Settings" },
+  { href: "/settings/profile", icon: User, label: "Profile" },
 ];
 
 export function AppSidebar() {
@@ -73,7 +73,7 @@ export function MobileNav() {
     { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
     { href: "/projects", icon: FolderKanban, label: "Projects" },
     { href: quickAction.href, icon: QuickIcon, label: quickAction.label, isAction: true },
-    { href: "/settings/profile", icon: Settings, label: "Settings" },
+    { href: "/settings/profile", icon: User, label: "Profile" },
   ];
 
   return (
@@ -118,7 +118,7 @@ export function MobileNav() {
   );
 }
 
-export function AppHeader({ userName, orgName }: { userName?: string; orgName?: string }) {
+export function AppHeader({ orgName }: { userName?: string; orgName?: string }) {
   return (
     <header
       className={cn(
@@ -127,24 +127,10 @@ export function AppHeader({ userName, orgName }: { userName?: string; orgName?: 
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <AppLogo href="/dashboard" variant="mark" className="md:hidden" />
-        <div className="min-w-0">
+        <AppLogo href="/dashboard" variant="mark" className="md:hidden shrink-0" />
+        <div className="min-w-0 flex-1">
           <OrgSwitcher currentOrgName={orgName} />
         </div>
-      </div>
-
-      <div className="flex shrink-0 items-center gap-3">
-        {userName ? (
-          <p className="hidden max-w-[140px] truncate text-sm text-muted-foreground sm:block">
-            {userName}
-          </p>
-        ) : null}
-        <Link href="/settings/profile">
-          <Button variant="outline" size="sm" className="h-9 rounded-lg px-3">
-            <User className="mr-2 h-4 w-4" />
-            Profile
-          </Button>
-        </Link>
       </div>
     </header>
   );

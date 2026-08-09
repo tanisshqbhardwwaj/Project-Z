@@ -46,8 +46,8 @@ export function AppLogo({ href = "/dashboard", variant = "compact", className }:
         />
       </div>
     ) : variant === "mark" ? (
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-slate-950 to-slate-900 shadow-sm ring-1 ring-black/5">
-        <ProjectZMark className="h-6 w-6" />
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-primary/15">
+        <ProjectZMark className="h-7 w-7" />
       </span>
     ) : (
       <span className={cn("inline-flex items-center gap-2.5", className)}>

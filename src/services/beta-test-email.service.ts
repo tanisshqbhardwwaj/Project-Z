@@ -1,0 +1,80 @@
+import { prisma } from "@/lib/db/prisma";
+
+export const MAX_BETA_TEST_EMAILS = 20;
+
+const BUILTIN_BETA_ALLOWLIST = [
+  "tanishqbhardwaj03@gmail.com",
+  "gs9818860351@gmail.com",
+  "tanishqbhardwaj457@gmail.com",
+  "bhardwajanil50@yahoo.com",
+] as const;
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function staticAllowlist(): Set<string> {
+  const set = new Set<string>(BUILTIN_BETA_ALLOWLIST);
+  const raw = process.env.TEST_EMAIL_ALLOWLIST?.trim();
+  if (raw) {
+    for (const e of raw.split(",")) {
+      const n = normalizeEmail(e);
+      if (n) set.add(n);
+    }
+  }
+  return set;
+}
+
+export function isStaticTestEmailAllowlisted(email: string): boolean {
+  return staticAllowlist().has(normalizeEmail(email));
+}
+
+export async function isTestEmailAllowlisted(email: string): Promise<boolean> {
+  const normalized = normalizeEmail(email);
+  if (isStaticTestEmailAllowlisted(normalized)) return true;
+
+  const row = await prisma.betaTestEmail.findUnique({
+    where: { email: normalized },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+export async function listBetaTestEmails() {
+  return prisma.betaTestEmail.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      addedBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+}
+
+export async function addBetaTestEmail(input: { email: string; addedById: string }) {
+  const normalized = normalizeEmail(input.email);
+  if (!normalized) throw new Error("Email is required");
+
+  const existing = await prisma.betaTestEmail.findUnique({ where: { email: normalized } });
+  if (existing) return existing;
+
+  const count = await prisma.betaTestEmail.count();
+  if (count >= MAX_BETA_TEST_EMAILS) {
+    throw new Error(
+      `Beta tester limit reached (max ${MAX_BETA_TEST_EMAILS}). Remove one to add another.`
+    );
+  }
+
+  return prisma.betaTestEmail.create({
+    data: {
+      email: normalized,
+      addedById: input.addedById,
+    },
+    include: {
+      addedBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+}
+
+export async function removeBetaTestEmail(email: string) {
+  const normalized = normalizeEmail(email);
+  await prisma.betaTestEmail.deleteMany({ where: { email: normalized } });
+}

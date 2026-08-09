@@ -1,6 +1,22 @@
 import { prisma } from "@/lib/db/prisma";
 import { buildVendorLedger, getVendorBalance } from "@/lib/finance/vendor-ledger";
 
+export function normalizeVendorName(name: string): string {
+  return name.trim().replace(/\s+/g, " ");
+}
+
+export async function findVendorByName(organizationId: string, name: string) {
+  const target = normalizeVendorName(name).toLowerCase();
+  if (!target) return null;
+
+  const vendors = await prisma.vendor.findMany({
+    where: { organizationId, deletedAt: null },
+    select: { id: true, name: true },
+  });
+
+  return vendors.find((v) => normalizeVendorName(v.name).toLowerCase() === target) ?? null;
+}
+
 export async function createVendor(input: {
   organizationId: string;
   name: string;
@@ -10,7 +26,27 @@ export async function createVendor(input: {
   gstNumber?: string;
   notes?: string;
 }) {
-  return prisma.vendor.create({ data: { ...input, organizationId: input.organizationId } });
+  const normalizedName = normalizeVendorName(input.name);
+  const existing = await findVendorByName(input.organizationId, normalizedName);
+  if (existing) {
+    return prisma.vendor.findFirstOrThrow({ where: { id: existing.id } });
+  }
+
+  return prisma.vendor.create({
+    data: { ...input, name: normalizedName, organizationId: input.organizationId },
+  });
+}
+
+export async function findOrCreateVendor(input: {
+  organizationId: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gstNumber?: string;
+  notes?: string;
+}) {
+  return createVendor(input);
 }
 
 export async function getVendorLedger(

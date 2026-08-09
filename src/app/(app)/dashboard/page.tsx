@@ -32,8 +32,6 @@ export default function DashboardPage() {
     { label: "Active Projects", value: data.activeProjects, isMoney: false },
     { label: "Total Contract", value: data.totalContract, isMoney: true },
     { label: "Total Expenses", value: data.totalExpenses, isMoney: true },
-    { label: "Outstanding", value: data.outstanding, isMoney: true },
-    { label: "Expected Profit", value: data.summary.expectedProfitPaise, isMoney: true },
     { label: "Actual Profit", value: data.summary.actualProfitPaise, isMoney: true },
   ];
 

@@ -106,6 +106,18 @@ model User {
   projectInvitesSent  ProjectInvite[]      @relation("ProjectInviteSentBy")
   partnerRequests     ProjectPartnerRequest[] @relation("PartnerRequestUser")
   partnerReviews      ProjectPartnerRequest[] @relation("PartnerRequestReviewer")
+  betaTestEmailsAdded BetaTestEmail[]         @relation("BetaTestEmailAddedBy")
+}
+
+model BetaTestEmail {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  addedById String
+  createdAt DateTime @default(now())
+
+  addedBy User @relation("BetaTestEmailAddedBy", fields: [addedById], references: [id], onDelete: Cascade)
+
+  @@index([email])
 }
 
 model Account {

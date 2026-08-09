@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await hashPassword(data.password);
-    const autoVerify = isTestEmailAllowlisted(data.email);
+    const autoVerify = await isTestEmailAllowlisted(data.email);
     const user = await prisma.user.create({
       data: {
         email: data.email.toLowerCase(),

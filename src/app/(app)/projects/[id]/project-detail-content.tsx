@@ -215,7 +215,6 @@ export default function ProjectDetailContent() {
         contractPaise={summary.contractAmountPaise}
         spentPaise={summary.totalExpensesPaise}
         remainingPaise={summary.remainingBudgetPaise}
-        outstandingPaise={summary.vendorOutstandingPaise}
       />
 
       <ProjectTabs projectId={id} activeTab={tab} />
@@ -253,9 +252,6 @@ export default function ProjectDetailContent() {
               </p>
               <p className="flex justify-between">
                 Spent <MoneyDisplay paise={summary.totalExpensesPaise} />
-              </p>
-              <p className="flex justify-between">
-                Expected Profit <MoneyDisplay paise={summary.expectedProfitPaise} />
               </p>
               <p className="flex justify-between">
                 Actual Profit <MoneyDisplay paise={summary.actualProfitPaise} />
@@ -426,10 +422,6 @@ export default function ProjectDetailContent() {
                       <div>
                         <h2 className="text-lg font-semibold">{v.name}</h2>
                         <p className="text-sm text-muted-foreground">{v.phone ?? v.email ?? "—"}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Outstanding</p>
-                        <MoneyDisplay paise={v.outstanding} className="text-lg text-amber-600" />
                       </div>
                     </CardContent>
                   </Card>

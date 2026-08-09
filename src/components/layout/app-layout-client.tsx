@@ -19,10 +19,7 @@ export function AppLayoutClient({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-background">
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">
-        <AppHeader
-          userName={user?.name ?? user?.email ?? ""}
-          orgName={activeOrganizationName ?? undefined}
-        />
+        <AppHeader orgName={activeOrganizationName ?? undefined} />
         <main className="flex flex-1 flex-col p-4 pb-24 md:p-6 md:pb-6">{children}</main>
       </div>
       <MobileNav />

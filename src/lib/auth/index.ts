@@ -72,3 +72,10 @@ export async function hashPassword(password: string): Promise<string> {
     parallelism: 1,
   });
 }
+
+export async function verifyPassword(
+  passwordHash: string,
+  password: string
+): Promise<boolean> {
+  return verify(passwordHash, password);
+}

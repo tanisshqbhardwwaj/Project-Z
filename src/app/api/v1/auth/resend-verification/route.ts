@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (isTestEmailAllowlisted(user.email)) {
+    if (await isTestEmailAllowlisted(user.email)) {
       await prisma.user.update({
         where: { id: user.id },
         data: { emailVerifiedAt: new Date() },

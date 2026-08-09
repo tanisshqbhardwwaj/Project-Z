@@ -10,6 +10,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 type Vendor = { id: string; name: string };
 
+function normalizeVendorName(name: string): string {
+  return name.trim().replace(/\s+/g, " ");
+}
+
+function dedupeVendors(vendors: Vendor[]): Vendor[] {
+  const byKey = new Map<string, Vendor>();
+  for (const vendor of vendors) {
+    const key = normalizeVendorName(vendor.name).toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, vendor);
+  }
+  return Array.from(byKey.values());
+}
+
 interface VendorComboboxProps {
   value: string;
   vendorName: string;
@@ -30,7 +43,7 @@ export function VendorCombobox({
 
   useEffect(() => {
     apiFetch<Vendor[]>("/api/v1/vendors")
-      .then(setVendors)
+      .then((list) => setVendors(dedupeVendors(list)))
       .catch(() => {});
   }, []);
 
@@ -38,25 +51,42 @@ export function VendorCombobox({
     setQuery(vendorName);
   }, [vendorName]);
 
+  const normalizedQuery = normalizeVendorName(query).toLowerCase();
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return vendors.slice(0, 8);
-    return vendors.filter((v) => v.name.toLowerCase().includes(q)).slice(0, 8);
-  }, [vendors, query]);
+    if (!normalizedQuery) return vendors.slice(0, 20);
+    return vendors
+      .filter((v) => normalizeVendorName(v.name).toLowerCase().includes(normalizedQuery))
+      .slice(0, 20);
+  }, [vendors, normalizedQuery]);
 
   const exactMatch = vendors.some(
-    (v) => v.name.toLowerCase() === query.trim().toLowerCase()
+    (v) => normalizeVendorName(v.name).toLowerCase() === normalizedQuery
   );
 
-  async function createVendor(name: string) {
+  async function selectOrCreateVendor(name: string) {
+    const trimmed = normalizeVendorName(name);
+    if (!trimmed) return;
+
+    const existing = vendors.find(
+      (v) => normalizeVendorName(v.name).toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      onChange(existing.id, existing.name);
+      setQuery(existing.name);
+      setOpen(false);
+      return;
+    }
+
     setCreating(true);
     try {
       const data = await apiFetch<Vendor>("/api/v1/vendors", {
         method: "POST",
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: trimmed }),
       });
-      setVendors((prev) => [...prev, data]);
+      setVendors((prev) => dedupeVendors([...prev, data]));
       onChange(data.id, data.name);
+      setQuery(data.name);
       setOpen(false);
     } finally {
       setCreating(false);
@@ -120,10 +150,10 @@ export function VendorCombobox({
               type="button"
               disabled={creating}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-primary hover:bg-accent"
-              onClick={() => createVendor(query)}
+              onClick={() => selectOrCreateVendor(query)}
             >
               <Plus className="h-4 w-4" />
-              Add &quot;{query.trim()}&quot;
+              Add &quot;{normalizeVendorName(query)}&quot;
             </button>
           )}
           {!query.trim() && filtered.length === 0 && (
