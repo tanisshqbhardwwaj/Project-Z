@@ -8,6 +8,10 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+/**
+ * R2 + AWS SDK v3.729+ requires disabling default checksum behavior.
+ * @see https://developers.cloudflare.com/r2/examples/aws/aws-sdk-js-v3/
+ */
 const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT,
   region: process.env.S3_REGION ?? "auto",
@@ -16,19 +20,37 @@ const s3 = new S3Client({
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
   },
   forcePathStyle: true,
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
 });
 
 const BUCKET = process.env.S3_BUCKET ?? "project-z";
 
+/** True when using cloud R2 (bucket must already exist in dashboard). */
+function isCloudStorage(): boolean {
+  const endpoint = process.env.S3_ENDPOINT ?? "";
+  return endpoint.includes("r2.cloudflarestorage.com") || Boolean(process.env.VERCEL);
+}
+
 let bucketReady: Promise<void> | null = null;
 
-/** MinIO/S3 buckets must exist before upload — create on first use. */
+/** MinIO/S3 buckets must exist before upload — create on first use (local only). */
 export async function ensureBucket(): Promise<void> {
+  if (isCloudStorage()) {
+    return;
+  }
+
   if (!bucketReady) {
     bucketReady = (async () => {
       try {
         await s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
-      } catch {
+      } catch (err) {
+        const name = err instanceof Error ? err.name : "";
+        if (name === "AccessDenied" || name === "Forbidden") {
+          throw new Error(
+            `Storage access denied for bucket "${BUCKET}". Check S3 credentials and bucket name on Vercel.`
+          );
+        }
         await s3.send(new CreateBucketCommand({ Bucket: BUCKET }));
         console.log(`[STORAGE] Created bucket: ${BUCKET}`);
       }

@@ -133,9 +133,11 @@ export async function handleApi<T>(
     const message =
       e instanceof Error && e.name === "NoSuchBucket"
         ? "Storage bucket missing. Run: docker compose up -d"
-        : e instanceof Error
-          ? e.message
-          : "An unexpected error occurred";
+        : e instanceof Error && e.name === "AccessDenied"
+          ? "Storage access denied. Check R2 API token has Object Read & Write on the correct bucket."
+          : e instanceof Error
+            ? e.message
+            : "An unexpected error occurred";
     return apiError(new ApiError(500, "INTERNAL_ERROR", message));
   }
 }
