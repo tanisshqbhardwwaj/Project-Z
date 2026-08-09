@@ -1,6 +1,7 @@
 import type { DocumentParser } from "../document-parser";
 import type { ExtractInput, ExtractionResult } from "../types";
 import { EXTRACTION_PROMPT, manualExtractionResult, parseExtractionResponse } from "../shared";
+import { isServerlessRuntime } from "../serverless";
 
 /** Groq text models (vision models were decommissioned on free tier for many accounts). */
 export const GROQ_TEXT_MODEL =
@@ -8,6 +9,9 @@ export const GROQ_TEXT_MODEL =
 
 /** Optional vision model — only used if explicitly set and your Groq account supports it. */
 export const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL?.trim() || "";
+
+const IMAGE_MANUAL_MESSAGE =
+  "Could not extract from this image automatically. Fill in the fields below or upload a PDF.";
 
 function isImageMime(mimeType: string) {
   return mimeType.startsWith("image/");
@@ -50,7 +54,8 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
   return result.text?.trim() ?? "";
 }
 
-async function extractImageText(buffer: Buffer): Promise<string> {
+/** Local dev only — Tesseract crashes on Vercel serverless. */
+async function extractImageTextLocal(buffer: Buffer): Promise<string> {
   const { createWorker } = await import("tesseract.js");
   const worker = await createWorker("eng");
   try {
@@ -87,6 +92,31 @@ async function extractFromDocumentText(apiKey: string, documentText: string): Pr
   ]);
 }
 
+async function extractFromImage(apiKey: string, input: ExtractInput): Promise<{ text: string; model: string }> {
+  if (GROQ_VISION_MODEL) {
+    try {
+      const text = await extractWithVisionModel(apiKey, GROQ_VISION_MODEL, input);
+      return { text, model: GROQ_VISION_MODEL };
+    } catch (visionError) {
+      console.warn("[GROQ] Vision model failed:", visionError);
+      if (isServerlessRuntime()) {
+        throw visionError;
+      }
+    }
+  }
+
+  if (isServerlessRuntime()) {
+    throw new Error(IMAGE_MANUAL_MESSAGE);
+  }
+
+  const ocrText = await extractImageTextLocal(input.buffer);
+  if (!ocrText) {
+    throw new Error(IMAGE_MANUAL_MESSAGE);
+  }
+  const text = await extractFromDocumentText(apiKey, ocrText);
+  return { text, model: GROQ_TEXT_MODEL };
+}
+
 /** Free tier at https://console.groq.com — no credit card required. */
 export class GroqParser implements DocumentParser {
   async extract(input: ExtractInput): Promise<ExtractionResult> {
@@ -104,32 +134,14 @@ export class GroqParser implements DocumentParser {
       let model = GROQ_TEXT_MODEL;
 
       if (isImageMime(input.mimeType)) {
-        if (GROQ_VISION_MODEL) {
-          try {
-            text = await extractWithVisionModel(apiKey, GROQ_VISION_MODEL, input);
-            model = GROQ_VISION_MODEL;
-          } catch (visionError) {
-            console.warn("[GROQ] Vision model failed, falling back to OCR:", visionError);
-            const ocrText = await extractImageText(input.buffer);
-            if (!ocrText) {
-              return manualExtractionResult(
-                "groq",
-                GROQ_TEXT_MODEL,
-                "Could not read text from this image. Use a clearer photo or fill fields manually."
-              );
-            }
-            text = await extractFromDocumentText(apiKey, ocrText);
-          }
-        } else {
-          const ocrText = await extractImageText(input.buffer);
-          if (!ocrText) {
-            return manualExtractionResult(
-              "groq",
-              GROQ_TEXT_MODEL,
-              "Could not read text from this image. Use a clearer photo or fill fields manually."
-            );
-          }
-          text = await extractFromDocumentText(apiKey, ocrText);
+        try {
+          const imageResult = await extractFromImage(apiKey, input);
+          text = imageResult.text;
+          model = imageResult.model;
+        } catch (imageError) {
+          const message =
+            imageError instanceof Error ? imageError.message : IMAGE_MANUAL_MESSAGE;
+          return manualExtractionResult("groq", GROQ_TEXT_MODEL, message);
         }
       } else if (input.mimeType === "application/pdf") {
         const pdfText = await extractPdfText(input.buffer);
@@ -137,7 +149,7 @@ export class GroqParser implements DocumentParser {
           return manualExtractionResult(
             "groq",
             GROQ_TEXT_MODEL,
-            "Could not read text from this PDF. Upload a photo (JPG/PNG) or fill fields manually."
+            "Could not read text from this PDF. Fill in the fields below or try a clearer scan."
           );
         }
         text = await extractFromDocumentText(apiKey, pdfText);

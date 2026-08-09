@@ -19,7 +19,8 @@ export function getDefaultAiModel(): string {
 
 function resolveProvider(provider?: string): string {
   const explicit = (provider ?? process.env.AI_PROVIDER ?? "").toLowerCase();
-  if (explicit && explicit !== "manual") return explicit;
+  if (explicit === "manual") return "manual";
+  if (explicit === "groq" || explicit === "gemini") return explicit;
   if (process.env.GROQ_API_KEY?.trim()) return "groq";
   if (process.env.GEMINI_API_KEY?.trim()) return "gemini";
   return "manual";

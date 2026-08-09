@@ -94,7 +94,13 @@ export class GeminiParser implements DocumentParser {
       );
     }
 
-    throw lastError instanceof Error ? lastError : new Error("AI extraction failed");
+    const message =
+      lastError instanceof Error ? lastError.message : "AI extraction failed";
+    return manualExtractionResult(
+      "gemini",
+      getGeminiModel(),
+      `${message}. Fill in the fields manually below.`
+    );
   }
 
   private async extractWithModel(

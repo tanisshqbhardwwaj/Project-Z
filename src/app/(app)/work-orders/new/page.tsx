@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO, isValid } from "date-fns";
 import {
@@ -65,6 +65,9 @@ const WORK_ORDER_ACCEPT =
 const CAMERA_ACCEPT =
   "image/*,.heic,.heif,image/heic,image/heif";
 
+/** After this, show manual entry even if AI is still running. */
+const EXTRACTION_TIMEOUT_MS = 120_000;
+
 type ExtractedField = {
   field: string;
   value: unknown;
@@ -100,6 +103,10 @@ export default function NewWorkOrderPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewMime, setPreviewMime] = useState("");
+  const [manualReady, setManualReady] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollStartedAtRef = useRef<number | null>(null);
+  const manualReadyRef = useRef(false);
 
   const fieldsToShow = useMemo(() => {
     if (extraction && extraction.extractedFields.length > 0) {
@@ -155,13 +162,33 @@ export default function NewWorkOrderPage() {
     [clear]
   );
 
+  function stopPolling() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
+
+  useEffect(() => () => stopPolling(), []);
+
   function resetUpload() {
+    stopPolling();
+    pollStartedAtRef.current = null;
+    manualReadyRef.current = false;
+    setManualReady(false);
     setExtraction(null);
     setExtractionId(null);
     setFile(null);
     setFileSource(null);
     setCorrections({});
     clear();
+  }
+
+  function enableManualEntry(message?: string) {
+    if (manualReadyRef.current) return;
+    manualReadyRef.current = true;
+    setManualReady(true);
+    if (message) showWarning(message);
   }
 
   async function upload() {
@@ -187,6 +214,9 @@ export default function NewWorkOrderPage() {
 
       setExtractionId(data.data.extraction.id);
       setExtraction({ status: "PENDING", extractedFields: [] });
+      setManualReady(false);
+      manualReadyRef.current = false;
+      pollStartedAtRef.current = Date.now();
       pollExtraction(data.data.extraction.id);
     } catch {
       setLoading(false);
@@ -195,26 +225,33 @@ export default function NewWorkOrderPage() {
   }
 
   async function pollExtraction(id: string) {
-    const interval = setInterval(async () => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      const startedAt = pollStartedAtRef.current ?? Date.now();
+      if (!manualReadyRef.current && Date.now() - startedAt >= EXTRACTION_TIMEOUT_MS) {
+        enableManualEntry(
+          "AI extraction is taking longer than expected. Fill in the fields below — extracted values will appear if AI finishes."
+        );
+      }
+
       try {
         const res = await fetch(`/api/v1/work-orders/${id}/extraction`);
         const data = await res.json();
         if (!res.ok || !data.data) {
-          clearInterval(interval);
+          stopPolling();
+          enableManualEntry("Could not load extraction status. Fill in the fields manually below.");
           applyResponseError(data, "Failed to load extraction status");
           return;
         }
         setExtraction(data.data);
         if (data.data.status === "COMPLETED" || data.data.status === "FAILED") {
-          clearInterval(interval);
+          stopPolling();
           if (data.data.errorMessage) showWarning(data.data.errorMessage);
-          if (data.data.status === "FAILED") {
-            showError(data.data.errorMessage ?? "AI extraction failed");
-          }
+          setManualReady(true);
         }
       } catch {
-        clearInterval(interval);
-        showError("Lost connection while extracting.");
+        stopPolling();
+        enableManualEntry("Lost connection while extracting. Fill in the fields manually below.");
       }
     }, 2000);
   }
@@ -240,6 +277,9 @@ export default function NewWorkOrderPage() {
       body: JSON.stringify({ action: "rerun" }),
     });
     setExtraction({ status: "PENDING", extractedFields: [] });
+    setManualReady(false);
+    manualReadyRef.current = false;
+    pollStartedAtRef.current = Date.now();
     setLoading(false);
     pollExtraction(extractionId);
   }
@@ -279,8 +319,10 @@ export default function NewWorkOrderPage() {
     }
   }
 
-  const showReview =
+  const aiFinished =
     extraction?.status === "COMPLETED" || extraction?.status === "FAILED";
+  const showReview = aiFinished || manualReady;
+  const isExtracting = extraction?.status === "PENDING" && !manualReady;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 pb-8">
@@ -388,10 +430,32 @@ export default function NewWorkOrderPage() {
               )}
             </CardHeader>
             <CardContent className="space-y-5">
-              {extraction.status === "PENDING" && (
-                <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-4">
-                  <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground">Extracting data from document...</p>
+              {isExtracting && (
+                <div className="flex flex-col gap-3 rounded-xl bg-muted/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">
+                      Trying AI extraction first (up to 2 minutes)...
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg shrink-0"
+                    onClick={() =>
+                      enableManualEntry("Skipped AI wait — fill in the fields below.")
+                    }
+                  >
+                    Fill manually now
+                  </Button>
+                </div>
+              )}
+
+              {extraction.status === "PENDING" && manualReady && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                  AI did not finish in time or could not read this file. Enter the work order
+                  details below — any fields AI finds later will still appear.
                 </div>
               )}
 

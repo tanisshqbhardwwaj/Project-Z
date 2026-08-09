@@ -108,8 +108,10 @@ export async function runWorkOrderExtraction(documentId: string, extractionId: s
     await prisma.aIExtraction.update({
       where: { id: extractionId },
       data: {
-        status: "FAILED",
-        errorMessage: message,
+        status: "COMPLETED",
+        extractedFields: emptyExtractionFields() as unknown as object,
+        errorMessage: `${message}. Fill in the fields manually below.`,
+        extractedAt: new Date(),
       },
     });
     logger.error("extraction.failed", { documentId, extractionId, message });
