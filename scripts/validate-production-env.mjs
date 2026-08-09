@@ -88,6 +88,12 @@ const CHECKS = [
     label: "Email from address",
     validate(value) {
       if (!value) return "is missing. Example: Project Z <onboarding@resend.dev>";
+      const from = value.trim().replace(/^["']|["']$/g, "");
+      const plain = /^[^\s<>]+@[^\s<>]+\.[^\s<>]+$/;
+      const named = /^.+ <[^\s<>]+@[^\s<>]+\.[^\s<>]+>$/;
+      if (!plain.test(from) && !named.test(from)) {
+        return 'has invalid format. Use: onboarding@resend.dev or Project Z <onboarding@resend.dev> (no extra quotes).';
+      }
       return null;
     },
   },

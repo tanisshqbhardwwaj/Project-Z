@@ -9,8 +9,36 @@ function getResendClient(): Resend | null {
 /** Resend test sender — works without domain verification (deliver to your Resend account email). */
 export const DEFAULT_EMAIL_FROM = "Project Z <onboarding@resend.dev>";
 
+const PLAIN_EMAIL_FROM = /^[^\s<>]+@[^\s<>]+\.[^\s<>]+$/;
+const NAMED_EMAIL_FROM = /^.+ <[^\s<>]+@[^\s<>]+\.[^\s<>]+>$/;
+
+/** Strip quotes often pasted from .env files into Vercel. */
+export function normalizeEmailFrom(raw: string | undefined): string {
+  let from = raw?.trim() ?? "";
+  while (
+    from.length >= 2 &&
+    ((from.startsWith('"') && from.endsWith('"')) ||
+      (from.startsWith("'") && from.endsWith("'")))
+  ) {
+    from = from.slice(1, -1).trim();
+  }
+  return from;
+}
+
+export function isValidResendFrom(from: string): boolean {
+  return PLAIN_EMAIL_FROM.test(from) || NAMED_EMAIL_FROM.test(from);
+}
+
 export function getEmailFrom(): string {
-  return process.env.EMAIL_FROM?.trim() || DEFAULT_EMAIL_FROM;
+  const normalized = normalizeEmailFrom(process.env.EMAIL_FROM);
+  if (!normalized) return DEFAULT_EMAIL_FROM;
+  if (!isValidResendFrom(normalized)) {
+    console.warn(
+      `[EMAIL] Invalid EMAIL_FROM "${normalized}" — falling back to ${DEFAULT_EMAIL_FROM}`
+    );
+    return DEFAULT_EMAIL_FROM;
+  }
+  return normalized;
 }
 
 export async function sendEmail(options: {
