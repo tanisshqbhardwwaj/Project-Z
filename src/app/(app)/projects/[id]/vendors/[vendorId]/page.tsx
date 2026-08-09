@@ -5,12 +5,18 @@ import { useParams } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
 import { useFetch } from "@/hooks/use-fetch";
 import { PageLoader } from "@/components/ui/page-loader";
-import { VendorTotalCard } from "@/components/finance/vendor-total-card";
+import { VendorGivenHistory } from "@/components/finance/vendor-given-history";
 import { ProjectTabs } from "@/components/project/project-tabs";
 
-type VendorSummaryData = {
+type VendorLedgerData = {
   vendor: { name: string };
   totalPaid: string;
+  entries: Array<{
+    date: string;
+    description: string;
+    billPaise: string;
+    paymentPaise: string;
+  }>;
 };
 
 export default function ProjectVendorPage() {
@@ -23,7 +29,7 @@ export default function ProjectVendorPage() {
 
   const { data: vendorData, loading: vendorLoading, error } = useFetch(
     `vendor:${vendorId}:ledger:${id}`,
-    () => apiFetch<VendorSummaryData>(`/api/v1/vendors/${vendorId}/ledger?projectId=${id}`)
+    () => apiFetch<VendorLedgerData>(`/api/v1/vendors/${vendorId}/ledger?projectId=${id}`)
   );
 
   if (summaryLoading || vendorLoading) return <PageLoader label="Loading..." />;
@@ -46,9 +52,10 @@ export default function ProjectVendorPage() {
 
       <ProjectTabs projectId={id} activeTab="vendors" />
 
-      <VendorTotalCard
+      <VendorGivenHistory
         vendorName={vendorData.vendor.name}
         totalPaidPaise={vendorData.totalPaid}
+        entries={vendorData.entries}
         projectId={id}
         vendorId={vendorId}
       />
