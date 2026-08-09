@@ -130,9 +130,14 @@ export async function handleApi<T>(
       error: e instanceof Error ? e.message : String(e),
       name: e instanceof Error ? e.name : "UnknownError",
     });
+    const isCloud =
+      Boolean(process.env.VERCEL) ||
+      process.env.S3_ENDPOINT?.includes("r2.cloudflarestorage.com");
     const message =
       e instanceof Error && e.name === "NoSuchBucket"
-        ? "Storage bucket missing. Run: docker compose up -d"
+        ? isCloud
+          ? `R2 bucket "${process.env.S3_BUCKET ?? "project-z"}" not found. Create it in Cloudflare Dashboard → R2.`
+          : "Storage bucket missing. Run: docker compose up -d"
         : e instanceof Error && e.name === "AccessDenied"
           ? "Storage access denied. Check R2 API token has Object Read & Write on the correct bucket."
           : e instanceof Error

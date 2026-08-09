@@ -34,21 +34,39 @@ function isCloudStorage(): boolean {
 
 let bucketReady: Promise<void> | null = null;
 
+function storageErrorName(err: unknown): string {
+  return err instanceof Error ? err.name : "";
+}
+
+function cloudBucketError(err: unknown): Error {
+  const name = storageErrorName(err);
+  if (name === "NotFound" || name === "NoSuchBucket") {
+    return new Error(
+      `R2 bucket "${BUCKET}" not found. In Cloudflare Dashboard → R2 → Create bucket with this exact name, then set S3_BUCKET on Vercel to match.`
+    );
+  }
+  if (name === "AccessDenied" || name === "Forbidden") {
+    return new Error(
+      `Storage access denied for bucket "${BUCKET}". Check R2 API token has Object Read & Write and S3_ENDPOINT uses your Cloudflare account ID.`
+    );
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
+
 /** MinIO/S3 buckets must exist before upload — create on first use (local only). */
 export async function ensureBucket(): Promise<void> {
-  if (isCloudStorage()) {
-    return;
-  }
-
   if (!bucketReady) {
     bucketReady = (async () => {
       try {
         await s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
       } catch (err) {
-        const name = err instanceof Error ? err.name : "";
+        if (isCloudStorage()) {
+          throw cloudBucketError(err);
+        }
+        const name = storageErrorName(err);
         if (name === "AccessDenied" || name === "Forbidden") {
           throw new Error(
-            `Storage access denied for bucket "${BUCKET}". Check S3 credentials and bucket name on Vercel.`
+            `Storage access denied for bucket "${BUCKET}". Check S3 credentials and bucket name.`
           );
         }
         await s3.send(new CreateBucketCommand({ Bucket: BUCKET }));
