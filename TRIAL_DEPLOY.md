@@ -54,10 +54,16 @@ S3_BUCKET=project-z
 
 ---
 
-## Step 3 — Resend (5 min)
+## Step 3 — Resend email (domain required for real users)
 
-1. https://resend.com → API key
-2. For trial use: `EMAIL_FROM=Project Z <onboarding@resend.dev>`
+**Full guide:** see [`RESEND_DOMAIN.md`](./RESEND_DOMAIN.md)
+
+Quick version:
+1. [resend.com/domains](https://resend.com/domains) → **Add Domain** → add DNS records in Cloudflare → **Verify**
+2. [resend.com/api-keys](https://resend.com/api-keys) → create key → `RESEND_API_KEY`
+3. On Vercel: `EMAIL_FROM=Project Z <noreply@YOUR-DOMAIN.com>` (no quotes)
+
+Temporary testing only (no domain): `EMAIL_FROM=Project Z <onboarding@resend.dev>` and register with your **Resend account email**.
 
 ---
 
