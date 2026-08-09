@@ -49,7 +49,11 @@ export default function RegisterPage() {
       return;
     }
 
-    setMessage("Check your email to verify your account before logging in.");
+    const serverMessage =
+      typeof data.data?.message === "string"
+        ? data.data.message
+        : "Check your email to verify your account before logging in.";
+    setMessage(serverMessage);
   }
 
   return (
@@ -60,7 +64,16 @@ export default function RegisterPage() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <FormFeedback warning={warning} error={error} />
-          {message && <p className="text-sm text-green-600">{message}</p>}
+          {message && (
+            <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-100">
+              <p>{message}</p>
+              {message.toLowerCase().includes("log in") && (
+                <Link href="/login" className="font-medium text-primary hover:underline">
+                  Go to login →
+                </Link>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="name">{t("name")}</Label>
             <Input
