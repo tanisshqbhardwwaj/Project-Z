@@ -10,7 +10,10 @@ export function useFetch<T>(
 ) {
   const enabled = options?.enabled !== false && key != null;
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  });
 
   const subscribe = useCallback(
     (onStoreChange: () => void) => useFetchStore.subscribe(onStoreChange),

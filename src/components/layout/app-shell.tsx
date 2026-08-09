@@ -2,24 +2,45 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderKanban, Plus, User } from "lucide-react";
+import { LayoutDashboard, FolderKanban, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { AppLogo, APP_SHELL_HEADER_HEIGHT } from "@/components/brand/app-logo";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
 import { getMobileQuickAction } from "@/lib/navigation/mobile-quick-action";
 
+const SIDEBAR_WIDTH = "w-64";
+
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/projects", icon: FolderKanban, label: "Projects" },
-  { href: "/settings/profile", icon: User, label: "Profile" },
 ];
+
+function isNavActive(pathname: string, href: string) {
+  if (href === "/projects") {
+    return pathname.startsWith("/projects") || pathname.startsWith("/work-orders");
+  }
+  return pathname.startsWith(href);
+}
+
+const navLinkClass = (active: boolean) =>
+  cn(
+    "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+    active
+      ? "bg-primary text-primary-foreground shadow-sm"
+      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+  );
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const profileActive = pathname.startsWith("/settings/profile");
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r bg-card md:flex">
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-card md:flex",
+        SIDEBAR_WIDTH
+      )}
+    >
       <div
         className={cn(
           "flex shrink-0 items-center border-b px-4",
@@ -28,24 +49,12 @@ export function AppSidebar() {
       >
         <AppLogo variant="compact" />
       </div>
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const active =
-            item.href === "/projects"
-              ? pathname.startsWith("/projects") || pathname.startsWith("/work-orders")
-              : pathname.startsWith(item.href);
+          const active = isNavActive(pathname, item.href);
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
-                active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
+            <Link key={item.href} href={item.href} className={navLinkClass(active)}>
               <Icon className="h-5 w-5 shrink-0" />
               {item.label}
             </Link>
@@ -53,11 +62,9 @@ export function AppSidebar() {
         })}
       </nav>
       <div className="shrink-0 border-t p-3">
-        <Link href="/work-orders/new">
-          <Button className="h-11 w-full rounded-xl" size="default">
-            <Plus className="mr-2 h-4 w-4" />
-            New Work Order
-          </Button>
+        <Link href="/settings/profile" className={navLinkClass(profileActive)}>
+          <User className="h-5 w-5 shrink-0" />
+          Profile
         </Link>
       </div>
     </aside>
@@ -78,42 +85,38 @@ export function MobileNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md md:hidden">
-      <div className="mx-auto flex max-w-lg px-1">
+      <div className="mx-auto grid h-[3.75rem] max-w-lg grid-cols-4 px-1">
         {mobileItems.map((item) => {
           const Icon = item.icon;
-          const active =
-            item.href === "/projects"
-              ? pathname.startsWith("/projects") && !item.isAction
-              : item.isAction
-                ? pathname.startsWith("/expenses/new") ||
-                  pathname.startsWith("/work-orders/new")
-                : pathname.startsWith(item.href);
+          const active = item.isAction
+            ? pathname.startsWith("/expenses/new") || pathname.startsWith("/work-orders/new")
+            : item.href === "/projects"
+              ? pathname.startsWith("/projects") || pathname.startsWith("/work-orders")
+              : pathname.startsWith(item.href);
+
           return (
             <Link
               key={item.href + item.label}
               href={item.href}
               aria-label={item.isAction ? quickAction.ariaLabel : item.label}
               className={cn(
-                "flex min-h-[56px] flex-1 flex-col items-center justify-end gap-0.5 pb-2 pt-1 text-[10px] font-medium sm:text-[11px]",
-                item.isAction && "relative -top-3",
-                active && !item.isAction ? "text-primary" : "text-muted-foreground"
+                "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium sm:text-[11px]",
+                active ? "text-primary" : "text-muted-foreground"
               )}
             >
               {item.isAction ? (
-                <span className="flex h-[3.75rem] w-[3.75rem] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background">
-                  <Icon className="h-7 w-7" />
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
+                  <Icon className="h-5 w-5" />
                 </span>
               ) : (
-                <>
-                  <Icon className="h-6 w-6" />
-                  <span>{item.label}</span>
-                </>
+                <Icon className="h-6 w-6" />
               )}
+              <span className="leading-none">{item.label}</span>
             </Link>
           );
         })}
       </div>
-      <div className="h-[env(safe-area-inset-bottom)]" />
+      <div className="h-[env(safe-area-inset-bottom)] bg-card/95" />
     </nav>
   );
 }
@@ -135,3 +138,5 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
     </header>
   );
 }
+
+export const APP_SIDEBAR_WIDTH_CLASS = "md:pl-64";

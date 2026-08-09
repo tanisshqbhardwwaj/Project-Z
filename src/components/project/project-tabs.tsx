@@ -22,8 +22,9 @@ export function ProjectTabs({
   activeTab: string;
 }) {
   return (
-    <div className="flex gap-2 overflow-x-auto border-b pb-2">
-      {PROJECT_TABS.map((t) => (
+    <div className="-mx-4 min-w-0 max-w-full overflow-x-auto px-4 md:-mx-0 md:px-0">
+      <div className="flex w-max min-w-full gap-2 border-b pb-2">
+        {PROJECT_TABS.map((t) => (
         <Link
           key={t.key}
           href={`/projects/${projectId}?tab=${t.key}`}
@@ -36,7 +37,8 @@ export function ProjectTabs({
         >
           {t.label}
         </Link>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

@@ -150,17 +150,19 @@ export default function ProjectDetailContent() {
       >(`/api/v1/activity?projectId=${id}`)
   );
 
-  const editableExpenseId = useMemo(() => {
+  const latestOwnExpenseId = useMemo(() => {
     if (!expenses?.length || !user?.id) return null;
     const own = expenses.filter((e) => e.createdBy.id === user.id);
     if (!own.length) return null;
-    const latest = [...own].sort(
+    return [...own].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
-    const age = Date.now() - new Date(latest.createdAt).getTime();
-    if (age > EDIT_WINDOW_MS) return null;
-    return latest.id;
+    )[0].id;
   }, [expenses, user?.id]);
+
+  function isExpenseEditable(expense: ExpenseRow) {
+    if (expense.id !== latestOwnExpenseId) return false;
+    return Date.now() - new Date(expense.createdAt).getTime() <= EDIT_WINDOW_MS;
+  }
 
   const woLabel = useMemo(() => {
     if (!result?.project.workOrder?.workOrderNumber) return result?.project.name;
@@ -336,7 +338,7 @@ export default function ProjectDetailContent() {
               <div className="divide-y">
                 {expenses.map((e) => {
                   const paidBy = e.allocations?.[0]?.payment?.paidBy?.name ?? null;
-                  const canEdit = e.id === editableExpenseId;
+                  const canEdit = isExpenseEditable(e);
                   return (
                     <div
                       key={e.id}
