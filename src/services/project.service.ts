@@ -7,6 +7,8 @@ import { createNotification } from "./notification.service";
 import { getPartnerContributions } from "./settlement.service";
 import type { ProjectStatus, SplitType } from "@prisma/client";
 
+const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
+
 export async function createProject(input: {
   organizationId: string;
   userId: string;
@@ -210,7 +212,7 @@ export async function getProjectPartnersOverview(
     }
   }
 
-  return { members, pendingRequests, canApprove };
+  return { members, pendingRequests, canApprove, canInvite: canApprove };
 }
 
 async function ensureOrgPartnerMembership(
@@ -244,6 +246,58 @@ async function ensureOrgPartnerMembership(
   });
 }
 
+export async function canManageProject(
+  userId: string,
+  organizationId: string,
+  project: { createdById: string }
+) {
+  return canApproveProjectPartners(userId, organizationId, project);
+}
+
+export async function updateProjectDetails(input: {
+  projectId: string;
+  organizationId: string;
+  userId: string;
+  nickname?: string | null;
+  name?: string;
+}) {
+  const project = await prisma.project.findFirst({
+    where: { id: input.projectId, organizationId: input.organizationId, deletedAt: null },
+    select: { id: true, createdById: true, name: true, nickname: true },
+  });
+  if (!project) throw new Error("Project not found");
+
+  const canManage = await canManageProject(input.userId, input.organizationId, project);
+  if (!canManage) throw new Error("Only the work order owner can update project details");
+
+  const data: { nickname?: string | null; name?: string } = {};
+  if (input.nickname !== undefined) {
+    data.nickname = input.nickname?.trim() || null;
+  }
+  if (input.name !== undefined) {
+    const trimmed = input.name.trim();
+    if (!trimmed) throw new Error("Project name cannot be empty");
+    data.name = trimmed;
+  }
+
+  const updated = await prisma.project.update({
+    where: { id: input.projectId },
+    data,
+  });
+
+  await createAuditLog({
+    organizationId: input.organizationId,
+    userId: input.userId,
+    action: "project.updated",
+    entityType: "Project",
+    entityId: input.projectId,
+    before: project,
+    after: updated,
+  });
+
+  return updated;
+}
+
 export async function createProjectInviteLink(input: {
   projectId: string;
   organizationId: string;
@@ -264,7 +318,7 @@ export async function createProjectInviteLink(input: {
       email: input.email?.toLowerCase() ?? `invite-${token}@placeholder.local`,
       token,
       invitedById: input.invitedById,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + INVITE_TTL_MS),
     },
     include: { project: { select: { name: true } } },
   });

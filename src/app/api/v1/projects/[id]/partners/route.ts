@@ -9,7 +9,9 @@ import {
   getProjectPartnersOverview,
   inviteProjectPartner,
   createProjectInviteLink,
+  canManageProject,
 } from "@/services/project.service";
+import { prisma } from "@/lib/db/prisma";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
 
@@ -36,6 +38,25 @@ export async function POST(
     const { id } = await params;
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     await requireProjectAccess(ctx, id);
+
+    const project = await prisma.project.findFirst({
+      where: { id, organizationId: ctx.organizationId, deletedAt: null },
+      select: { createdById: true },
+    });
+    if (!project) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Project not found" } },
+        { status: 404 }
+      );
+    }
+
+    const canInvite = await canManageProject(ctx.userId, ctx.organizationId, project);
+    if (!canInvite) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only the work order owner can invite partners" } },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
 

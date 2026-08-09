@@ -9,10 +9,12 @@ import { WorkOrderListActions } from "@/components/project/work-order-list-actio
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
+import { getProjectDisplayName, getProjectSubtitle } from "@/lib/project/display-name";
 
 type ProjectItem = {
   id: string;
   name: string;
+  nickname?: string | null;
   status: string;
   contractAmountPaise: string;
   workOrder?: { clientName: string; workOrderNumber: string } | null;
@@ -29,17 +31,20 @@ export default function ProjectsPage() {
   const list = projects ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold sm:text-3xl">Work Orders</h1>
-        <div className="flex gap-2">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">Work Orders</h1>
+          <p className="text-sm text-muted-foreground">Tap a card to open · + for new work order</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Link href="/work-orders/new">
-            <Button variant="outline" className="rounded-xl">
+            <Button variant="outline" className="h-11 rounded-xl">
               New Work Order
             </Button>
           </Link>
           <Link href="/projects/new">
-            <Button className="rounded-xl">
+            <Button className="h-11 rounded-xl">
               <Plus className="mr-2 h-4 w-4" />
               Manual Project
             </Button>
@@ -52,44 +57,48 @@ export default function ProjectsPage() {
           <CardContent className="py-12 text-center text-muted-foreground">
             <p className="mb-4">No work orders yet.</p>
             <Link href="/work-orders/new">
-              <Button size="lg" className="rounded-xl">
+              <Button size="lg" className="h-12 rounded-xl">
                 Upload Work Order
               </Button>
             </Link>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {list.map((p) => (
-            <Card
-              key={p.id}
-              className="relative rounded-2xl border-0 shadow-md transition-colors hover:bg-accent/50"
-            >
-              <div className="absolute right-3 top-3 z-10">
-                <WorkOrderListActions
-                  projectId={p.id}
-                  projectName={p.name}
-                  workOrderNumber={p.workOrder?.workOrderNumber}
-                />
-              </div>
-              <CardContent className="p-5 pr-14">
-                <Link href={`/projects/${p.id}`} className="block min-w-0">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <h2 className="text-lg font-semibold">{p.name}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {p.workOrder?.clientName ?? "—"} · {p.status}
-                      </p>
+        <div className="grid gap-3 sm:gap-4">
+          {list.map((p) => {
+            const title = getProjectDisplayName(p);
+            const subtitle = getProjectSubtitle(p);
+            return (
+              <Card
+                key={p.id}
+                className="relative rounded-2xl border-0 shadow-md transition-colors hover:bg-accent/50 active:scale-[0.99]"
+              >
+                <div className="absolute right-3 top-3 z-10">
+                  <WorkOrderListActions
+                    projectId={p.id}
+                    projectName={p.name}
+                    workOrderNumber={p.workOrder?.workOrderNumber}
+                  />
+                </div>
+                <CardContent className="p-5 pr-14">
+                  <Link href={`/projects/${p.id}`} className="block min-w-0">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-lg font-semibold leading-snug">{title}</h2>
+                        {subtitle && (
+                          <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+                        )}
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {p.workOrder?.clientName ?? "—"} · {p.status}
+                        </p>
+                      </div>
+                      <MoneyDisplay paise={p.contractAmountPaise} className="shrink-0 text-lg" />
                     </div>
-                    <MoneyDisplay
-                      paise={p.contractAmountPaise}
-                      className="shrink-0 text-lg"
-                    />
-                  </div>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+                  </Link>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

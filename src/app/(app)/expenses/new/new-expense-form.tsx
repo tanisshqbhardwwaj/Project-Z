@@ -15,18 +15,11 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { firstValidationIssue, parseAmountInput, requireField } from "@/lib/api/validation";
 
-type PartnerMember = {
-  id: string;
-  user: { id: string; name: string; email: string };
-};
-
 export default function NewExpenseForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, activeOrganizationId, initialized } = useAuthStore();
+  const { user } = useAuthStore();
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
-  const [partners, setPartners] = useState<PartnerMember[]>([]);
-  const [partnersLoading, setPartnersLoading] = useState(true);
   const [form, setForm] = useState({
     projectId: searchParams.get("projectId") ?? "",
     vendorId: "",
@@ -34,7 +27,6 @@ export default function NewExpenseForm() {
     amount: "",
     expenseDate: new Date().toISOString().split("T")[0],
     description: "",
-    paidByUserId: "",
     paymentMethod: "CASH",
   });
   const [duplicate, setDuplicate] = useState(false);
@@ -44,52 +36,6 @@ export default function NewExpenseForm() {
   useEffect(() => {
     if (!lockedProjectId) router.replace("/projects");
   }, [lockedProjectId, router]);
-
-  useEffect(() => {
-    if (!lockedProjectId || !initialized || !activeOrganizationId) return;
-
-    setPartnersLoading(true);
-
-    apiFetch<PartnerMember[]>(`/api/v1/projects/${lockedProjectId}/members`)
-      .then(setPartners)
-      .catch(async () => {
-        try {
-          const orgMembers = await apiFetch<
-            Array<{ userId: string; user: { id: string; name: string | null; email: string } }>
-          >(`/api/v1/organizations/${activeOrganizationId}/members`);
-          setPartners(
-            orgMembers
-              .filter((m) => m.user?.id)
-              .map((m) => ({
-                id: m.userId,
-                user: {
-                  id: m.user.id,
-                  name: m.user.name ?? m.user.email,
-                  email: m.user.email,
-                },
-              }))
-          );
-        } catch {
-          if (user?.id) {
-            setPartners([
-              {
-                id: user.id,
-                user: {
-                  id: user.id,
-                  name: user.name ?? user.email,
-                  email: user.email,
-                },
-              },
-            ]);
-          }
-        }
-      })
-      .finally(() => setPartnersLoading(false));
-
-    if (user?.id) {
-      setForm((f) => ({ ...f, paidByUserId: f.paidByUserId || user.id }));
-    }
-  }, [lockedProjectId, activeOrganizationId, initialized, user]);
 
   async function submit(skipDuplicate = false) {
     setLoading(true);
@@ -123,7 +69,6 @@ export default function NewExpenseForm() {
           amount: amountResult.amount,
           expenseDate: form.expenseDate,
           description: form.description.trim(),
-          paidByUserId: form.paidByUserId || undefined,
           paymentMethod: form.paymentMethod,
           skipDuplicateCheck: skipDuplicate,
         }),
@@ -144,21 +89,22 @@ export default function NewExpenseForm() {
   if (!lockedProjectId) return null;
 
   return (
-    <div className="mx-auto max-w-lg space-y-5 pb-8">
+    <div className="mx-auto max-w-lg space-y-5 pb-28 md:pb-8">
       <div>
         <p className="text-sm font-medium text-primary">Finance</p>
-        <h1 className="text-2xl font-bold">Add Expense</h1>
+        <h1 className="text-2xl font-bold sm:text-3xl">Add Expense</h1>
         <p className="text-sm text-muted-foreground">
-          Record what was paid and who paid it. Partners on this work order can add expenses too.
+          Record what you paid from your pocket
+          {user?.name ? ` — logged as ${user.name}` : ""}.
         </p>
       </div>
       <Card className="rounded-2xl border-0 shadow-md">
         <CardContent className="space-y-4 pt-6">
           <FormFeedback warning={warning} error={error} />
           {duplicate && (
-            <div className="rounded-xl border border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="rounded-xl border border-amber-400 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
               <p className="mb-2">Similar expense found. Save anyway?</p>
-              <Button onClick={() => submit(true)} variant="outline" size="sm">
+              <Button onClick={() => submit(true)} variant="outline" size="sm" className="rounded-lg">
                 Save anyway
               </Button>
             </div>
@@ -169,9 +115,7 @@ export default function NewExpenseForm() {
             <VendorCombobox
               value={form.vendorId}
               vendorName={form.vendorName}
-              onChange={(vendorId, vendorName) =>
-                setForm({ ...form, vendorId, vendorName })
-              }
+              onChange={(vendorId, vendorName) => setForm({ ...form, vendorId, vendorName })}
             />
           </div>
 
@@ -181,12 +125,9 @@ export default function NewExpenseForm() {
               id="description"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="h-12 rounded-xl"
-              placeholder="e.g. Paint supply for Block A, Labour for week 2"
+              className="h-12 rounded-xl text-base"
+              placeholder="e.g. Paint supply, Labour week 2"
             />
-            <p className="text-xs text-muted-foreground">
-              This shows on the expense list — explains why you paid the vendor.
-            </p>
           </div>
 
           <div className="space-y-2">
@@ -194,11 +135,12 @@ export default function NewExpenseForm() {
             <Input
               id="amount"
               type="number"
+              inputMode="decimal"
               min="0"
               step="0.01"
               value={form.amount}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              className="h-12 rounded-xl"
+              className="h-12 rounded-xl text-base"
             />
           </div>
 
@@ -211,46 +153,21 @@ export default function NewExpenseForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="paidBy">Paid by</Label>
+            <Label htmlFor="paymentMethod">Payment method</Label>
             <select
-              id="paidBy"
-              className="flex h-12 w-full rounded-xl border border-input bg-background px-4"
-              value={form.paidByUserId}
-              onChange={(e) => setForm({ ...form, paidByUserId: e.target.value })}
-              disabled={partnersLoading}
+              id="paymentMethod"
+              className="flex h-12 w-full rounded-xl border border-input bg-background px-4 text-base"
+              value={form.paymentMethod}
+              onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
             >
-              <option value="">
-                {partnersLoading ? "Loading people..." : "Unpaid / outstanding"}
-              </option>
-              {partners.map((m) => (
-                <option key={m.user.id} value={m.user.id}>
-                  {m.user.name ?? m.user.email}
-                </option>
-              ))}
+              <option value="CASH">Cash</option>
+              <option value="UPI">UPI</option>
+              <option value="BANK">Bank Transfer</option>
+              <option value="CARD">Card</option>
+              <option value="CHEQUE">Cheque</option>
+              <option value="OTHER">Other</option>
             </select>
-            <p className="text-xs text-muted-foreground">
-              Select who paid from pocket. This tracks spending per partner on the overview.
-            </p>
           </div>
-
-          {form.paidByUserId && (
-            <div className="space-y-2">
-              <Label htmlFor="paymentMethod">Payment method</Label>
-              <select
-                id="paymentMethod"
-                className="flex h-12 w-full rounded-xl border border-input bg-background px-4"
-                value={form.paymentMethod}
-                onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-              >
-                <option value="CASH">Cash</option>
-                <option value="UPI">UPI</option>
-                <option value="BANK">Bank Transfer</option>
-                <option value="CARD">Card</option>
-                <option value="CHEQUE">Cheque</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-          )}
 
           <Button
             className="h-12 w-full rounded-xl text-base"

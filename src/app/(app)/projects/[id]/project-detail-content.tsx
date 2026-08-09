@@ -1,23 +1,46 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import { useFetch } from "@/hooks/use-fetch";
+import { useAuthStore } from "@/stores/auth-store";
 import { PageLoader } from "@/components/ui/page-loader";
 import { FinancialSummaryBar } from "@/components/finance/financial-summary-bar";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { DocumentPreviewDialog } from "@/components/project/document-preview-dialog";
 import { ProjectPartnersDialog } from "@/components/project/project-partners-dialog";
+import { ProjectNicknameDialog } from "@/components/project/project-nickname-dialog";
 import { ProjectTabs, isValidProjectTab } from "@/components/project/project-tabs";
+import { EditExpenseDialog } from "@/components/finance/edit-expense-dialog";
+import { getProjectDisplayName, getProjectSubtitle } from "@/lib/project/display-name";
+import { formatActivityDescription, isEditedActivity } from "@/lib/activity/format-activity";
+import { useFetchStore } from "@/stores/fetch-store";
+
+const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+type ExpenseRow = {
+  id: string;
+  expenseDate: string;
+  createdAt: string;
+  amountPaise: string;
+  description: string | null;
+  isEdited?: boolean;
+  vendor?: { name: string } | null;
+  createdBy: { id: string; name: string };
+  allocations?: Array<{ payment: { paidBy: { name: string } } }>;
+};
 
 type ProjectSummary = {
   project: {
     id: string;
     name: string;
+    nickname?: string | null;
     status: string;
     location: string | null;
     completionPercent: number;
@@ -50,30 +73,23 @@ type ProjectSummary = {
 export default function ProjectDetailContent() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const { user } = useAuthStore();
   const id = params.id;
   const rawTab = searchParams.get("tab") ?? "overview";
   const tab = isValidProjectTab(rawTab) ? rawTab : "overview";
+  const [editingExpense, setEditingExpense] = useState<ExpenseRow | null>(null);
+
+  const { data: partnersMeta } = useFetch(`project:${id}:partners-meta`, () =>
+    apiFetch<{ canInvite: boolean }>(`/api/v1/projects/${id}/partners`)
+  );
 
   const { data: result, loading, error } = useFetch(`project:${id}:summary`, () =>
     apiFetch<ProjectSummary>(`/api/v1/projects/${id}/summary`)
   );
 
-  const { data: expenses } = useFetch(
+  const { data: expenses, refetch: refetchExpenses } = useFetch(
     tab === "expenses" ? `project:${id}:expenses` : null,
-    () =>
-      apiFetch<
-        Array<{
-          id: string;
-          expenseDate: string;
-          amountPaise: string;
-          description: string | null;
-          vendor?: { name: string } | null;
-          createdBy: { name: string };
-          allocations?: Array<{
-            payment: { paidBy: { name: string } };
-          }>;
-        }>
-      >(`/api/v1/expenses?projectId=${id}`)
+    () => apiFetch<ExpenseRow[]>(`/api/v1/expenses?projectId=${id}`)
   );
 
   const { data: payments } = useFetch(
@@ -127,10 +143,24 @@ export default function ProjectDetailContent() {
           action: string;
           entityType: string;
           createdAt: string;
+          before?: unknown;
+          after?: unknown;
           user: { name: string };
         }>
       >(`/api/v1/activity?projectId=${id}`)
   );
+
+  const editableExpenseId = useMemo(() => {
+    if (!expenses?.length || !user?.id) return null;
+    const own = expenses.filter((e) => e.createdBy.id === user.id);
+    if (!own.length) return null;
+    const latest = [...own].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+    const age = Date.now() - new Date(latest.createdAt).getTime();
+    if (age > EDIT_WINDOW_MS) return null;
+    return latest.id;
+  }, [expenses, user?.id]);
 
   const woLabel = useMemo(() => {
     if (!result?.project.workOrder?.workOrderNumber) return result?.project.name;
@@ -150,13 +180,17 @@ export default function ProjectDetailContent() {
   }
 
   const { project, summary, partnerSpending } = result;
+  const displayName = getProjectDisplayName(project);
+  const subtitle = getProjectSubtitle(project);
+  const canEditProject = partnersMeta?.canInvite ?? false;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-muted-foreground">Work Order</p>
-          <h1 className="text-2xl font-bold sm:text-3xl">{project.name}</h1>
+          <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{displayName}</h1>
+          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
           {project.workOrder && (
             <p className="text-muted-foreground">
               {woLabel} · {project.workOrder.clientName}
@@ -165,8 +199,14 @@ export default function ProjectDetailContent() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/expenses/new?projectId=${id}`}>
-            <Button className="rounded-xl">Add Expense</Button>
+            <Button className="h-11 rounded-xl px-5">Add Expense</Button>
           </Link>
+          <ProjectNicknameDialog
+            projectId={id}
+            name={project.name}
+            nickname={project.nickname ?? null}
+            canEdit={canEditProject}
+          />
           <ProjectPartnersDialog projectId={id} />
         </div>
       </div>
@@ -290,25 +330,51 @@ export default function ProjectDetailContent() {
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-0">
             {!expenses?.length ? (
-              <p className="p-6 text-muted-foreground">No expenses for this work order yet.</p>
+              <div className="space-y-4 p-6 text-center">
+                <p className="text-muted-foreground">No expenses for this work order yet.</p>
+                <Link href={`/expenses/new?projectId=${id}`}>
+                  <Button className="h-11 rounded-xl">Add your first expense</Button>
+                </Link>
+              </div>
             ) : (
               <div className="divide-y">
                 {expenses.map((e) => {
-                  const paidBy =
-                    e.allocations?.[0]?.payment?.paidBy?.name ?? null;
+                  const paidBy = e.allocations?.[0]?.payment?.paidBy?.name ?? null;
+                  const canEdit = e.id === editableExpenseId;
                   return (
-                    <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
-                      <div>
-                        <p className="font-medium">
-                          {e.description?.trim() || "Expense"}
-                        </p>
+                    <div
+                      key={e.id}
+                      className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{e.description?.trim() || "Expense"}</p>
+                          {e.isEdited && (
+                            <Badge variant="secondary" className="rounded-md text-xs">
+                              Edited
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {new Date(e.expenseDate).toLocaleDateString("en-IN")} ·{" "}
                           {e.vendor?.name ?? "No vendor"}
-                          {paidBy ? ` · Paid by ${paidBy}` : " · Unpaid"}
+                          {paidBy ? ` · Paid by ${paidBy}` : ""}
                         </p>
                       </div>
-                      <MoneyDisplay paise={e.amountPaise} />
+                      <div className="flex items-center gap-2">
+                        <MoneyDisplay paise={e.amountPaise} />
+                        {canEdit && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 rounded-lg"
+                            onClick={() => setEditingExpense(e)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -425,18 +491,36 @@ export default function ProjectDetailContent() {
               <p className="p-6 text-muted-foreground">No activity for this work order yet.</p>
             ) : (
               activity.map((log) => (
-                <div key={log.id} className="p-4">
-                  <p className="font-medium">
-                    {log.user.name} — {log.action}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {log.entityType} · {new Date(log.createdAt).toLocaleString("en-IN")}
-                  </p>
+                <div key={log.id} className="flex flex-wrap items-start justify-between gap-2 p-4 sm:p-5">
+                  <div>
+                    <p className="font-medium">{formatActivityDescription(log)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {log.entityType} · {new Date(log.createdAt).toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                  {isEditedActivity(log) && (
+                    <Badge variant="outline" className="shrink-0 rounded-md">
+                      Edited
+                    </Badge>
+                  )}
                 </div>
               ))
             )}
           </CardContent>
         </Card>
+      )}
+
+      {editingExpense && (
+        <EditExpenseDialog
+          open={Boolean(editingExpense)}
+          onOpenChange={(open) => !open && setEditingExpense(null)}
+          expense={editingExpense}
+          projectId={id}
+          onSaved={() => {
+            refetchExpenses(true);
+            useFetchStore.getState().invalidatePrefix(`project:${id}:activity`);
+          }}
+        />
       )}
     </div>
   );

@@ -67,8 +67,8 @@ export async function POST(request: Request) {
       amountPaise: rupeesToPaise(data.amount),
       expenseDate: new Date(data.expenseDate),
       description: data.description.trim(),
-      paidByUserId: data.paidByUserId || undefined,
-      paymentMethod: data.paymentMethod,
+      paidByUserId: ctx.userId,
+      paymentMethod: data.paymentMethod ?? "CASH",
       skipDuplicateCheck: data.skipDuplicateCheck,
     });
 

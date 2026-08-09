@@ -95,6 +95,7 @@ model User {
   projectsCreated     Project[]            @relation("ProjectCreatedBy")
   workOrdersCreated   WorkOrder[]          @relation("WorkOrderCreatedBy")
   expensesCreated     Expense[]            @relation("ExpenseCreatedBy")
+  expensesEdited      Expense[]            @relation("ExpenseEditedBy")
   paymentsCreated     Payment[]            @relation("PaymentCreatedBy")
   paymentsPaid        Payment[]            @relation("PaymentPaidBy")
   paymentsReceived    Payment[]            @relation("PaymentReceivedBy")
@@ -217,6 +218,7 @@ model Project {
   id                     String        @id @default(uuid())
   organizationId         String
   name                   String
+  nickname               String?
   status                 ProjectStatus @default(DRAFT)
   contractAmountPaise    BigInt        @default(0)
   budgetAmountPaise      BigInt?
@@ -373,27 +375,32 @@ model ExpenseCategory {
 }
 
 model Expense {
-  id                String    @id @default(uuid())
-  organizationId    String
-  projectId         String
-  vendorId          String?
-  categoryId        String
-  amountPaise       BigInt
-  paidAmountPaise   BigInt    @default(0)
-  outstandingPaise  BigInt    @default(0)
-  expenseDate       DateTime
-  description       String?
-  receiptHash       String?
-  createdById       String
-  deletedAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                   String    @id @default(uuid())
+  organizationId       String
+  projectId            String
+  vendorId             String?
+  categoryId           String
+  amountPaise          BigInt
+  paidAmountPaise      BigInt    @default(0)
+  outstandingPaise     BigInt    @default(0)
+  expenseDate          DateTime
+  description          String?
+  receiptHash          String?
+  createdById          String
+  isEdited             Boolean   @default(false)
+  editedAt             DateTime?
+  editedById           String?
+  originalAmountPaise  BigInt?
+  deletedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   vendor       Vendor?             @relation(fields: [vendorId], references: [id])
   category     ExpenseCategory     @relation(fields: [categoryId], references: [id])
   createdBy    User                @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  editedBy     User?               @relation("ExpenseEditedBy", fields: [editedById], references: [id])
   allocations  PaymentAllocation[]
   documents    Document[]
 

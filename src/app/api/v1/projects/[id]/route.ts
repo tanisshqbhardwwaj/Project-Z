@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAuthContext, handleApi, requireProjectAccess, apiSuccess, ApiError } from "@/lib/api/context";
-import { getProjectSummary, hardDeleteProject } from "@/services/project.service";
-import { prisma } from "@/lib/db/prisma";
+import {
+  getAuthContext,
+  handleApi,
+  requireProjectAccess,
+  apiSuccess,
+  ApiError,
+} from "@/lib/api/context";
+import {
+  getProjectSummary,
+  hardDeleteProject,
+  updateProjectDetails,
+} from "@/services/project.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 const hardDeleteSchema = z.object({
   hard: z.literal(true),
   confirmName: z.string().min(1, { error: "Please type the work order name to confirm" }),
+});
+
+const patchSchema = z.object({
+  nickname: z.string().max(40).nullable().optional(),
+  name: z.string().min(1).max(500).optional(),
 });
 
 export async function GET(
@@ -41,9 +55,18 @@ export async function PATCH(
     await requireProjectAccess(ctx, id);
 
     const body = await request.json();
-    const project = await prisma.project.update({
-      where: { id },
-      data: body,
+    const data = patchSchema.parse(body);
+
+    if (data.nickname === undefined && data.name === undefined) {
+      throw new ApiError(400, "VALIDATION_ERROR", "Nothing to update");
+    }
+
+    const project = await updateProjectDetails({
+      projectId: id,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      nickname: data.nickname,
+      name: data.name,
     });
 
     return apiSuccess(serializeBigInt(project));

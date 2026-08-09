@@ -84,13 +84,13 @@ export async function createExpense(input: {
       },
     });
 
-    if (input.paidByUserId && input.amountPaise > BigInt(0)) {
+    if (input.amountPaise > BigInt(0)) {
       const payment = await tx.payment.create({
         data: {
           organizationId: input.organizationId,
           projectId: input.projectId,
           vendorId: input.vendorId,
-          paidByUserId: input.paidByUserId,
+          paidByUserId: input.userId,
           amountPaise: input.amountPaise,
           paymentMethod: (input.paymentMethod as "CASH") ?? "CASH",
           paymentDate: input.expenseDate,
@@ -147,6 +147,117 @@ export async function createExpense(input: {
   return { expense, duplicate: null };
 }
 
+const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export async function updateOwnExpense(input: {
+  expenseId: string;
+  organizationId: string;
+  userId: string;
+  amountPaise: bigint;
+  description: string;
+  expenseDate: Date;
+}) {
+  const expense = await prisma.expense.findFirst({
+    where: {
+      id: input.expenseId,
+      organizationId: input.organizationId,
+      deletedAt: null,
+    },
+    include: {
+      allocations: { include: { payment: true } },
+    },
+  });
+
+  if (!expense) throw new Error("Expense not found");
+  if (expense.createdById !== input.userId) {
+    throw new Error("You can only edit your own expenses");
+  }
+
+  const ageMs = Date.now() - expense.createdAt.getTime();
+  if (ageMs > EDIT_WINDOW_MS) {
+    throw new Error("Edit window expired — you can only edit within 24 hours of creating an expense");
+  }
+
+  const latestOwn = await prisma.expense.findFirst({
+    where: {
+      projectId: expense.projectId,
+      organizationId: input.organizationId,
+      createdById: input.userId,
+      deletedAt: null,
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+
+  if (latestOwn?.id !== expense.id) {
+    throw new Error("You can only edit your most recent expense on this work order");
+  }
+
+  const before = { ...expense };
+  const originalAmount =
+    expense.originalAmountPaise ?? (expense.isEdited ? null : expense.amountPaise);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const allocation = expense.allocations[0];
+    const hadPayment = Boolean(allocation?.payment && expense.paidAmountPaise > BigInt(0));
+    let paidAmount = expense.paidAmountPaise;
+    if (hadPayment) {
+      paidAmount =
+        expense.paidAmountPaise >= input.amountPaise
+          ? input.amountPaise
+          : expense.paidAmountPaise;
+    }
+
+    const exp = await tx.expense.update({
+      where: { id: expense.id },
+      data: {
+        amountPaise: input.amountPaise,
+        description: input.description,
+        expenseDate: input.expenseDate,
+        isEdited: true,
+        editedAt: new Date(),
+        editedById: input.userId,
+        originalAmountPaise: originalAmount ?? expense.amountPaise,
+        paidAmountPaise: paidAmount,
+        outstandingPaise: input.amountPaise - paidAmount,
+      },
+      include: {
+        category: true,
+        vendor: true,
+        createdBy: { select: { id: true, name: true } },
+      },
+    });
+
+    if (hadPayment && allocation?.payment) {
+      await tx.payment.update({
+        where: { id: allocation.payment.id },
+        data: {
+          amountPaise: paidAmount,
+          paymentDate: input.expenseDate,
+        },
+      });
+      await tx.paymentAllocation.update({
+        where: { id: allocation.id },
+        data: { amountPaise: paidAmount },
+      });
+    }
+
+    return exp;
+  });
+
+  await createAuditLog({
+    organizationId: input.organizationId,
+    userId: input.userId,
+    action: "expense.updated",
+    entityType: "Expense",
+    entityId: expense.id,
+    before,
+    after: updated,
+  });
+
+  return updated;
+}
+
 export async function listExpenses(
   organizationId: string,
   filters?: {
@@ -174,8 +285,9 @@ export async function listExpenses(
     include: {
       category: true,
       vendor: true,
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, nickname: true } },
       createdBy: { select: { id: true, name: true } },
+      editedBy: { select: { id: true, name: true } },
       allocations: {
         take: 1,
         orderBy: { amountPaise: "desc" },
@@ -186,7 +298,7 @@ export async function listExpenses(
         },
       },
     },
-    orderBy: { expenseDate: "desc" },
+    orderBy: [{ createdAt: "desc" }, { expenseDate: "desc" }],
     take: filters?.limit ?? 50,
     ...(filters?.cursor && { cursor: { id: filters.cursor }, skip: 1 }),
   });

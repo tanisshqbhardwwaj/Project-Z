@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AppLogo, APP_SHELL_HEADER_HEIGHT } from "@/components/brand/app-logo";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
+import { getMobileQuickAction } from "@/lib/navigation/mobile-quick-action";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -65,40 +66,46 @@ export function AppSidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
+  const quickAction = getMobileQuickAction(pathname);
+  const QuickIcon = quickAction.Icon;
 
   const mobileItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
     { href: "/projects", icon: FolderKanban, label: "Projects" },
-    { href: "/work-orders/new", icon: Plus, label: "New", isAction: true },
+    { href: quickAction.href, icon: QuickIcon, label: quickAction.label, isAction: true },
     { href: "/settings/profile", icon: Settings, label: "Settings" },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md md:hidden">
-      <div className="mx-auto flex max-w-lg">
+      <div className="mx-auto flex max-w-lg px-1">
         {mobileItems.map((item) => {
           const Icon = item.icon;
           const active =
             item.href === "/projects"
-              ? pathname.startsWith("/projects")
-              : pathname.startsWith(item.href);
+              ? pathname.startsWith("/projects") && !item.isAction
+              : item.isAction
+                ? pathname.startsWith("/expenses/new") ||
+                  pathname.startsWith("/work-orders/new")
+                : pathname.startsWith(item.href);
           return (
             <Link
-              key={item.href}
+              key={item.href + item.label}
               href={item.href}
+              aria-label={item.isAction ? quickAction.ariaLabel : item.label}
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium",
-                item.isAction && "relative -top-4",
+                "flex min-h-[56px] flex-1 flex-col items-center justify-end gap-0.5 pb-2 pt-1 text-[10px] font-medium sm:text-[11px]",
+                item.isAction && "relative -top-3",
                 active && !item.isAction ? "text-primary" : "text-muted-foreground"
               )}
             >
               {item.isAction ? (
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background">
-                  <Icon className="h-6 w-6" />
+                <span className="flex h-[3.75rem] w-[3.75rem] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background">
+                  <Icon className="h-7 w-7" />
                 </span>
               ) : (
                 <>
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-6 w-6" />
                   <span>{item.label}</span>
                 </>
               )}
