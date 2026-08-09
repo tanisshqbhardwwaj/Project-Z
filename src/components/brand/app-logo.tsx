@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ProjectZMark } from "@/components/brand/project-z-mark";
@@ -8,6 +7,9 @@ type AppLogoProps = {
   variant?: "compact" | "full" | "mark";
   className?: string;
 };
+
+const markTileClass =
+  "flex items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-primary/15";
 
 function BrandWordmark({ showTagline = false }: { showTagline?: boolean }) {
   return (
@@ -32,26 +34,30 @@ export function AppLogo({ href = "/dashboard", variant = "compact", className }:
     variant === "full" ? (
       <div
         className={cn(
-          "overflow-hidden rounded-2xl bg-[#050505] px-8 py-6 shadow-lg ring-1 ring-black/10",
+          "overflow-hidden rounded-2xl bg-white px-8 py-8 shadow-lg ring-1 ring-border",
           className
         )}
       >
-        <Image
-          src="/logo.png"
-          alt="Project Z — Manage every project. From A to Z."
-          width={1024}
-          height={682}
-          className="h-auto w-full max-w-[300px] object-contain"
-          priority
-        />
+        <div className="flex flex-col items-center gap-4 text-center">
+          <span className={cn(markTileClass, "h-20 w-20")}>
+            <ProjectZMark className="h-14 w-14" />
+          </span>
+          <span className="text-xl font-semibold tracking-tight text-foreground">
+            Project{" "}
+            <span className="bg-gradient-to-r from-violet-600 to-blue-600 bg-clip-text text-transparent">
+              Z
+            </span>
+          </span>
+          <span className="text-sm text-muted-foreground">Manage every project. From A to Z.</span>
+        </div>
       </div>
     ) : variant === "mark" ? (
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-primary/15">
+      <span className={cn(markTileClass, "h-10 w-10")}>
         <ProjectZMark className="h-7 w-7" />
       </span>
     ) : (
       <span className={cn("inline-flex items-center gap-2.5", className)}>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-950 to-slate-900 shadow-sm ring-1 ring-black/5">
+        <span className={cn(markTileClass, "h-9 w-9 shrink-0")}>
           <ProjectZMark className="h-6 w-6" />
         </span>
         <BrandWordmark />
