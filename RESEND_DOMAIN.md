@@ -110,6 +110,16 @@ If you **don’t have a domain yet**:
 
 For real users/partners, you **need a verified domain**.
 
+### Beta test allowlist (no domain yet)
+
+On Vercel, set:
+
+```env
+TEST_EMAIL_ALLOWLIST=tanishqbhardwaj03@gmail.com,gs9818860351@gmail.com
+```
+
+Those addresses **auto-verify on register** — no Resend email sent. Remove this variable before public launch.
+
 ---
 
 ## Example after setup

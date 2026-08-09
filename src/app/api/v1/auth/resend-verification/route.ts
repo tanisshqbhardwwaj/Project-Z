@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { createVerificationTokenAndSendEmail } from "@/lib/email/verification";
+import { isTestEmailAllowlisted } from "@/lib/email/test-allowlist";
 import { handleApi } from "@/lib/api/context";
 import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
@@ -28,6 +29,16 @@ export async function POST(request: Request) {
         { error: { code: "ALREADY_VERIFIED", message: "Email is already verified" } },
         { status: 400 }
       );
+    }
+
+    if (isTestEmailAllowlisted(user.email)) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerifiedAt: new Date() },
+      });
+      return NextResponse.json({
+        data: { message: "Email auto-verified for beta testing. You can log in now." },
+      });
     }
 
     try {
