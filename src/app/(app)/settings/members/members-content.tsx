@@ -24,9 +24,15 @@ export default function MembersContent() {
   const { data: members, loading, refetch } = useFetch(
     activeOrganizationId ? `org:${activeOrganizationId}:members` : null,
     () =>
-      apiFetch<Array<{ id: string; role: string; user: { name: string; email: string } }>>(
-        `/api/v1/organizations/${activeOrganizationId}/members`
-      )
+      apiFetch<
+        Array<{
+          id: string;
+          role: string;
+          user: { name: string; email: string };
+          partnerProjectCount: number;
+          partnerProjects: Array<{ id: string; name: string }>;
+        }>
+      >(`/api/v1/organizations/${activeOrganizationId}/members`)
   );
 
   async function invite(e: React.FormEvent) {
@@ -130,12 +136,23 @@ export default function MembersContent() {
       <Card className="rounded-2xl border-0 shadow-md">
         <CardContent className="divide-y pt-4">
           {(members ?? []).map((m) => (
-            <div key={m.id} className="flex justify-between py-4">
-              <div>
+            <div key={m.id} className="flex justify-between gap-3 py-4">
+              <div className="min-w-0">
                 <p className="font-medium">{m.user.name}</p>
                 <p className="text-sm text-muted-foreground">{m.user.email}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {m.partnerProjectCount === 0
+                    ? "Not a partner on any work order"
+                    : m.partnerProjectCount === 1
+                      ? `Partner on 1 work order: ${m.partnerProjects[0]?.name ?? "—"}`
+                      : `Partner on ${m.partnerProjectCount} work orders: ${m.partnerProjects
+                          .map((p) => p.name)
+                          .join(", ")}`}
+                </p>
               </div>
-              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">{m.role}</span>
+              <span className="h-fit shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium">
+                {m.role}
+              </span>
             </div>
           ))}
         </CardContent>

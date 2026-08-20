@@ -131,9 +131,42 @@ export async function acceptInvite(token: string, userId: string) {
 }
 
 export async function getOrganizationMembers(organizationId: string) {
-  return prisma.organizationMember.findMany({
+  const members = await prisma.organizationMember.findMany({
     where: { organizationId, status: "ACTIVE" },
     include: { user: { select: { id: true, name: true, email: true, phone: true } } },
     orderBy: { joinedAt: "asc" },
+  });
+
+  if (members.length === 0) return [];
+
+  const projectMemberships = await prisma.projectMember.findMany({
+    where: {
+      userId: { in: members.map((m) => m.userId) },
+      project: { organizationId, deletedAt: null },
+    },
+    select: {
+      userId: true,
+      project: { select: { id: true, name: true, nickname: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const projectsByUser = new Map<string, Array<{ id: string; name: string }>>();
+  for (const membership of projectMemberships) {
+    const list = projectsByUser.get(membership.userId) ?? [];
+    list.push({
+      id: membership.project.id,
+      name: membership.project.nickname?.trim() || membership.project.name,
+    });
+    projectsByUser.set(membership.userId, list);
+  }
+
+  return members.map((member) => {
+    const partnerProjects = projectsByUser.get(member.userId) ?? [];
+    return {
+      ...member,
+      partnerProjectCount: partnerProjects.length,
+      partnerProjects,
+    };
   });
 }
