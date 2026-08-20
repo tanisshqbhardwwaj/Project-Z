@@ -3,21 +3,51 @@ import { slugify, generateToken } from "@/lib/utils";
 import { seedExpenseCategories } from "../../prisma/categories";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
 import { createAuditLog } from "./audit.service";
-import type { OrgRole } from "@prisma/client";
+import type { BusinessType, OrgRole, ShopSector } from "@prisma/client";
+import { mergeModuleSettings, parseOrgSettings } from "@/lib/org/require-module";
+import { mergeShopOrgSettings, type ShopOrgSettings } from "@/lib/org/shop-settings";
+import type { ModuleKey } from "@/lib/org/modules";
+import { defaultEnabledModules } from "@/lib/org/modules";
 
 export async function createOrganization(input: {
   name: string;
   userId: string;
+  businessType?: BusinessType;
+  shopSector?: ShopSector | null;
+  enableStaff?: boolean;
 }) {
   let slug = slugify(input.name);
   const existing = await prisma.organization.findUnique({ where: { slug } });
   if (existing) slug = `${slug}-${Date.now()}`;
+
+  const businessType = input.businessType ?? "CONTRACTOR";
+  const shopSector =
+    businessType === "SHOPKEEPER" ? (input.shopSector ?? "GENERAL") : null;
+  const enableStaff =
+    businessType === "SHOPKEEPER" ? Boolean(input.enableStaff) : false;
+
+  const defaultModules = defaultEnabledModules(businessType, shopSector);
+  if (enableStaff) defaultModules.staff = true;
+
+  const user = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { id: true },
+  });
+  if (!user) {
+    throw new Error(
+      "Your login session is out of date (user not found). Log out, register/log in again, then create the organization."
+    );
+  }
 
   const org = await prisma.$transaction(async (tx) => {
     const organization = await tx.organization.create({
       data: {
         name: input.name,
         slug,
+        businessType,
+        shopSector,
+        enableStaff,
+        settings: { modules: defaultModules },
       },
     });
 
@@ -34,7 +64,7 @@ export async function createOrganization(input: {
     return organization;
   });
 
-  await seedExpenseCategories(prisma, org.id);
+  await seedExpenseCategories(prisma, org.id, businessType, shopSector);
 
   await createAuditLog({
     organizationId: org.id,
@@ -169,4 +199,201 @@ export async function getOrganizationMembers(organizationId: string) {
       partnerProjects,
     };
   });
+}
+
+export async function updateOrganization(input: {
+  organizationId: string;
+  userId: string;
+  name?: string;
+  businessType?: BusinessType;
+  shopSector?: ShopSector | null;
+  enableStaff?: boolean;
+  timezone?: string;
+  defaultCompletionDays?: number;
+  settings?: {
+    modules?: Partial<Record<ModuleKey, boolean>>;
+    weeklyOffDays?: number[];
+    unmarkedDayPolicy?: "PRESENT" | "ABSENT" | "EXCLUDED";
+    shop?: ShopOrgSettings;
+  };
+}) {
+  const member = await prisma.organizationMember.findUnique({
+    where: {
+      organizationId_userId: {
+        organizationId: input.organizationId,
+        userId: input.userId,
+      },
+    },
+  });
+  if (!member || member.status !== "ACTIVE") {
+    throw new Error("Not a member of this organization");
+  }
+  if (member.role !== "OWNER") {
+    throw new Error("Only the organization owner can update organization settings");
+  }
+
+  const before = await prisma.organization.findUnique({
+    where: { id: input.organizationId },
+  });
+  if (!before) throw new Error("Organization not found");
+
+  const data: {
+    name?: string;
+    slug?: string;
+    businessType?: BusinessType;
+    shopSector?: ShopSector | null;
+    enableStaff?: boolean;
+    timezone?: string;
+    defaultCompletionDays?: number;
+    settings?: object;
+  } = {};
+
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    if (name.length < 2) throw new Error("Organization name must be at least 2 characters");
+    data.name = name;
+    let slug = slugify(name);
+    const clash = await prisma.organization.findFirst({
+      where: { slug, NOT: { id: input.organizationId } },
+    });
+    if (clash) slug = `${slug}-${Date.now()}`;
+    data.slug = slug;
+  }
+
+  if (input.businessType !== undefined) {
+    data.businessType = input.businessType;
+    if (input.businessType !== "SHOPKEEPER") {
+      data.shopSector = null;
+      data.enableStaff = false;
+    } else if (input.shopSector !== undefined) {
+      data.shopSector = input.shopSector;
+    } else {
+      data.shopSector = "GENERAL";
+    }
+  } else if (input.shopSector !== undefined) {
+    data.shopSector = input.shopSector;
+  }
+
+  if (input.enableStaff !== undefined) {
+    const nextType = data.businessType ?? before.businessType;
+    data.enableStaff = nextType === "SHOPKEEPER" ? input.enableStaff : false;
+  }
+
+  if (input.timezone !== undefined) {
+    data.timezone = input.timezone.trim() || "Asia/Kolkata";
+  }
+
+  if (input.settings !== undefined) {
+    const existingSettings = parseOrgSettings(before.settings);
+    let nextSettings = { ...existingSettings };
+    if (input.settings.modules) {
+      nextSettings = mergeModuleSettings(nextSettings, input.settings.modules);
+      if (input.settings.modules.staff !== undefined) {
+        data.enableStaff = Boolean(input.settings.modules.staff);
+      }
+    }
+    if (input.settings.weeklyOffDays) {
+      nextSettings.weeklyOffDays = input.settings.weeklyOffDays;
+    }
+    if (input.settings.unmarkedDayPolicy) {
+      nextSettings.unmarkedDayPolicy = input.settings.unmarkedDayPolicy;
+    }
+    if (input.settings.shop) {
+      nextSettings = mergeShopOrgSettings(
+        nextSettings as Record<string, unknown>,
+        input.settings.shop
+      ) as typeof nextSettings;
+    }
+    data.settings = nextSettings;
+  } else if (input.enableStaff !== undefined) {
+    const existingSettings = parseOrgSettings(before.settings);
+    data.settings = mergeModuleSettings(existingSettings, { staff: input.enableStaff });
+  }
+
+  if (input.defaultCompletionDays !== undefined) {
+    if (input.defaultCompletionDays < 1 || input.defaultCompletionDays > 3650) {
+      throw new Error("Default completion days must be between 1 and 3650");
+    }
+    data.defaultCompletionDays = input.defaultCompletionDays;
+  }
+
+  if (Object.keys(data).length === 0 && !input.settings) {
+    throw new Error("Nothing to update");
+  }
+
+  const updated = await prisma.organization.update({
+    where: { id: input.organizationId },
+    data,
+  });
+
+  const typeChanged =
+    input.businessType && input.businessType !== before.businessType;
+  const sectorChanged =
+    updated.businessType === "SHOPKEEPER" &&
+    input.shopSector !== undefined &&
+    input.shopSector !== before.shopSector;
+
+  if (typeChanged || sectorChanged) {
+    await seedExpenseCategories(
+      prisma,
+      input.organizationId,
+      updated.businessType,
+      updated.shopSector
+    );
+  }
+
+  await createAuditLog({
+    organizationId: input.organizationId,
+    userId: input.userId,
+    action: "organization.updated",
+    entityType: "Organization",
+    entityId: input.organizationId,
+    before,
+    after: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteOrganization(input: {
+  organizationId: string;
+  userId: string;
+}) {
+  const memberships = await prisma.organizationMember.findMany({
+    where: { userId: input.userId, status: "ACTIVE" },
+    orderBy: { joinedAt: "asc" },
+    include: { organization: { select: { id: true, name: true } } },
+  });
+
+  if (memberships.length <= 1) {
+    throw new Error("You cannot delete your only organization");
+  }
+
+  const primaryOrgId = memberships[0].organizationId;
+  if (input.organizationId === primaryOrgId) {
+    throw new Error("You cannot delete your primary organization");
+  }
+
+  const member = memberships.find((m) => m.organizationId === input.organizationId);
+  if (!member) {
+    throw new Error("Organization not found");
+  }
+  if (member.role !== "OWNER") {
+    throw new Error("Only the organization owner can delete this organization");
+  }
+
+  const orgName = member.organization.name;
+
+  await prisma.organization.delete({
+    where: { id: input.organizationId },
+  });
+
+  const nextMembership = memberships.find((m) => m.organizationId === primaryOrgId)!;
+
+  return {
+    deletedOrganizationId: input.organizationId,
+    deletedOrganizationName: orgName,
+    nextOrganizationId: nextMembership.organizationId,
+    nextOrganizationName: nextMembership.organization.name,
+  };
 }

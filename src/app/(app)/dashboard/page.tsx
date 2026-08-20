@@ -1,13 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
 import { useFetch } from "@/hooks/use-fetch";
+import { useAuthStore } from "@/stores/auth-store";
+import { canAccessProjectsNav, hasPermission } from "@/lib/permissions/rbac";
+import type { OrgRole } from "@prisma/client";
 import { PageLoader } from "@/components/ui/page-loader";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, FolderKanban, Receipt } from "lucide-react";
+import { useBusinessType } from "@/hooks/use-business-type";
 
 type DashboardData = {
   activeProjects: number;
@@ -19,9 +25,24 @@ type DashboardData = {
 };
 
 export default function DashboardPage() {
-  const { data, loading, error } = useFetch("dashboard", () =>
-    apiFetch<DashboardData>("/api/v1/dashboard")
+  const router = useRouter();
+  const role = useAuthStore((s) => s.role) as OrgRole | null;
+  const biz = useBusinessType();
+
+  useEffect(() => {
+    if (!role || canAccessProjectsNav(role)) return;
+    if (hasPermission(role, "shop.sales")) router.replace("/shop/sales");
+    else if (hasPermission(role, "attendance.view_own")) router.replace("/staff/me");
+  }, [role, router]);
+
+  const { data, loading, error } = useFetch(
+    role && canAccessProjectsNav(role) ? "dashboard" : null,
+    () => apiFetch<DashboardData>("/api/v1/dashboard")
   );
+
+  if (role && !canAccessProjectsNav(role)) {
+    return <PageLoader label="Opening counter sales..." />;
+  }
 
   if (loading) return <PageLoader label="Loading dashboard..." />;
   if (error || !data) {
@@ -29,8 +50,8 @@ export default function DashboardPage() {
   }
 
   const cards = [
-    { label: "Active Projects", value: data.activeProjects, isMoney: false },
-    { label: "Total Contract", value: data.totalContract, isMoney: true },
+    { label: biz.activeCountLabel, value: data.activeProjects, isMoney: false },
+    { label: biz.contractTotalLabel, value: data.totalContract, isMoney: true },
     { label: "Total Expenses", value: data.totalExpenses, isMoney: true },
     { label: "Actual Profit", value: data.summary.actualProfitPaise, isMoney: true },
   ];
@@ -42,7 +63,7 @@ export default function DashboardPage() {
         <Link href="/work-orders/new">
           <Button size="lg" className="rounded-xl">
             <Plus className="mr-2 h-5 w-5" />
-            New Work Order
+            {biz.newWorkItemLabel}
           </Button>
         </Link>
       </div>
@@ -74,13 +95,13 @@ export default function DashboardPage() {
           <Link href="/work-orders/new">
             <Button variant="outline" className="h-14 w-full justify-start rounded-xl text-base">
               <FolderKanban className="mr-3 h-5 w-5" />
-              New Work Order
+              {biz.newWorkItemLabel}
             </Button>
           </Link>
           <Link href="/projects">
             <Button variant="outline" className="h-14 w-full justify-start rounded-xl text-base">
               <Receipt className="mr-3 h-5 w-5" />
-              Open Work Orders
+              Open {biz.workItemPlural}
             </Button>
           </Link>
         </CardContent>
@@ -89,7 +110,7 @@ export default function DashboardPage() {
       {data.projects.length > 0 && (
         <Card className="rounded-2xl border-0 shadow-md">
           <CardHeader>
-            <CardTitle>Recent Projects</CardTitle>
+            <CardTitle>{biz.recentListLabel}</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">

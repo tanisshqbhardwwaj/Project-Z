@@ -126,6 +126,19 @@ export async function handleApi<T>(
     if (e instanceof ZodError) {
       return apiError(new ApiError(400, "VALIDATION_ERROR", formatZodError(e), e.issues));
     }
+    if (e instanceof Error) {
+      const msg = e.message;
+      if (
+        msg.includes("UNIQUE constraint failed") ||
+        msg.includes("Unique constraint failed")
+      ) {
+        const friendly =
+          msg.includes("BuilderUnit") && msg.includes("unitNumber")
+            ? "This unit number already exists in the project"
+            : "A record with this value already exists";
+        return apiError(new ApiError(409, "CONFLICT", friendly));
+      }
+    }
     logger.error("api.unhandled_error", {
       error: e instanceof Error ? e.message : String(e),
       name: e instanceof Error ? e.name : "UnknownError",

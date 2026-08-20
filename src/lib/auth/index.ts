@@ -22,10 +22,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const email = (credentials.email as string).toLowerCase().trim();
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user?.passwordHash) return null;
+        if (!user?.passwordHash) {
+          throw new Error("USER_NOT_FOUND");
+        }
 
         const valid = await verify(user.passwordHash, credentials.password as string);
-        if (!valid) return null;
+        if (!valid) {
+          throw new Error("INVALID_PASSWORD");
+        }
 
         if (!user.emailVerifiedAt) {
           throw new Error("EMAIL_NOT_VERIFIED");

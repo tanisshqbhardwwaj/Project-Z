@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { OrgRole } from "@prisma/client";
 
 const schema = z.object({
-  role: z.enum(["PARTNER", "VIEWER", "ACCOUNTANT"]).default("PARTNER"),
+  role: z.enum(["PARTNER", "VIEWER", "ACCOUNTANT", "CASHIER"]).default("PARTNER"),
 });
 
 export async function POST(

@@ -13,13 +13,28 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireField } from "@/lib/api/validation";
+import {
+  BUSINESS_TYPE_CONFIG,
+  BUSINESS_TYPES,
+  type BusinessType,
+} from "@/lib/org/business-type";
+import {
+  SHOP_SECTOR_CONFIG,
+  SHOP_SECTORS,
+  type ShopSector,
+} from "@/lib/org/shop-sector";
+import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 export default function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewOrg = searchParams.get("new") === "1";
-  const { bootstrap, status, initialized } = useAuthStore();
+  const { bootstrap, status, initialized, logout } = useAuthStore();
   const [name, setName] = useState("");
+  const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
+  const [shopSector, setShopSector] = useState<ShopSector>("GENERAL");
+  const [enableStaff, setEnableStaff] = useState(false);
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const [loading, setLoading] = useState(false);
   const [orgCount, setOrgCount] = useState(0);
@@ -50,15 +65,28 @@ export default function OnboardingContent() {
       return;
     }
 
+    if (businessType === "SHOPKEEPER" && !shopSector) {
+      showWarning("Please select your shop sector");
+      return;
+    }
+
     setLoading(true);
 
     try {
       await apiFetch("/api/v1/organizations", {
         method: "POST",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({
+          name,
+          businessType,
+          ...(businessType === "SHOPKEEPER"
+            ? { shopSector, enableStaff }
+            : {}),
+        }),
       });
       await bootstrap();
-      router.push("/dashboard");
+      router.push(
+        businessType === "SHOPKEEPER" && enableStaff ? "/staff" : "/dashboard"
+      );
       router.refresh();
     } catch (err) {
       applyError(err, "Failed to create organization");
@@ -67,7 +95,15 @@ export default function OnboardingContent() {
     }
   }
 
+  async function handleLogout() {
+    await fetch("/api/v1/auth/logout", { method: "POST" });
+    logout();
+    window.location.href = "/login";
+  }
+
   if (!initialized) return <PageLoader label="Loading..." />;
+
+  const selected = BUSINESS_TYPE_CONFIG[businessType];
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -82,12 +118,22 @@ export default function OnboardingContent() {
           <CardDescription>
             {isNewOrg
               ? `Add another organization (${orgCount}/3 used)`
-              : "Create your organization to start managing work orders"}
+              : "Tell us what you do — we’ll tailor labels and defaults"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <FormFeedback warning={warning} error={error} />
+            {error?.toLowerCase().includes("session") && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-xl"
+                onClick={handleLogout}
+              >
+                Log out and start fresh
+              </Button>
+            )}
             <div className="space-y-2">
               <Label htmlFor="orgName">Organization name</Label>
               <Input
@@ -98,10 +144,92 @@ export default function OnboardingContent() {
                 required
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>I am a…</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {BUSINESS_TYPES.map((type) => {
+                  const config = BUSINESS_TYPE_CONFIG[type];
+                  const active = businessType === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setBusinessType(type)}
+                      className={cn(
+                        "rounded-xl border p-3 text-left transition-colors",
+                        active
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border hover:bg-accent/50"
+                      )}
+                    >
+                      <p className="text-sm font-semibold">{config.label}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{config.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">{selected.onboardingBlurb}</p>
+            </div>
+
+            {businessType === "SHOPKEEPER" && (
+              <div className="space-y-2">
+                <Label>Shop sector</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {SHOP_SECTORS.map((sector) => {
+                    const config = SHOP_SECTOR_CONFIG[sector];
+                    const active = shopSector === sector;
+                    return (
+                      <button
+                        key={sector}
+                        type="button"
+                        onClick={() => setShopSector(sector)}
+                        className={cn(
+                          "rounded-xl border p-3 text-left transition-colors",
+                          active
+                            ? "border-primary bg-primary/5 ring-1 ring-primary"
+                            : "border-border hover:bg-accent/50"
+                        )}
+                      >
+                        <p className="text-sm font-semibold">{config.label}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {config.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {businessType === "SHOPKEEPER" && (
+              <div className="rounded-xl border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Allow staff?</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Optional. Track attendance and pay salary from days worked.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={enableStaff}
+                    onCheckedChange={setEnableStaff}
+                  />
+                </div>
+              </div>
+            )}
+
             <Button type="submit" className="h-12 w-full rounded-xl" size="lg" disabled={loading}>
               {loading ? "Creating..." : "Create Organization"}
             </Button>
           </form>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-4 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Log out
+          </button>
         </CardContent>
       </Card>
     </div>

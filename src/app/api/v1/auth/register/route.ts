@@ -58,6 +58,28 @@ export async function POST(request: Request) {
         name: user.name,
       });
     } catch (e) {
+      // Keep the account in development so local setup works when Resend blocks the recipient.
+      if (process.env.NODE_ENV === "development") {
+        const token = await prisma.verificationToken.findFirst({
+          where: { identifier: user.email },
+          orderBy: { expires: "desc" },
+        });
+        const verifyUrl = token
+          ? `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token.token}`
+          : null;
+        return NextResponse.json({
+          data: {
+            id: user.id,
+            email: user.email,
+            message:
+              "Account created. Resend could not deliver email in development — use the verification link from the server console (or verifyUrl below).",
+            verifyUrl,
+            emailWarning:
+              e instanceof Error ? e.message : "Failed to send verification email",
+          },
+        });
+      }
+
       await prisma.user.delete({ where: { id: user.id } });
       const message =
         e instanceof Error ? e.message : "Failed to send verification email";

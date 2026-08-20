@@ -19,6 +19,7 @@ import {
   PROJECT_LONG_NAME_CLASS,
   projectStatusLabel,
 } from "@/lib/project/display-name";
+import { useBusinessType } from "@/hooks/use-business-type";
 
 type ProjectItem = {
   id: string;
@@ -32,6 +33,7 @@ type ProjectItem = {
 type StatusFilter = "active" | "completed";
 
 export default function ProjectsPage() {
+  const biz = useBusinessType();
   const [filter, setFilter] = useState<StatusFilter>("active");
   const { data: projects, loading, error } = useFetch("projects", () =>
     apiFetch<ProjectItem[]>("/api/v1/projects")
@@ -44,28 +46,34 @@ export default function ProjectsPage() {
     );
   }, [projects, filter]);
 
-  if (loading) return <PageLoader label="Loading work orders..." />;
+  if (loading) return <PageLoader label={`Loading ${biz.workItemPlural.toLowerCase()}...`} />;
   if (error) return <p className="text-destructive">{error}</p>;
 
   return (
     <div className="space-y-5 pb-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">Work Orders</h1>
-          <p className="text-sm text-muted-foreground">Tap a card to open · + for new work order</p>
+          <h1 className="text-2xl font-bold sm:text-3xl">{biz.workItemPlural}</h1>
+          <p className="text-sm text-muted-foreground">
+            Tap a card to open · + for new {biz.workItemSingularLower}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/work-orders/new">
-            <Button variant="outline" className="h-11 rounded-xl">
-              New Work Order
-            </Button>
-          </Link>
-          <Link href="/projects/new">
-            <Button className="h-11 rounded-xl">
-              <Plus className="mr-2 h-4 w-4" />
-              Manual Project
-            </Button>
-          </Link>
+          {biz.showDocumentUpload && (
+            <Link href="/work-orders/new">
+              <Button variant="outline" className="h-11 rounded-xl">
+                {biz.newWorkItemLabel}
+              </Button>
+            </Link>
+          )}
+          {biz.showManualCreate && (
+            <Link href="/projects/new">
+              <Button className="h-11 rounded-xl">
+                <Plus className="mr-2 h-4 w-4" />
+                {biz.manualCreateLabel}
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -92,12 +100,12 @@ export default function ProjectsPage() {
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="py-12 text-center text-muted-foreground">
             <p className="mb-4">
-              {filter === "active" ? "No active work orders." : "No completed work orders yet."}
+              {filter === "active" ? biz.emptyActiveMessage : biz.emptyCompletedMessage}
             </p>
-            {filter === "active" && (
+            {filter === "active" && biz.showDocumentUpload && (
               <Link href="/work-orders/new">
                 <Button size="lg" className="h-12 rounded-xl">
-                  Upload Work Order
+                  {biz.uploadWorkItemLabel}
                 </Button>
               </Link>
             )}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Building2, ChevronDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,12 +11,26 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { useAuthStore } from "@/stores/auth-store";
 import { setActiveOrganizationId } from "@/lib/api/client";
-import { useFetchStore } from "@/stores/fetch-store";
+import type { BusinessType } from "@/lib/org/business-type";
+import { getBusinessTypeConfig } from "@/lib/org/business-type";
+import type { ShopSector } from "@/lib/org/shop-sector";
+import type { EnabledModulesMap } from "@/hooks/use-enabled-modules";
 
-type OrgItem = { id: string; name: string; role: string };
+type OrgItem = {
+  id: string;
+  name: string;
+  role: string;
+  businessType?: BusinessType;
+  shopSector?: ShopSector | null;
+  enableStaff?: boolean;
+  timezone?: string;
+  enabledModules?: EnabledModulesMap;
+  linkedStaff?: { id: string; name: string } | null;
+};
 
 export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { update } = useSession();
   const { activeOrganizationId, setActiveOrg } = useAuthStore();
   const [open, setOpen] = useState(false);
@@ -40,8 +55,19 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
     });
     await update({ activeOrganizationId: org.id });
     setActiveOrganizationId(org.id);
-    setActiveOrg(org.id, org.name, org.role);
-    useFetchStore.getState().invalidatePrefix("");
+    setActiveOrg(
+      org.id,
+      org.name,
+      org.role,
+      org.businessType,
+      org.shopSector ?? null,
+      Boolean(org.enableStaff),
+      org.enabledModules ?? {},
+      org.timezone ?? "Asia/Kolkata",
+      org.linkedStaff?.id ?? null,
+      org.linkedStaff?.name ?? null
+    );
+    queryClient.invalidateQueries({ queryKey: ["org", org.id] });
     setOpen(false);
     router.refresh();
   }
@@ -85,7 +111,9 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
             onClick={() => switchOrg(org)}
           >
             <span className="text-sm font-medium">{org.name}</span>
-            <span className="text-xs text-muted-foreground">{org.role}</span>
+            <span className="text-xs text-muted-foreground">
+              {getBusinessTypeConfig(org.businessType).label} · {org.role}
+            </span>
           </button>
         ))}
         {canCreateMore && (
