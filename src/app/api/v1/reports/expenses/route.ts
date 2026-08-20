@@ -7,6 +7,7 @@ import {
 import { listExpenses } from "@/services/expense.service";
 import { paiseToRupees } from "@/lib/finance/money";
 import { prisma } from "@/lib/db/prisma";
+import { getAccessibleProjectIds } from "@/lib/permissions/project-scope";
 
 function csvCell(value: string | number | null | undefined): string {
   const text = value == null ? "" : String(value);
@@ -33,9 +34,14 @@ export async function GET(request: Request) {
       await requireProjectAccess(ctx, projectId);
     }
 
+    const accessibleProjectIds = projectId
+      ? undefined
+      : await getAccessibleProjectIds(ctx.organizationId, ctx.userId, ctx.role);
+
     const expenses = await listExpenses(ctx.organizationId, {
       projectId,
       limit: 1000,
+      accessibleProjectIds,
     });
 
     if (format === "csv") {

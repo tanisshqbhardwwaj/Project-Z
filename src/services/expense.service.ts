@@ -268,13 +268,22 @@ export async function listExpenses(
     toDate?: Date;
     cursor?: string;
     limit?: number;
+    /** When set (PARTNER/VIEWER), only expenses on these projects are returned. */
+    accessibleProjectIds?: string[] | null;
   }
 ) {
+  const accessible = filters?.accessibleProjectIds;
+  const projectFilter = filters?.projectId
+    ? { projectId: filters.projectId }
+    : accessible !== undefined && accessible !== null
+      ? { projectId: { in: accessible } }
+      : {};
+
   return prisma.expense.findMany({
     where: {
       organizationId,
       deletedAt: null,
-      ...(filters?.projectId && { projectId: filters.projectId }),
+      ...projectFilter,
       ...(filters?.vendorId && { vendorId: filters.vendorId }),
       ...(filters?.categoryId && { categoryId: filters.categoryId }),
       ...(filters?.fromDate &&

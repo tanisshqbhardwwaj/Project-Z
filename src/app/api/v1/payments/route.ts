@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
-import { getAuthContext, handleApi, requirePermission, apiSuccess } from "@/lib/api/context";
+import {
+  getAuthContext,
+  handleApi,
+  requirePermission,
+  requireProjectAccess,
+  apiSuccess,
+} from "@/lib/api/context";
 import { createPayment } from "@/services/payment.service";
 import { listExpenses } from "@/services/expense.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { prisma } from "@/lib/db/prisma";
+import { getAccessibleProjectIds, projectIdScope } from "@/lib/permissions/project-scope";
 import { z } from "zod";
 
 const schema = z.object({
@@ -27,12 +34,23 @@ export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get("projectId") ?? undefined;
+
+    if (projectId) {
+      await requireProjectAccess(ctx, projectId);
+    }
+
+    const accessibleProjectIds = projectId
+      ? null
+      : await getAccessibleProjectIds(ctx.organizationId, ctx.userId, ctx.role);
 
     const payments = await prisma.payment.findMany({
       where: {
         organizationId: ctx.organizationId,
         deletedAt: null,
-        ...(searchParams.get("projectId") && { projectId: searchParams.get("projectId")! }),
+        ...(projectId
+          ? { projectId }
+          : projectIdScope(accessibleProjectIds)),
         ...(searchParams.get("vendorId") && { vendorId: searchParams.get("vendorId")! }),
       },
       include: {

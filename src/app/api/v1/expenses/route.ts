@@ -10,6 +10,7 @@ import {
 import { createExpense, getDefaultCategoryId, listExpenses } from "@/services/expense.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { rupeesToPaise } from "@/lib/finance/money";
+import { getAccessibleProjectIds } from "@/lib/permissions/project-scope";
 
 const schema = z.object({
   projectId: z.string({ error: "Please select a work order" }),
@@ -35,11 +36,16 @@ export async function GET(request: Request) {
       await requireProjectAccess(ctx, projectId);
     }
 
+    const accessibleProjectIds = projectId
+      ? undefined
+      : await getAccessibleProjectIds(ctx.organizationId, ctx.userId, ctx.role);
+
     const expenses = await listExpenses(ctx.organizationId, {
       projectId,
       vendorId: searchParams.get("vendorId") ?? undefined,
       categoryId: searchParams.get("categoryId") ?? undefined,
       cursor: searchParams.get("cursor") ?? undefined,
+      accessibleProjectIds,
     });
 
     return apiSuccess(serializeBigInt(expenses));

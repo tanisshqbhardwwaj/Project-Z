@@ -5,7 +5,11 @@ import { serializeBigInt } from "@/lib/db/prisma";
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    const dashboard = await getOrgDashboard(ctx.organizationId);
+    const dashboard = await getOrgDashboard(
+      ctx.organizationId,
+      ctx.userId,
+      ctx.role
+    );
     return apiSuccess(serializeBigInt(dashboard));
   });
 }

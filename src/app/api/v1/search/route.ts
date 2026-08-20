@@ -7,7 +7,12 @@ export async function GET(request: Request) {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") ?? "";
-    const results = await globalSearch(ctx.organizationId, q);
+    const results = await globalSearch(
+      ctx.organizationId,
+      q,
+      ctx.userId,
+      ctx.role
+    );
     return apiSuccess(serializeBigInt(results));
   });
 }
