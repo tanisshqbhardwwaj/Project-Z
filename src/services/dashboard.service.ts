@@ -43,7 +43,7 @@ export async function getOrgDashboard(
   const projectWhere = {
     organizationId,
     deletedAt: null as null,
-    status: { in: ["ACTIVE", "IN_PROGRESS"] as const },
+    status: { in: ["ACTIVE", "IN_PROGRESS"] as Array<"ACTIVE" | "IN_PROGRESS"> },
     ...(accessibleProjectIds !== null && { id: { in: accessibleProjectIds } }),
   };
 
