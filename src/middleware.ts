@@ -36,12 +36,8 @@ export default async function middleware(request: NextRequest) {
   }
 
   if (isPublic && pathname === "/login") {
-    const sessionToken =
-      request.cookies.get("authjs.session-token")?.value ??
-      request.cookies.get("__Secure-authjs.session-token")?.value;
-    if (sessionToken) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
+    // Do not bounce cookie-holders away from login — stale JWTs (e.g. after
+    // switching DBs) must be able to reach the login page and sign in again.
   }
 
   return NextResponse.next();

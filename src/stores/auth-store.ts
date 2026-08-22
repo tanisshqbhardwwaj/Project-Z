@@ -1,10 +1,22 @@
 import { create } from "zustand";
-import { apiFetch, setActiveOrganizationId } from "@/lib/api/client";
+import { apiFetch, ApiClientError, setActiveOrganizationId } from "@/lib/api/client";
+import type { BusinessType } from "@/lib/org/business-type";
+import type { ShopSector } from "@/lib/org/shop-sector";
+import type { EnabledModulesMap } from "@/hooks/use-enabled-modules";
 
 export type OrgMembership = {
   organizationId: string;
   role: string;
-  organization: { id: string; name: string; slug: string };
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    businessType?: BusinessType;
+    shopSector?: ShopSector | null;
+    enableStaff?: boolean;
+    timezone?: string;
+    enabledModules?: EnabledModulesMap;
+  };
 };
 
 export type AuthUser = {
@@ -19,21 +31,74 @@ type AuthState = {
   user: AuthUser | null;
   activeOrganizationId: string | null;
   activeOrganizationName: string | null;
+  activeBusinessType: BusinessType | null;
+  activeShopSector: ShopSector | null;
+  timezone: string;
+  enableStaff: boolean;
+  enabledModules: EnabledModulesMap;
   role: string | null;
-  status: "idle" | "loading" | "authenticated" | "unauthenticated";
+  linkedStaffId: string | null;
+  linkedStaffName: string | null;
+  status: "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
   error: string | null;
   initialized: boolean;
   bootstrap: () => Promise<void>;
-  setActiveOrg: (orgId: string, orgName: string, role: string) => void;
+  setActiveOrg: (
+    orgId: string,
+    orgName: string,
+    role: string,
+    businessType?: BusinessType | null,
+    shopSector?: ShopSector | null,
+    enableStaff?: boolean,
+    enabledModules?: EnabledModulesMap,
+    timezone?: string,
+    linkedStaffId?: string | null,
+    linkedStaffName?: string | null
+  ) => void;
   updateUser: (patch: Pick<AuthUser, "name" | "phone">) => void;
   logout: () => void;
 };
+
+function pickOrgFields(activeOrg: {
+  businessType?: BusinessType;
+  shopSector?: ShopSector | null;
+  enableStaff?: boolean;
+  enabledModules?: EnabledModulesMap;
+  timezone?: string;
+} | undefined, membership: OrgMembership | undefined) {
+  return {
+    activeBusinessType:
+      activeOrg?.businessType ??
+      membership?.organization?.businessType ??
+      ("CONTRACTOR" as BusinessType),
+    activeShopSector:
+      activeOrg?.shopSector ?? membership?.organization?.shopSector ?? null,
+    enableStaff: Boolean(
+      activeOrg?.enableStaff ?? membership?.organization?.enableStaff
+    ),
+    enabledModules:
+      activeOrg?.enabledModules ??
+      membership?.organization?.enabledModules ??
+      {},
+    timezone:
+      activeOrg?.timezone ??
+      membership?.organization?.timezone ??
+      "Asia/Kolkata",
+  };
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   activeOrganizationId: null,
   activeOrganizationName: null,
+  activeBusinessType: null,
+  activeShopSector: null,
+  timezone: "Asia/Kolkata",
+  enableStaff: false,
+  enabledModules: {},
   role: null,
+  linkedStaffId: null,
+  linkedStaffName: null,
   status: "idle",
   error: null,
   initialized: false,
@@ -61,6 +126,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         (m) => m.organizationId === activeId
       );
 
+      const fields = pickOrgFields(activeOrg, membership);
+
       setActiveOrganizationId(activeId);
 
       set({
@@ -68,31 +135,73 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         activeOrganizationId: activeId,
         activeOrganizationName:
           activeOrg?.name ?? membership?.organization?.name ?? null,
+        ...fields,
         role: activeOrg?.role ?? membership?.role ?? null,
+        linkedStaffId: activeOrg?.linkedStaff?.id ?? null,
+        linkedStaffName: activeOrg?.linkedStaff?.name ?? null,
         status: "authenticated",
         initialized: true,
         error: null,
       });
-    } catch {
-      setActiveOrganizationId(null);
+    } catch (err) {
+      const httpStatus =
+        err instanceof ApiClientError ? err.status : undefined;
+      if (httpStatus === 401 || httpStatus === 403) {
+        setActiveOrganizationId(null);
+        set({
+          user: null,
+          activeOrganizationId: null,
+          activeOrganizationName: null,
+          activeBusinessType: null,
+          activeShopSector: null,
+          timezone: "Asia/Kolkata",
+          enableStaff: false,
+          enabledModules: {},
+          role: null,
+          linkedStaffId: null,
+          linkedStaffName: null,
+          status: "unauthenticated",
+          initialized: true,
+          error: null,
+        });
+        return;
+      }
+
       set({
-        user: null,
-        activeOrganizationId: null,
-        activeOrganizationName: null,
-        role: null,
-        status: "unauthenticated",
+        status: "error",
         initialized: true,
-        error: null,
+        error:
+          err instanceof Error
+            ? err.message
+            : "Could not load your session. Refresh and try again.",
       });
     }
   },
 
-  setActiveOrg: (orgId, orgName, role) => {
+  setActiveOrg: (
+    orgId,
+    orgName,
+    role,
+    businessType = "CONTRACTOR",
+    shopSector = null,
+    enableStaff = false,
+    enabledModules = {},
+    timezone = "Asia/Kolkata",
+    linkedStaffId = null,
+    linkedStaffName = null
+  ) => {
     setActiveOrganizationId(orgId);
     set({
       activeOrganizationId: orgId,
       activeOrganizationName: orgName,
+      activeBusinessType: businessType ?? "CONTRACTOR",
+      activeShopSector: shopSector ?? null,
+      enableStaff: Boolean(enableStaff),
+      enabledModules,
+      timezone,
       role,
+      linkedStaffId: linkedStaffId ?? null,
+      linkedStaffName: linkedStaffName ?? null,
     });
   },
 
@@ -108,7 +217,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       activeOrganizationId: null,
       activeOrganizationName: null,
+      activeBusinessType: null,
+      activeShopSector: null,
+      timezone: "Asia/Kolkata",
+      enableStaff: false,
+      enabledModules: {},
       role: null,
+      linkedStaffId: null,
+      linkedStaffName: null,
       status: "unauthenticated",
       initialized: true,
     });

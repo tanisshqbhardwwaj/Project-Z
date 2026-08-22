@@ -24,6 +24,7 @@ enum OrgRole {
   PARTNER
   ACCOUNTANT
   VIEWER
+  CASHIER
 }
 
 enum MemberStatus {
@@ -77,6 +78,75 @@ enum ExtractionStatus {
   REVIEWED
 }
 
+enum BusinessType {
+  CONTRACTOR
+  ARCHITECT
+  BUILDER
+  SHOPKEEPER
+}
+
+enum ShopSector {
+  GROCERY
+  HARDWARE
+  ELECTRONICS
+  CLOTHING
+  PHARMACY
+  RESTAURANT
+  GENERAL
+}
+
+enum StaffStatus {
+  ACTIVE
+  LEFT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  PAID_LEAVE
+}
+
+enum PayrollStatus {
+  DRAFT
+  FINALIZED
+  PAID
+}
+
+enum PayrollLineType {
+  EARNING
+  DEDUCTION
+}
+
+enum AdvanceStatus {
+  OPEN
+  CLOSED
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOID
+}
+
+enum BookingStatus {
+  BOOKED
+  CANCELLED
+  HANDED_OVER
+}
+
+enum DesignStageStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+}
+
+enum UnitStatus {
+  AVAILABLE
+  BOOKED
+  SOLD
+}
+
 model User {
   id              String    @id @default(uuid())
   email           String    @unique
@@ -107,6 +177,18 @@ model User {
   partnerRequests     ProjectPartnerRequest[] @relation("PartnerRequestUser")
   partnerReviews      ProjectPartnerRequest[] @relation("PartnerRequestReviewer")
   betaTestEmailsAdded BetaTestEmail[]         @relation("BetaTestEmailAddedBy")
+  staffCreated        StaffMember[]           @relation("StaffCreatedBy")
+  staffLinked         StaffMember[]           @relation("StaffUserLink")
+  attendanceMarked    StaffAttendance[]       @relation("AttendanceMarkedBy")
+  payrollCreated      StaffPayroll[]          @relation("PayrollCreatedBy")
+  payrollUpdated      StaffPayroll[]          @relation("PayrollUpdatedBy")
+  staffWagesCreated   StaffWage[]             @relation("StaffWageCreatedBy")
+  staffAdvancesCreated StaffAdvance[]         @relation("StaffAdvanceCreatedBy")
+  shopSalesCreated    ShopSale[]              @relation("ShopSaleCreatedBy")
+  measurementsCreated MeasurementEntry[]      @relation("MeasurementCreatedBy")
+  materialIssuesCreated MaterialIssue[]     @relation("MaterialIssueCreatedBy")
+  drawingRevisionsCreated DrawingRevision[] @relation("DrawingRevisionCreatedBy")
+  unitBookingsCreated UnitBooking[]           @relation("UnitBookingCreatedBy")
 }
 
 model BetaTestEmail {
@@ -167,14 +249,18 @@ model PasswordResetToken {
 }
 
 model Organization {
-  id                    String   @id @default(uuid())
+  id                    String       @id @default(uuid())
   name                  String
-  slug                  String   @unique
-  defaultCompletionDays Int      @default(30)
-  currency              String   @default("INR")
-  settings              Json     @default("{}")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  slug                  String       @unique
+  businessType          BusinessType @default(CONTRACTOR)
+  shopSector            ShopSector?
+  enableStaff           Boolean      @default(false)
+  timezone              String       @default("Asia/Kolkata")
+  defaultCompletionDays Int          @default(30)
+  currency              String       @default("INR")
+  settings              Json         @default("{}")
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
   members          OrganizationMember[]
   invites          OrganizationInvite[]
@@ -189,6 +275,22 @@ model Organization {
   documents        Document[]
   notifications    Notification[]
   auditLogs        AuditLog[]
+  staffMembers     StaffMember[]
+  staffAttendance  StaffAttendance[]
+  staffPayrolls    StaffPayroll[]
+  staffWages       StaffWage[]
+  staffAdvances    StaffAdvance[]
+  orgHolidays      OrgHoliday[]
+  shopSales        ShopSale[]
+  inventoryItems   InventoryItem[]
+  customerCredits  CustomerCredit[]
+  boqItems         BoqItem[]
+  measurementEntries MeasurementEntry[]
+  materialIssues   MaterialIssue[]
+  designStages     DesignStage[]
+  drawingRevisions DrawingRevision[]
+  builderUnits     BuilderUnit[]
+  unitBookings     UnitBooking[]
 }
 
 model OrganizationMember {
@@ -207,6 +309,356 @@ model OrganizationMember {
 
   @@unique([organizationId, userId])
   @@index([userId, organizationId])
+}
+
+model StaffMember {
+  id                 String      @id @default(uuid())
+  organizationId     String
+  userId             String?
+  name               String
+  phone              String?
+  roleTitle          String
+  wagePaise          BigInt?
+  wagePeriod         String?
+  overtimeRatePaise  BigInt?
+  status             StaffStatus @default(ACTIVE)
+  joinedAt           DateTime?
+  leftAt             DateTime?
+  notes              String?
+  createdById        String
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?             @relation("StaffUserLink", fields: [userId], references: [id], onDelete: SetNull)
+  createdBy    User              @relation("StaffCreatedBy", fields: [createdById], references: [id])
+  attendance   StaffAttendance[]
+  payrolls     StaffPayroll[]
+  wageHistory  StaffWage[]
+  advances     StaffAdvance[]
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, status])
+}
+
+model StaffWage {
+  id             String   @id @default(uuid())
+  organizationId String
+  staffId        String
+  wagePaise      BigInt
+  wagePeriod     String
+  overtimeRatePaise BigInt?
+  effectiveFrom  DateTime
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("StaffWageCreatedBy", fields: [createdById], references: [id])
+
+  @@index([staffId, effectiveFrom])
+}
+
+model StaffAttendance {
+  id             String           @id @default(uuid())
+  organizationId String
+  staffId        String
+  date           DateTime
+  status         AttendanceStatus @default(PRESENT)
+  overtimeHours  Float            @default(0)
+  notes          String?
+  markedById     String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  markedBy     User         @relation("AttendanceMarkedBy", fields: [markedById], references: [id])
+
+  @@unique([staffId, date])
+  @@index([organizationId, date])
+}
+
+model StaffAdvance {
+  id               String        @id @default(uuid())
+  organizationId   String
+  staffId          String
+  amountPaise      BigInt
+  repaidPaise      BigInt        @default(0)
+  monthlyDeductionPaise BigInt?
+  status           AdvanceStatus @default(OPEN)
+  notes            String?
+  createdById      String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("StaffAdvanceCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, staffId])
+}
+
+model StaffPayroll {
+  id                  String        @id @default(uuid())
+  organizationId      String
+  staffId             String
+  year                Int
+  month               Int
+  presentDays         Float         @default(0)
+  halfDays            Float         @default(0)
+  absentDays          Float         @default(0)
+  paidLeaveDays       Float         @default(0)
+  workingDays         Float         @default(0)
+  overtimeHours       Float         @default(0)
+  calculatedPaise     BigInt        @default(0)
+  adjustmentPaise     BigInt        @default(0)
+  finalAmountPaise    BigInt        @default(0)
+  driftCalculatedPaise BigInt?
+  status              PayrollStatus @default(DRAFT)
+  notes               String?
+  paidAt              DateTime?
+  expenseId           String?
+  paymentId           String?
+  createdById         String
+  updatedById         String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("PayrollCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?        @relation("PayrollUpdatedBy", fields: [updatedById], references: [id])
+  lines        StaffPayrollLine[]
+
+  @@unique([staffId, year, month])
+  @@index([organizationId, year, month])
+}
+
+model StaffPayrollLine {
+  id          String          @id @default(uuid())
+  payrollId   String
+  type        PayrollLineType
+  label       String
+  amountPaise BigInt
+  createdAt   DateTime        @default(now())
+
+  payroll StaffPayroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  @@index([payrollId])
+}
+
+model OrgHoliday {
+  id             String   @id @default(uuid())
+  organizationId String
+  date           DateTime
+  name           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, date])
+  @@index([organizationId, date])
+}
+
+model ShopSale {
+  id             String     @id @default(uuid())
+  organizationId String
+  billNumber     String?
+  customerName   String?
+  customerPhone  String?
+  customerGstin  String?
+  salesBoyName   String?
+  totalPaise     BigInt
+  gstPaise       BigInt     @default(0)
+  paymentMethod  PaymentMethod @default(CASH)
+  status         SaleStatus @default(COMPLETED)
+  issueInvoice   Boolean    @default(false)
+  itemsJson      Json
+  notes          String?
+  createdById    String
+  createdAt      DateTime   @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ShopSaleCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, createdAt])
+}
+
+model InventoryItem {
+  id             String   @id @default(uuid())
+  organizationId String
+  sku            String?
+  size           String?
+  barcode        String?
+  name           String
+  description    String?
+  unit           String   @default("pcs")
+  quantity       Float    @default(0)
+  reorderLevel   Float    @default(0)
+  costPaise      BigInt?
+  sellPaise      BigInt?
+  expiryDate     DateTime?
+  sectorMeta     Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, barcode])
+  @@index([organizationId, name])
+}
+
+model CustomerCredit {
+  id             String   @id @default(uuid())
+  organizationId String
+  customerName   String
+  phone          String?
+  balancePaise   BigInt   @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, customerName])
+}
+
+model BoqItem {
+  id             String   @id @default(uuid())
+  organizationId String
+  projectId      String
+  itemCode       String?
+  description    String
+  unit           String
+  quantity       Float
+  ratePaise      BigInt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model MeasurementEntry {
+  id             String   @id @default(uuid())
+  organizationId String
+  projectId      String
+  boqItemId      String?
+  description    String
+  quantity       Float
+  unit           String
+  date           DateTime
+  notes          String?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("MeasurementCreatedBy", fields: [createdById], references: [id])
+
+  @@index([projectId, date])
+}
+
+model MaterialIssue {
+  id             String   @id @default(uuid())
+  organizationId String
+  projectId      String
+  itemName       String
+  quantity       Float
+  unit           String
+  issuedTo       String?
+  date           DateTime
+  notes          String?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("MaterialIssueCreatedBy", fields: [createdById], references: [id])
+
+  @@index([projectId, date])
+}
+
+model DesignStage {
+  id             String            @id @default(uuid())
+  organizationId String
+  projectId      String
+  name           String
+  sortOrder      Int               @default(0)
+  feePaise       BigInt?
+  status         DesignStageStatus @default(PENDING)
+  dueDate        DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisions    DrawingRevision[]
+
+  @@index([projectId, sortOrder])
+}
+
+model DrawingRevision {
+  id             String   @id @default(uuid())
+  organizationId String
+  stageId        String
+  revisionNo     Int
+  title          String
+  notes          String?
+  submittedAt    DateTime?
+  approvedAt     DateTime?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stage        DesignStage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("DrawingRevisionCreatedBy", fields: [createdById], references: [id])
+
+  @@index([stageId, revisionNo])
+}
+
+model BuilderUnit {
+  id             String     @id @default(uuid())
+  organizationId String
+  projectId      String
+  unitNumber     String
+  floor          String?
+  areaSqft       Float?
+  pricePaise     BigInt?
+  status         UnitStatus @default(AVAILABLE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bookings     UnitBooking[]
+
+  @@unique([projectId, unitNumber])
+}
+
+model UnitBooking {
+  id             String        @id @default(uuid())
+  organizationId String
+  projectId      String
+  unitId         String
+  buyerName      String
+  buyerPhone     String?
+  bookingPaise   BigInt
+  status         BookingStatus @default(BOOKED)
+  bookedAt       DateTime      @default(now())
+  notes          String?
+  createdById    String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  unit         BuilderUnit  @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("UnitBookingCreatedBy", fields: [createdById], references: [id])
+
+  @@index([projectId, status])
 }
 
 model OrganizationInvite {
@@ -254,6 +706,12 @@ model Project {
   expenses     Expense[]
   payments     Payment[]
   documents    Document[]
+  boqItems         BoqItem[]
+  measurementEntries MeasurementEntry[]
+  materialIssues   MaterialIssue[]
+  designStages     DesignStage[]
+  builderUnits     BuilderUnit[]
+  unitBookings     UnitBooking[]
 
   @@index([organizationId])
   @@index([organizationId, status])

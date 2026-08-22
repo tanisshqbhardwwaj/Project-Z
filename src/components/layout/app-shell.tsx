@@ -7,13 +7,13 @@ import { cn } from "@/lib/utils";
 import { AppLogo, APP_SHELL_HEADER_HEIGHT } from "@/components/brand/app-logo";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
 import { getMobileQuickAction } from "@/lib/navigation/mobile-quick-action";
+import { useBusinessType } from "@/hooks/use-business-type";
+import type { OrgRole } from "@prisma/client";
+import { useAuthStore } from "@/stores/auth-store";
+import { canAccessProjectsNav } from "@/lib/permissions/rbac";
+import { useModuleNav } from "@/hooks/use-module-nav";
 
 const SIDEBAR_WIDTH = "w-64";
-
-const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/projects", icon: FolderKanban, label: "Projects" },
-];
 
 function isNavActive(pathname: string, href: string) {
   if (href === "/projects") {
@@ -33,6 +33,19 @@ const navLinkClass = (active: boolean) =>
 export function AppSidebar() {
   const pathname = usePathname();
   const profileActive = pathname.startsWith("/settings/profile");
+  const biz = useBusinessType();
+  const role = useAuthStore((s) => s.role) as OrgRole | null;
+  const showProjects = role ? canAccessProjectsNav(role) : true;
+  const moduleNav = useModuleNav();
+  const navItems = [
+    ...(showProjects
+      ? [
+          { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+          { href: "/projects", icon: FolderKanban, label: biz.workItemPlural },
+        ]
+      : []),
+    ...moduleNav.map((m) => ({ href: m.href, icon: m.icon, label: m.label })),
+  ];
 
   return (
     <aside
@@ -73,19 +86,42 @@ export function AppSidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
-  const quickAction = getMobileQuickAction(pathname);
+  const biz = useBusinessType();
+  const role = useAuthStore((s) => s.role) as OrgRole | null;
+  const showProjects = role ? canAccessProjectsNav(role) : true;
+  const moduleNav = useModuleNav();
+  const quickAction = getMobileQuickAction(pathname, biz);
   const QuickIcon = quickAction.Icon;
 
+  const moduleItems = moduleNav.slice(0, showProjects ? 1 : 2).map((m) => ({
+    href: m.href,
+    icon: m.icon,
+    label: m.label,
+    isAction: false as const,
+  }));
+
   const mobileItems = [
-    { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
-    { href: "/projects", icon: FolderKanban, label: "Projects" },
-    { href: quickAction.href, icon: QuickIcon, label: quickAction.label, isAction: true },
-    { href: "/settings/profile", icon: User, label: "Profile" },
+    ...(showProjects
+      ? [
+          { href: "/dashboard", icon: LayoutDashboard, label: "Home", isAction: false as const },
+          { href: "/projects", icon: FolderKanban, label: biz.workItemPlural, isAction: false as const },
+        ]
+      : []),
+    ...moduleItems,
+    ...(showProjects
+      ? [{ href: quickAction.href, icon: QuickIcon, label: quickAction.label, isAction: true as const }]
+      : []),
+    { href: "/settings/profile", icon: User, label: "Profile", isAction: false as const },
   ];
+
+  const cols = mobileItems.length;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md md:hidden">
-      <div className="mx-auto grid h-[3.75rem] max-w-lg grid-cols-4 px-1">
+      <div
+        className="mx-auto grid h-[3.75rem] max-w-lg px-1"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
         {mobileItems.map((item) => {
           const Icon = item.icon;
           const active = item.isAction

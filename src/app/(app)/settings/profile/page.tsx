@@ -14,6 +14,8 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireField } from "@/lib/api/validation";
 import { MAX_BETA_TEST_EMAILS } from "@/lib/email/test-allowlist";
+import { getBusinessTypeConfig } from "@/lib/org/business-type";
+import { getShopSectorConfig } from "@/lib/org/shop-sector";
 
 type BetaTestEmail = {
   id: string;
@@ -23,7 +25,7 @@ type BetaTestEmail = {
 };
 
 export default function SettingsProfilePage() {
-  const { user, activeOrganizationName, role, status, initialized, updateUser, logout } =
+  const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, updateUser, logout } =
     useAuthStore();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -272,11 +274,31 @@ export default function SettingsProfilePage() {
             <p>
               <strong>{activeOrganizationName ?? "—"}</strong>
             </p>
-            <Link href="/settings/members">
-              <Button variant="outline" className="rounded-xl">
-                Manage Members
-              </Button>
-            </Link>
+            <p className="text-sm text-muted-foreground">
+              {getBusinessTypeConfig(activeBusinessType).label}
+              {activeBusinessType === "SHOPKEEPER" && activeShopSector
+                ? ` · ${getShopSectorConfig(activeShopSector).label}`
+                : ""}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/settings/organization">
+                <Button variant="outline" className="rounded-xl">
+                  Manage Organization
+                </Button>
+              </Link>
+              <Link href="/settings/members">
+                <Button variant="outline" className="rounded-xl">
+                  Manage Members
+                </Button>
+              </Link>
+              {enabledModules.staff && (
+                <Link href="/staff">
+                  <Button variant="outline" className="rounded-xl">
+                    Staff & payroll
+                  </Button>
+                </Link>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
