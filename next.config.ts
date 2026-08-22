@@ -14,6 +14,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Tauri desktop loads http://127.0.0.1:3000 (not localhost).
+  allowedDevOrigins: ["127.0.0.1"],
   // Standalone is for Docker only — Vercel needs default output for serverless NFT tracing.
   ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "tesseract.js", "inngest", "heic-convert"],

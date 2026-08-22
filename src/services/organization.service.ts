@@ -3,7 +3,16 @@ import { slugify, generateToken } from "@/lib/utils";
 import { seedExpenseCategories } from "../../prisma/categories";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
 import { createAuditLog } from "./audit.service";
+<<<<<<< Updated upstream
 import type { OrgRole } from "@prisma/client";
+=======
+import type { BusinessType, OrgRole, ShopSector } from "@prisma/client";
+import { mergeModuleSettings, parseOrgSettings } from "@/lib/org/require-module";
+import { mergeShopOrgSettings, type ShopOrgSettings } from "@/lib/org/shop-settings";
+import type { ModuleKey } from "@/lib/org/modules";
+import { defaultEnabledModules } from "@/lib/org/modules";
+import { setupFeeForNewOrg } from "@/services/billing.service";
+>>>>>>> Stashed changes
 
 export async function createOrganization(input: {
   name: string;
@@ -13,11 +22,56 @@ export async function createOrganization(input: {
   const existing = await prisma.organization.findUnique({ where: { slug } });
   if (existing) slug = `${slug}-${Date.now()}`;
 
+<<<<<<< Updated upstream
+=======
+  const businessType = input.businessType ?? "CONTRACTOR";
+  const shopSector =
+    businessType === "SHOPKEEPER" ? (input.shopSector ?? "GENERAL") : null;
+  const enableStaff =
+    businessType === "SHOPKEEPER" ? Boolean(input.enableStaff) : false;
+
+  const defaultModules = defaultEnabledModules(businessType, shopSector);
+  if (enableStaff) defaultModules.staff = true;
+
+  const { setupFeePaise, earlyBird } =
+    businessType === "SHOPKEEPER"
+      ? await setupFeeForNewOrg()
+      : { setupFeePaise: BigInt(0), earlyBird: false };
+
+  const trialEnd = new Date();
+  trialEnd.setDate(trialEnd.getDate() + 14);
+
+  const user = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { id: true },
+  });
+  if (!user) {
+    throw new Error(
+      "Your login session is out of date (user not found). Log out, register/log in again, then create the organization."
+    );
+  }
+
+>>>>>>> Stashed changes
   const org = await prisma.$transaction(async (tx) => {
     const organization = await tx.organization.create({
       data: {
         name: input.name,
         slug,
+<<<<<<< Updated upstream
+=======
+        businessType,
+        shopSector,
+        enableStaff,
+        settings: { modules: defaultModules },
+        plan: businessType === "SHOPKEEPER" ? "BASIC" : "BUSINESS",
+        subscriptionStatus: businessType === "SHOPKEEPER" ? "TRIAL" : "ACTIVE",
+        storageQuotaBytes:
+          businessType === "SHOPKEEPER" ? BigInt(2 * 1024 * 1024 * 1024) : BigInt(5 * 1024 * 1024 * 1024),
+        currentPeriodEnd: businessType === "SHOPKEEPER" ? trialEnd : null,
+        setupFeePaise: businessType === "SHOPKEEPER" ? setupFeePaise : null,
+        setupFeeStatus: businessType === "SHOPKEEPER" ? "UNPAID" : "WAIVED",
+        earlyBirdSetup: businessType === "SHOPKEEPER" ? earlyBird : false,
+>>>>>>> Stashed changes
       },
     });
 

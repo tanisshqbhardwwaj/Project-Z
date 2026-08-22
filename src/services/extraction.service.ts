@@ -24,7 +24,10 @@ export async function uploadAndExtract(input: {
 }) {
   const storageKey = buildStorageKey(input.organizationId, "work-orders", input.fileName);
 
-  await uploadFile(storageKey, input.file, input.mimeType);
+  await uploadFile(storageKey, input.file, input.mimeType, {
+    organizationId: input.organizationId,
+    category: "document",
+  });
 
   const document = await prisma.document.create({
     data: {

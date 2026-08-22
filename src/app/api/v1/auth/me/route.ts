@@ -4,6 +4,11 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { handleApi, apiSuccess } from "@/lib/api/context";
+<<<<<<< Updated upstream
+=======
+import { modulesPayloadForClient } from "@/lib/org/require-module";
+import { isPlatformAdminEmail } from "@/lib/billing/platform-admin";
+>>>>>>> Stashed changes
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
@@ -38,14 +43,73 @@ export async function GET() {
         organizationMembers: {
           where: { status: "ACTIVE" },
           include: {
+<<<<<<< Updated upstream
             organization: true,
+=======
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                businessType: true,
+                shopSector: true,
+                enableStaff: true,
+                timezone: true,
+                settings: true,
+                plan: true,
+                subscriptionStatus: true,
+              },
+            },
+>>>>>>> Stashed changes
             user: { select: { id: true, name: true, email: true } },
           },
         },
       },
     });
 
+<<<<<<< Updated upstream
     return NextResponse.json({ data: serializeBigInt(user) });
+=======
+    if (!user) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "SESSION_STALE",
+            message: "Your login session is out of date. Please log in again.",
+          },
+        },
+        { status: 401 }
+      );
+    }
+
+    const enriched = {
+      ...user,
+      organizationMembers: user.organizationMembers.map((m) => {
+        const { enabledModules, settings } = modulesPayloadForClient({
+          businessType: m.organization.businessType,
+          shopSector: m.organization.shopSector,
+          settings: m.organization.settings,
+          enableStaff: m.organization.enableStaff,
+          plan: m.organization.plan,
+        });
+        return {
+          ...m,
+          organization: {
+            ...m.organization,
+            enabledModules,
+            orgSettings: settings,
+          },
+        };
+      }),
+    };
+
+    return NextResponse.json({
+      data: serializeBigInt({
+        ...enriched,
+        isPlatformAdmin: isPlatformAdminEmail(user.email),
+      }),
+    });
+>>>>>>> Stashed changes
   });
 }
 
@@ -78,7 +142,24 @@ export async function PATCH(request: Request) {
         organizationMembers: {
           where: { status: "ACTIVE" },
           include: {
+<<<<<<< Updated upstream
             organization: true,
+=======
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                businessType: true,
+                shopSector: true,
+                enableStaff: true,
+                timezone: true,
+                settings: true,
+                plan: true,
+                subscriptionStatus: true,
+              },
+            },
+>>>>>>> Stashed changes
             user: { select: { id: true, name: true, email: true } },
           },
         },

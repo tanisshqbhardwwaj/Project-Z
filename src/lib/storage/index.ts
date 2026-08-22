@@ -89,14 +89,37 @@ export function buildStorageKey(
 export async function uploadFile(
   key: string,
   body: Buffer | Uint8Array,
-  contentType: string
+  contentType: string,
+  options?: { organizationId?: string; category?: string }
 ) {
   await ensureBucket();
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
+  if (options?.organizationId) {
+    const { assertCloudStorageAllowed, recordStorageUpload } = await import(
+      "@/services/storage-quota.service"
+    );
+    await assertCloudStorageAllowed(options.organizationId, BigInt(buf.length));
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: buf,
+        ContentType: contentType,
+      })
+    );
+    await recordStorageUpload({
+      organizationId: options.organizationId,
+      storageKey: key,
+      byteSize: BigInt(buf.length),
+      category: options.category ?? "file",
+    });
+    return key;
+  }
   await s3.send(
     new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      Body: body,
+      Body: buf,
       ContentType: contentType,
     })
   );

@@ -77,6 +77,204 @@ enum ExtractionStatus {
   REVIEWED
 }
 
+<<<<<<< Updated upstream
+=======
+enum BusinessType {
+  CONTRACTOR
+  ARCHITECT
+  BUILDER
+  SHOPKEEPER
+}
+
+enum ShopSector {
+  GROCERY
+  HARDWARE
+  ELECTRONICS
+  CLOTHING
+  PHARMACY
+  RESTAURANT
+  GENERAL
+}
+
+enum StaffStatus {
+  ACTIVE
+  LEFT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  PAID_LEAVE
+}
+
+enum PayrollStatus {
+  DRAFT
+  FINALIZED
+  PAID
+}
+
+enum PayrollLineType {
+  EARNING
+  DEDUCTION
+}
+
+enum AdvanceStatus {
+  OPEN
+  CLOSED
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOID
+}
+
+enum InvoicePaymentStatus {
+  PAID
+  PARTIAL
+  UNPAID
+}
+
+enum PurchasePaymentStatus {
+  PAID
+  PARTIAL
+  UNPAID
+}
+
+enum PurchaseRecordStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum ShopExpenseType {
+  DAILY
+  MONTHLY
+  ONE_TIME
+}
+
+enum CreditTransactionType {
+  OPENING
+  SALE
+  PAYMENT
+  ADJUSTMENT
+  RETURN_REFUND
+}
+
+enum ReturnReason {
+  DAMAGED
+  DEFECTIVE
+  WRONG_PRODUCT
+  CUSTOMER_CHANGED_MIND
+  OTHER
+}
+
+enum ReturnTransactionType {
+  RETURN
+  EXCHANGE
+}
+
+enum HeldBillStatus {
+  ACTIVE
+  RESUMED
+  CANCELLED
+  EXPIRED
+}
+
+enum OfferDiscountType {
+  PERCENT
+  FIXED_AMOUNT
+  PRODUCT_PERCENT
+  PRODUCT_FIXED
+  CATEGORY_PERCENT
+  CATEGORY_FIXED
+  BUY_X_GET_Y
+  BUY_X_GET_X
+  CART_MIN_FLAT
+}
+
+enum BookingStatus {
+  BOOKED
+  CANCELLED
+  HANDED_OVER
+}
+
+enum DesignStageStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+}
+
+enum UnitStatus {
+  AVAILABLE
+  BOOKED
+  SOLD
+}
+
+enum BillingPlan {
+  BASIC
+  BUSINESS
+  PROFESSIONAL
+  BUSINESS_PRO
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  PENDING_PAYMENT
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum SetupFeeStatus {
+  UNPAID
+  PAID
+  WAIVED
+}
+
+enum BillingCycle {
+  MONTHLY
+}
+
+enum PlanRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum BillingEventType {
+  PLAN_REQUEST
+  PLAN_ACTIVATED
+  PLAN_CHANGED
+  SETUP_FEE_PAID
+  SETUP_FEE_WAIVED
+  CANCELLED
+  REACTIVATED
+  REQUEST_REJECTED
+}
+
+enum SyncOutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum DeviceType {
+  WINDOWS
+  ANDROID
+  IOS
+  MAC
+}
+
+enum DeviceStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+>>>>>>> Stashed changes
 model User {
   id              String    @id @default(uuid())
   email           String    @unique
@@ -107,6 +305,32 @@ model User {
   partnerRequests     ProjectPartnerRequest[] @relation("PartnerRequestUser")
   partnerReviews      ProjectPartnerRequest[] @relation("PartnerRequestReviewer")
   betaTestEmailsAdded BetaTestEmail[]         @relation("BetaTestEmailAddedBy")
+<<<<<<< Updated upstream
+=======
+  staffCreated        StaffMember[]           @relation("StaffCreatedBy")
+  staffLinked         StaffMember[]           @relation("StaffUserLink")
+  attendanceMarked    StaffAttendance[]       @relation("AttendanceMarkedBy")
+  payrollCreated      StaffPayroll[]          @relation("PayrollCreatedBy")
+  payrollUpdated      StaffPayroll[]          @relation("PayrollUpdatedBy")
+  staffWagesCreated   StaffWage[]             @relation("StaffWageCreatedBy")
+  staffAdvancesCreated StaffAdvance[]         @relation("StaffAdvanceCreatedBy")
+  shopSalesCreated    ShopSale[]              @relation("ShopSaleCreatedBy")
+  shopHeldBillsCreated ShopHeldBill[]         @relation("ShopHeldBillCreatedBy")
+  shopOffersCreated   ShopOffer[]             @relation("ShopOfferCreatedBy")
+  shopReturnsCreated  ShopSaleReturn[]        @relation("ShopReturnCreatedBy")
+  shopPurchasesCreated ShopPurchase[]         @relation("ShopPurchaseCreatedBy")
+  shopPurchasePaymentsCreated ShopPurchasePayment[] @relation("ShopPurchasePaymentCreatedBy")
+  shopExpensesCreated ShopExpense[]           @relation("ShopExpenseCreatedBy")
+  shopRecurringExpensesCreated ShopRecurringExpense[] @relation("ShopRecurringExpenseCreatedBy")
+  creditEntriesCreated CustomerCreditEntry[]  @relation("CreditEntryCreatedBy")
+  measurementsCreated MeasurementEntry[]      @relation("MeasurementCreatedBy")
+  materialIssuesCreated MaterialIssue[]     @relation("MaterialIssueCreatedBy")
+  drawingRevisionsCreated DrawingRevision[] @relation("DrawingRevisionCreatedBy")
+  unitBookingsCreated UnitBooking[]           @relation("UnitBookingCreatedBy")
+  planRequestsCreated PlanRequest[]           @relation("PlanRequestCreatedBy")
+  planRequestsReviewed PlanRequest[]          @relation("PlanRequestReviewedBy")
+  billingEventsActed  BillingEvent[]          @relation("BillingEventActor")
+>>>>>>> Stashed changes
 }
 
 model BetaTestEmail {
@@ -169,12 +393,38 @@ model PasswordResetToken {
 model Organization {
   id                    String   @id @default(uuid())
   name                  String
+<<<<<<< Updated upstream
   slug                  String   @unique
   defaultCompletionDays Int      @default(30)
   currency              String   @default("INR")
   settings              Json     @default("{}")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+=======
+  slug                  String       @unique
+  businessType          BusinessType @default(CONTRACTOR)
+  shopSector            ShopSector?
+  enableStaff           Boolean      @default(false)
+  timezone              String       @default("Asia/Kolkata")
+  defaultCompletionDays Int          @default(30)
+  currency              String       @default("INR")
+  settings              Json         @default("{}")
+  plan                  BillingPlan        @default(BASIC)
+  subscriptionStatus    SubscriptionStatus @default(ACTIVE)
+  storageQuotaBytes     BigInt             @default(2147483648)
+  storageUsedBytes      BigInt             @default(0)
+  billingCycle          BillingCycle       @default(MONTHLY)
+  currentPeriodEnd      DateTime?
+  setupFeePaise         BigInt?
+  setupFeeStatus        SetupFeeStatus     @default(UNPAID)
+  earlyBirdSetup        Boolean            @default(false)
+  onboardingCompleteAt  DateTime?
+  cancelledAt           DateTime?
+  cancelReason          String?
+  localPinHash          String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+>>>>>>> Stashed changes
 
   members          OrganizationMember[]
   invites          OrganizationInvite[]
@@ -189,6 +439,133 @@ model Organization {
   documents        Document[]
   notifications    Notification[]
   auditLogs        AuditLog[]
+<<<<<<< Updated upstream
+=======
+  staffMembers     StaffMember[]
+  staffAttendance  StaffAttendance[]
+  staffPayrolls    StaffPayroll[]
+  staffWages       StaffWage[]
+  staffAdvances    StaffAdvance[]
+  orgHolidays      OrgHoliday[]
+  shopSales        ShopSale[]
+  shopHeldBills    ShopHeldBill[]
+  shopOffers       ShopOffer[]
+  shopSaleReturns  ShopSaleReturn[]
+  shopCustomers    ShopCustomer[]
+  shopSuppliers    ShopSupplier[]
+  shopPurchases    ShopPurchase[]
+  shopPurchasePayments ShopPurchasePayment[]
+  shopExpenseCategories ShopExpenseCategory[]
+  shopExpenses     ShopExpense[]
+  shopRecurringExpenses ShopRecurringExpense[]
+  inventoryItems   InventoryItem[]
+  customerCredits  CustomerCredit[]
+  customerCreditEntries CustomerCreditEntry[]
+  boqItems         BoqItem[]
+  measurementEntries MeasurementEntry[]
+  materialIssues   MaterialIssue[]
+  designStages     DesignStage[]
+  drawingRevisions DrawingRevision[]
+  builderUnits     BuilderUnit[]
+  unitBookings     UnitBooking[]
+  planRequests     PlanRequest[]
+  billingEvents    BillingEvent[]
+  syncOutbox       SyncOutbox[]
+  devices          Device[]
+  storageObjects   StorageObject[]
+  invoiceDraft     ShopInvoiceDraft?
+}
+
+model ShopInvoiceDraft {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  draftJson      Json
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model PlanRequest {
+  id             String            @id @default(uuid())
+  organizationId String
+  fromPlan       BillingPlan
+  toPlan         BillingPlan
+  status         PlanRequestStatus @default(PENDING)
+  createdById    String
+  reviewedById   String?
+  reviewedAt     DateTime?
+  rejectReason   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("PlanRequestCreatedBy", fields: [createdById], references: [id])
+  reviewedBy   User?        @relation("PlanRequestReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([status, createdAt])
+}
+
+model BillingEvent {
+  id             String           @id @default(uuid())
+  organizationId String
+  type           BillingEventType
+  actorUserId    String?
+  metadata       Json             @default("{}")
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation("BillingEventActor", fields: [actorUserId], references: [id])
+
+  @@index([organizationId, createdAt])
+}
+
+model SyncOutbox {
+  id             String           @id @default(uuid())
+  organizationId String
+  kind           String
+  payload        Json
+  status         SyncOutboxStatus @default(PENDING)
+  attempts       Int              @default(0)
+  lastError      String?
+  createdAt      DateTime         @default(now())
+  processedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt])
+}
+
+model Device {
+  id             String       @id @default(uuid())
+  organizationId String
+  deviceType     DeviceType
+  name           String
+  pairingToken   String?      @unique
+  pairingExpires DateTime?
+  status         DeviceStatus @default(PENDING)
+  lastSeenAt     DateTime?
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+}
+
+model StorageObject {
+  id             String   @id @default(uuid())
+  organizationId String
+  storageKey     String   @unique
+  byteSize       BigInt
+  category       String   @default("file")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+>>>>>>> Stashed changes
 }
 
 model OrganizationMember {

@@ -20,7 +20,15 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('npx prisma generate',{stdio:'inherit'})}\""
+    "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('npx prisma generate',{stdio:'inherit'})}\"",
+    "go": "powershell -ExecutionPolicy Bypass -File scripts/go-once.ps1",
+    "desktop:once": "powershell -ExecutionPolicy Bypass -File scripts/desktop-once.ps1",
+    "desktop:start": "powershell -ExecutionPolicy Bypass -File scripts/desktop-start.ps1",
+    "desktop:window": "powershell -ExecutionPolicy Bypass -File scripts/desktop-window.ps1",
+    "deploy:once": "powershell -ExecutionPolicy Bypass -File scripts/deploy-once.ps1",
+    "desktop:dev": "npm run dev --prefix desktop",
+    "desktop:build:win": "npm run build:win --prefix desktop",
+    "turso:migrate": "node --env-file=.env scripts/turso-migrate-idempotent.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

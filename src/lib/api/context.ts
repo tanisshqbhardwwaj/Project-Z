@@ -3,7 +3,12 @@ import { ZodError } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import type { OrgRole } from "@prisma/client";
+<<<<<<< Updated upstream
 import { hasPermission, type Permission } from "@/lib/permissions/rbac";
+=======
+import { hasPermission, canManageOrg, type Permission } from "@/lib/permissions/rbac";
+import { subscriptionAllowsProductUse } from "@/lib/billing/entitlements";
+>>>>>>> Stashed changes
 import { formatZodError } from "@/lib/api/validation";
 import { logger } from "@/lib/logger";
 import { RateLimitError } from "@/lib/rate-limit";
@@ -28,7 +33,8 @@ export interface AuthContext {
 }
 
 export async function getAuthContext(
-  organizationIdHeader?: string | null
+  organizationIdHeader?: string | null,
+  options?: { allowCancelled?: boolean }
 ): Promise<AuthContext> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -61,6 +67,21 @@ export async function getAuthContext(
 
   if (!member || member.status !== "ACTIVE") {
     throw new ApiError(403, "FORBIDDEN", "Not a member of this organization");
+  }
+
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { subscriptionStatus: true, name: true },
+  });
+  if (!org) {
+    throw new ApiError(404, "NOT_FOUND", "Organization not found");
+  }
+  if (!subscriptionAllowsProductUse(org.subscriptionStatus) && !options?.allowCancelled) {
+    throw new ApiError(
+      403,
+      "SUBSCRIPTION_CANCELLED",
+      "This shop subscription is cancelled. Go to Settings → Billing or contact support to reactivate."
+    );
   }
 
   return {
