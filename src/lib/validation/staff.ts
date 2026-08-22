@@ -67,6 +67,14 @@ export const updatePayrollSchema = z.object({
     .optional(),
 });
 
+export const createStaffAdvanceSchema = z.object({
+  staffId: z.string().min(1),
+  amountRupees: z.number().positive(),
+  notes: z.string().max(500).optional().nullable(),
+  givenDate: dayKeySchema.optional(),
+  paymentMethod: z.enum(["CASH", "UPI", "CARD", "BANK", "OTHER"]).optional(),
+});
+
 export const orgModulesSchema = z.record(z.string(), z.boolean());
 
 export const orgSettingsPatchSchema = z.object({

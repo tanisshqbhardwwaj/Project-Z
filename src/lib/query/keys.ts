@@ -26,6 +26,8 @@ export const queryKeys = {
     [...queryKeys.org(orgId), "project", projectId, "vendor", vendorId] as const,
   members: (orgId: string) => [...queryKeys.org(orgId), "members"] as const,
   notifications: (orgId: string) => [...queryKeys.org(orgId), "notifications"] as const,
+  notificationsUnread: (orgId: string) =>
+    [...queryKeys.org(orgId), "notifications", "unread-count"] as const,
   organization: (orgId: string) => [...queryKeys.org(orgId), "organization"] as const,
 
   staff: {
@@ -38,6 +40,9 @@ export const queryKeys = {
       [...queryKeys.org(orgId), "staff", "attendance-range", from, to, staffId ?? "all"] as const,
     payroll: (orgId: string, year: number, month: number) =>
       [...queryKeys.org(orgId), "staff", "payroll", year, month] as const,
+    advances: (orgId: string) => [...queryKeys.org(orgId), "staff", "advances"] as const,
+    regularity: (orgId: string, days: number) =>
+      [...queryKeys.org(orgId), "staff", "attendance", "regularity", days] as const,
     holidays: (orgId: string, year: number) =>
       [...queryKeys.org(orgId), "staff", "holidays", year] as const,
   },
@@ -45,8 +50,31 @@ export const queryKeys = {
   modules: {
     shop: {
       sales: (orgId: string) => [...queryKeys.org(orgId), "shop", "sales"] as const,
+      invoices: (orgId: string) => [...queryKeys.org(orgId), "shop", "invoices"] as const,
+      heldBills: (orgId: string) => [...queryKeys.org(orgId), "shop", "held-bills"] as const,
+      returns: (orgId: string) => [...queryKeys.org(orgId), "shop", "returns"] as const,
+      offers: (orgId: string) => [...queryKeys.org(orgId), "shop", "offers"] as const,
+      topCustomers: (orgId: string, period: string) =>
+        [...queryKeys.org(orgId), "shop", "top-customers", period] as const,
+      dashboard: (orgId: string) => [...queryKeys.org(orgId), "shop", "dashboard"] as const,
+      staffInvoices: (orgId: string, period: string, staffName: string) =>
+        [...queryKeys.org(orgId), "shop", "staff-invoices", period, staffName] as const,
       inventory: (orgId: string) => [...queryKeys.org(orgId), "shop", "inventory"] as const,
+      inventoryAnalytics: (orgId: string, days = 30) =>
+        [...queryKeys.org(orgId), "shop", "inventory", "analytics", days] as const,
       customers: (orgId: string) => [...queryKeys.org(orgId), "shop", "customers"] as const,
+      customerRegistry: (orgId: string, q = "") =>
+        [...queryKeys.org(orgId), "shop", "customer-registry", q] as const,
+      purchases: (orgId: string) => [...queryKeys.org(orgId), "shop", "purchases"] as const,
+      suppliers: (orgId: string) => [...queryKeys.org(orgId), "shop", "suppliers"] as const,
+      expenses: (orgId: string) => [...queryKeys.org(orgId), "shop", "expenses"] as const,
+      expenseCategories: (orgId: string) =>
+        [...queryKeys.org(orgId), "shop", "expense-categories"] as const,
+      profit: (orgId: string, period: string) =>
+        [...queryKeys.org(orgId), "shop", "profit", period] as const,
+      activity: (orgId: string) => [...queryKeys.org(orgId), "shop", "activity"] as const,
+      creditLedger: (orgId: string, creditId: string) =>
+        [...queryKeys.org(orgId), "shop", "credit-ledger", creditId] as const,
     },
     contractor: {
       boq: (orgId: string, projectId: string) =>

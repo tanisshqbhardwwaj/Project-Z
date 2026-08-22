@@ -15,6 +15,12 @@ export type Permission =
   | "financial.view"
   | "shop.sales"
   | "shop.inventory.manage"
+  | "shop.purchase.manage"
+  | "shop.purchase.view"
+  | "shop.expense.manage"
+  | "shop.expense.view"
+  | "shop.profit.view"
+  | "shop.activity.view"
   | "report.export"
   | "audit.view"
   | "vendor.manage"
@@ -41,6 +47,12 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "financial.view",
     "shop.sales",
     "shop.inventory.manage",
+    "shop.purchase.manage",
+    "shop.purchase.view",
+    "shop.expense.manage",
+    "shop.expense.view",
+    "shop.profit.view",
+    "shop.activity.view",
     "report.export",
     "audit.view",
     "vendor.manage",
@@ -60,6 +72,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "financial.view",
     "shop.sales",
     "shop.inventory.manage",
+    "shop.purchase.view",
+    "shop.expense.view",
+    "shop.profit.view",
     "report.export",
     "audit.view",
     "vendor.manage",
@@ -75,6 +90,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "financial.view",
     "shop.sales",
     "shop.inventory.manage",
+    "shop.purchase.view",
+    "shop.expense.view",
+    "shop.profit.view",
     "report.export",
     "audit.view",
     "vendor.manage",
@@ -87,6 +105,28 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
   VIEWER: ["project.view_assigned", "financial.view", "staff.view"],
   CASHIER: ["shop.sales", "attendance.view_own"],
 };
+
+export function canManageShopPurchases(role: OrgRole): boolean {
+  return hasPermission(role, "shop.purchase.manage");
+}
+
+export function canViewShopPurchases(role: OrgRole): boolean {
+  return (
+    hasPermission(role, "shop.purchase.view") ||
+    hasPermission(role, "shop.purchase.manage")
+  );
+}
+
+export function canManageShopExpenses(role: OrgRole): boolean {
+  return hasPermission(role, "shop.expense.manage");
+}
+
+export function canViewShopExpenses(role: OrgRole): boolean {
+  return (
+    hasPermission(role, "shop.expense.view") ||
+    hasPermission(role, "shop.expense.manage")
+  );
+}
 
 export function hasPermission(role: OrgRole, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;

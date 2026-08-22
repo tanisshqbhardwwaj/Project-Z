@@ -12,6 +12,11 @@ export async function nextShopBillNumber(
   });
   const settings = (org?.settings ?? {}) as Record<string, unknown>;
   const shop = (settings.shop ?? {}) as Record<string, unknown>;
+  const invoice = (shop.invoice ?? {}) as Record<string, unknown>;
+  const prefix =
+    typeof invoice.billPrefix === "string" && invoice.billPrefix.trim()
+      ? invoice.billPrefix.trim().toUpperCase()
+      : "INV";
   const seq = Number(shop.nextBillSeq ?? 0) + 1;
   const nextSettings = {
     ...settings,
@@ -22,5 +27,5 @@ export async function nextShopBillNumber(
     data: { settings: nextSettings },
   });
   const year = new Date().getFullYear();
-  return `INV-${year}-${String(seq).padStart(5, "0")}`;
+  return `${prefix}-${year}-${String(seq).padStart(5, "0")}`;
 }

@@ -3,6 +3,7 @@ import { apiFetch, ApiClientError, setActiveOrganizationId } from "@/lib/api/cli
 import type { BusinessType } from "@/lib/org/business-type";
 import type { ShopSector } from "@/lib/org/shop-sector";
 import type { EnabledModulesMap } from "@/hooks/use-enabled-modules";
+import type { OrgSettingsJson } from "@/lib/org/modules";
 
 export type OrgMembership = {
   organizationId: string;
@@ -33,6 +34,7 @@ type AuthState = {
   activeOrganizationName: string | null;
   activeBusinessType: BusinessType | null;
   activeShopSector: ShopSector | null;
+  activeOrgSettings: OrgSettingsJson | null;
   timezone: string;
   enableStaff: boolean;
   enabledModules: EnabledModulesMap;
@@ -53,7 +55,8 @@ type AuthState = {
     enabledModules?: EnabledModulesMap,
     timezone?: string,
     linkedStaffId?: string | null,
-    linkedStaffName?: string | null
+    linkedStaffName?: string | null,
+    orgSettings?: OrgSettingsJson | null
   ) => void;
   updateUser: (patch: Pick<AuthUser, "name" | "phone">) => void;
   logout: () => void;
@@ -64,6 +67,7 @@ function pickOrgFields(activeOrg: {
   shopSector?: ShopSector | null;
   enableStaff?: boolean;
   enabledModules?: EnabledModulesMap;
+  orgSettings?: OrgSettingsJson;
   timezone?: string;
 } | undefined, membership: OrgMembership | undefined) {
   return {
@@ -80,6 +84,7 @@ function pickOrgFields(activeOrg: {
       activeOrg?.enabledModules ??
       membership?.organization?.enabledModules ??
       {},
+    activeOrgSettings: activeOrg?.orgSettings ?? null,
     timezone:
       activeOrg?.timezone ??
       membership?.organization?.timezone ??
@@ -93,6 +98,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   activeOrganizationName: null,
   activeBusinessType: null,
   activeShopSector: null,
+  activeOrgSettings: null,
   timezone: "Asia/Kolkata",
   enableStaff: false,
   enabledModules: {},
@@ -154,6 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           activeOrganizationName: null,
           activeBusinessType: null,
           activeShopSector: null,
+          activeOrgSettings: null,
           timezone: "Asia/Kolkata",
           enableStaff: false,
           enabledModules: {},
@@ -188,7 +195,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     enabledModules = {},
     timezone = "Asia/Kolkata",
     linkedStaffId = null,
-    linkedStaffName = null
+    linkedStaffName = null,
+    orgSettings: OrgSettingsJson | null = null
   ) => {
     setActiveOrganizationId(orgId);
     set({
@@ -198,6 +206,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       activeShopSector: shopSector ?? null,
       enableStaff: Boolean(enableStaff),
       enabledModules,
+      activeOrgSettings: orgSettings,
       timezone,
       role,
       linkedStaffId: linkedStaffId ?? null,
@@ -219,6 +228,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       activeOrganizationName: null,
       activeBusinessType: null,
       activeShopSector: null,
+      activeOrgSettings: null,
       timezone: "Asia/Kolkata",
       enableStaff: false,
       enabledModules: {},

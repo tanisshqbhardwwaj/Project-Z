@@ -35,6 +35,34 @@ const updateSchema = z.object({
         .object({
           brandName: z.string().max(80).optional(),
           logoUrl: z.string().max(500_000).optional().nullable(),
+          invoice: z
+            .object({
+              headerTitle: z.string().max(120).optional(),
+              displayName: z.string().max(120).optional(),
+              address: z.string().max(500).optional(),
+              phone: z.string().max(30).optional(),
+              email: z.string().max(120).optional(),
+              gstin: z.string().max(20).optional(),
+              footerText: z.string().max(300).optional(),
+              termsText: z.string().max(500).optional(),
+              showLogo: z.boolean().optional(),
+              showBarcode: z.boolean().optional(),
+              showCashier: z.boolean().optional(),
+              showSalesStaff: z.boolean().optional(),
+              showCustomerPhone: z.boolean().optional(),
+              showCustomerGstin: z.boolean().optional(),
+              showPaymentMethod: z.boolean().optional(),
+              showSubtotal: z.boolean().optional(),
+              billPrefix: z.string().max(10).optional(),
+              defaultTaxRatePercent: z.number().min(0).max(100).optional(),
+              discountBasis: z.enum(["subtotal", "total"]).optional(),
+              defaultStaffMonthlyTargetRupees: z.number().min(0).optional(),
+              staffMonthlyTargets: z.record(z.string(), z.number()).optional(),
+              paperSize: z.enum(["58mm", "80mm", "A4"]).optional(),
+              printMarginMm: z.number().min(0).max(30).optional(),
+              defaultCopies: z.number().int().min(1).max(5).optional(),
+            })
+            .optional(),
         })
         .optional(),
     })

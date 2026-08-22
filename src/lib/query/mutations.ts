@@ -22,13 +22,13 @@ export function useAppMutation<TData, TVariables>(
 
   return useMutation({
     ...mutationOpts,
-    onSuccess: (data, variables, context) => {
+    onSuccess: (data, variables, onMutateResult, context) => {
       if (invalidateKeys) {
         for (const key of invalidateKeys) {
           queryClient.invalidateQueries({ queryKey: key });
         }
       }
-      mutationOpts.onSuccess?.(data, variables, context);
+      mutationOpts.onSuccess?.(data, variables, onMutateResult, context);
     },
   });
 }

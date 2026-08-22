@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, FolderKanban, Receipt } from "lucide-react";
 import { useBusinessType } from "@/hooks/use-business-type";
+import { ShopkeeperDashboard } from "@/components/shop/shopkeeper-dashboard";
 
 type DashboardData = {
   activeProjects: number;
@@ -27,21 +28,27 @@ type DashboardData = {
 export default function DashboardPage() {
   const router = useRouter();
   const role = useAuthStore((s) => s.role) as OrgRole | null;
+  const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
   const biz = useBusinessType();
+  const isShopkeeper = activeBusinessType === "SHOPKEEPER";
 
   useEffect(() => {
     if (!role || canAccessProjectsNav(role)) return;
-    if (hasPermission(role, "shop.sales")) router.replace("/shop/sales");
+    if (hasPermission(role, "shop.sales")) router.replace("/shop/invoices/new");
     else if (hasPermission(role, "attendance.view_own")) router.replace("/staff/me");
   }, [role, router]);
 
   const { data, loading, error } = useFetch(
-    role && canAccessProjectsNav(role) ? "dashboard" : null,
+    role && canAccessProjectsNav(role) && !isShopkeeper ? "dashboard" : null,
     () => apiFetch<DashboardData>("/api/v1/dashboard")
   );
 
   if (role && !canAccessProjectsNav(role)) {
-    return <PageLoader label="Opening counter sales..." />;
+    return <PageLoader label="Opening new invoice..." />;
+  }
+
+  if (isShopkeeper) {
+    return <ShopkeeperDashboard />;
   }
 
   if (loading) return <PageLoader label="Loading dashboard..." />;

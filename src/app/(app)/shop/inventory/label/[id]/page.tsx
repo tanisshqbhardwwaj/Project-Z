@@ -50,7 +50,7 @@ export default function InventoryLabelPage() {
   );
   const [headerMode, setHeaderMode] = useState<FullLabelHeaderMode>("both");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: orgId ? [...queryKeys.modules.shop.inventory(orgId), "label", id] : ["disabled"],
     queryFn: () => apiFetch<LabelPayload>(`/api/v1/shop/inventory/${id}`),
     enabled: !!orgId && !!id,
@@ -80,6 +80,21 @@ export default function InventoryLabelPage() {
   }, [autoPrint, labelData, size, copies]);
 
   if (isLoading) return <PageLoader label="Loading label..." />;
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-lg space-y-4 p-8 text-center">
+        <p className="text-destructive">
+          {error instanceof Error ? error.message : "Failed to load label"}
+        </p>
+        <Link href="/shop/inventory" className="inline-block">
+          <Button variant="outline" className="rounded-xl">
+            Back to inventory
+          </Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (!data?.item.barcode || !labelData) {
     return (

@@ -76,6 +76,12 @@ export function isFutureDayKey(dayKey: string, tz?: string | null): boolean {
   return dayKey > orgTodayKey(tz);
 }
 
+export function addDaysToDayKey(dayKey: string, deltaDays: number): string {
+  const d = dayKeyToUtcDate(dayKey);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return utcDateToDayKey(d);
+}
+
 export function parseYearMonth(input: { year?: unknown; month?: unknown }) {
   const now = new Date();
   const year = Number(input.year ?? now.getFullYear());
