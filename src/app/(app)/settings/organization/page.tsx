@@ -163,7 +163,10 @@ export default function OrganizationSettingsPage() {
         updated.shopSector ?? null,
         Boolean(updated.settings?.modules?.staff ?? updated.enableStaff),
         updated.settings?.modules ?? {},
-        updated.timezone ?? "Asia/Kolkata"
+        updated.timezone ?? "Asia/Kolkata",
+        null,
+        null,
+        updated.settings ?? null
       );
       await bootstrap();
       setSavedMessage("Organization updated");
@@ -321,6 +324,7 @@ export default function OrganizationSettingsPage() {
                   />
                   <p className="text-xs text-muted-foreground">
                     Shown on compact barcode stickers. Leave blank to use organization name.
+                    Also used on invoices when display name is not set.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -349,7 +353,7 @@ export default function OrganizationSettingsPage() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={logoUrl} alt="Shop logo" className="h-10 w-10 object-contain" />
                       <div className="min-w-0 flex-1 text-xs text-muted-foreground">
-                        Logo appears on full-size price tags
+                        Logo appears on full-size price tags and invoices (when enabled)
                       </div>
                       {isOwner && (
                         <Button
@@ -365,6 +369,24 @@ export default function OrganizationSettingsPage() {
                     </div>
                   ) : null}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {businessType === "SHOPKEEPER" && (
+            <Card className="rounded-2xl border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg">Invoice template</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Header, shop GSTIN, footer text, and which fields appear on printed invoices.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <Link href="/shop/invoices/settings">
+                  <Button variant="outline" className="rounded-xl">
+                    Open invoice settings
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           )}

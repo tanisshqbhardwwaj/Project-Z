@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
+import { StaffAdvancePanel } from "@/components/staff/staff-advance-panel";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { paiseToRupees, formatINR } from "@/lib/finance/money";
 import { cn } from "@/lib/utils";
@@ -27,9 +28,14 @@ import {
   useUpdateStaff,
   useGeneratePayroll,
   useUpdatePayroll,
+  useStaffAdvances,
+  useCreateStaffAdvance,
+  useAttendanceRegularity,
   type AttendanceRow,
   type PayrollRow,
   type StaffMember,
+  type StaffAdvanceRow,
+  type AttendanceRegularityRow,
 } from "@/hooks/queries/use-staff";
 import { useFetch } from "@/hooks/use-fetch";
 import { apiFetch } from "@/lib/api/client";
@@ -147,6 +153,73 @@ function parseDayKey(date: string) {
   return { year: y, month: m };
 }
 
+function RegularityTable({
+  subtitle,
+  rows,
+  variant,
+}: {
+  subtitle: string;
+  rows: AttendanceRegularityRow[];
+  variant: "best" | "worst";
+}) {
+  if (rows.length === 0) {
+    return (
+      <p className="py-3 text-sm text-muted-foreground">No attendance data yet.</p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-left text-xs text-muted-foreground">
+            <th className="pb-2 pr-2 font-medium">Staff</th>
+            <th className="pb-2 pr-2 font-medium">Streak</th>
+            <th className="pb-2 font-medium">Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={row.staffId} className="border-b last:border-0">
+              <td className="py-2.5 pr-2">
+                <p className="font-medium leading-tight">{row.name}</p>
+                <p className="text-xs text-muted-foreground">{row.roleTitle}</p>
+              </td>
+              <td className="py-2.5 pr-2 tabular-nums">
+                <span
+                  className={cn(
+                    "inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold",
+                    variant === "best" && row.currentStreak >= 7
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {row.currentStreak}d
+                </span>
+              </td>
+              <td className="py-2.5 tabular-nums">
+                <span
+                  className={cn(
+                    "font-medium",
+                    variant === "best" && index === 0 && "text-emerald-700",
+                    variant === "worst" && row.attendanceRate < 70 && "text-red-700"
+                  )}
+                >
+                  {row.attendanceRate}%
+                </span>
+                <p className="text-[11px] text-muted-foreground">
+                  {row.presentDays}/{row.periodDays} days
+                </p>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-[11px] text-muted-foreground">{subtitle}</p>
+    </div>
+  );
+}
+
 export default function StaffHubPage() {
   const router = useRouter();
   const {
@@ -179,6 +252,15 @@ export default function StaffHubPage() {
   const [year, setYear] = useState(orgMonth.year);
   const [month, setMonth] = useState(orgMonth.month);
   const [editFinal, setEditFinal] = useState<Record<string, string>>({});
+  const [editPayrollNotes, setEditPayrollNotes] = useState<Record<string, string>>({});
+  const [advanceStaffId, setAdvanceStaffId] = useState("");
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceNotes, setAdvanceNotes] = useState("");
+  const [advanceGivenDate, setAdvanceGivenDate] = useState(() => orgTodayKey(timezone));
+  const [advancePanelOpen, setAdvancePanelOpen] = useState(false);
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState<
+    "CASH" | "UPI" | "CARD" | "BANK" | "OTHER"
+  >("CASH");
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editWageRupees, setEditWageRupees] = useState("");
   const [editWagePeriod, setEditWagePeriod] = useState<"DAILY" | "MONTHLY">("MONTHLY");
@@ -201,9 +283,13 @@ export default function StaffHubPage() {
   const attendanceQuery = useAttendance(date);
   const gridMonthKey = tab === "attendance" ? parseDayKey(date) : { year, month };
   const gridQuery = useAttendanceGrid(gridMonthKey.year, gridMonthKey.month);
+  const regularityQuery = useAttendanceRegularity(99);
   const payrollQuery = usePayroll(year, month);
+  const advancesQuery = useStaffAdvances({ status: "OPEN" });
+  const createAdvanceMutation = useCreateStaffAdvance();
 
   const payrollRows = payrollQuery.data ?? [];
+  const openAdvances = advancesQuery.data ?? [];
 
   const markMutation = useMarkAttendance(date);
   const bulkMutation = useBulkMarkAttendance(date);
@@ -287,6 +373,38 @@ export default function StaffHubPage() {
     }
   }
 
+  async function rehireStaff(staffId: string, staffName: string) {
+    clear();
+    try {
+      await updateStaffMutation.mutateAsync({
+        id: staffId,
+        status: "ACTIVE",
+      });
+      showWarning(`${staffName} is active again — attendance and payroll are enabled`);
+    } catch (err) {
+      applyError(err, "Failed to rehire staff");
+    }
+  }
+
+  async function markStaffLeft(staffId: string, staffName: string) {
+    clear();
+    if (
+      !window.confirm(
+        `Mark ${staffName} as left? They will be removed from attendance and payroll until rehired.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await updateStaffMutation.mutateAsync({
+        id: staffId,
+        status: "LEFT",
+      });
+    } catch (err) {
+      applyError(err, "Failed to update staff status");
+    }
+  }
+
   async function linkStaffLogin(staffId: string, userId: string | null) {
     clear();
     try {
@@ -299,8 +417,32 @@ export default function StaffHubPage() {
     }
   }
 
+  async function submitStaffAdvance() {
+    clear();
+    if (!advanceStaffId || !advanceAmount) {
+      showWarning("Select staff and enter amount");
+      return;
+    }
+    try {
+      await createAdvanceMutation.mutateAsync({
+        staffId: advanceStaffId,
+        amountRupees: Number(advanceAmount),
+        notes: advanceNotes.trim() || undefined,
+        givenDate: advanceGivenDate,
+        paymentMethod: advancePaymentMethod,
+      });
+      setAdvanceAmount("");
+      setAdvanceNotes("");
+      setAdvanceStaffId("");
+      setAdvancePanelOpen(false);
+      payrollQuery.refetch();
+    } catch (e) {
+      applyError(e);
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-4xl space-y-5 pb-8">
+    <div className="min-w-0 max-w-full space-y-5 pb-8">
       <div>
         <h1 className="text-2xl font-bold sm:text-3xl">{moduleTitle}</h1>
         <p className="text-sm text-muted-foreground">
@@ -331,171 +473,224 @@ export default function StaffHubPage() {
       <FormFeedback warning={warning} error={error} />
 
       {tab === "attendance" && (
-        <Card className="rounded-2xl border-0 shadow-md">
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="text-lg">Mark attendance</CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <Input
-                type="date"
-                value={date}
-                max={orgTodayKey(timezone)}
-                onChange={(e) => setDate(e.target.value)}
-                className="h-10 w-auto rounded-xl"
-              />
-              {canMark && (
-                <Button
-                  variant="outline"
-                  className="h-10 rounded-xl"
-                  disabled={bulkMutation.isPending}
-                  onClick={() =>
-                    bulkMutation.mutate(
-                      { status: "PRESENT" },
-                      {
-                        onError: (err) =>
-                          applyError(err, "Could not mark all present"),
-                      }
-                    )
-                  }
-                >
-                  Mark all present
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {attendanceQuery.isLoading ? (
-              <PageLoader label="Loading..." />
-            ) : (attendanceQuery.data ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active staff.</p>
-            ) : (
-              (attendanceQuery.data ?? []).map(({ staff, attendance }: AttendanceRow) => (
-                <div
-                  key={staff.id}
-                  className="rounded-xl border p-3 sm:flex sm:items-center sm:justify-between sm:gap-3"
-                >
-                  <div className="mb-2 min-w-0 sm:mb-0">
-                    <p className="font-medium">{staff.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {staff.roleTitle}
-                      {staff.wagePaise
-                        ? ` · ₹${paiseToRupees(BigInt(staff.wagePaise))}${
-                            staff.wagePeriod === "DAILY" ? "/day" : "/mo"
-                          }`
-                        : " · Salary not set"}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1">
-                    {ATTENDANCE_STATUSES.map((st) => {
-                      const active = attendance?.status === st.id;
-                      return (
-                        <button
-                          key={st.id}
-                          type="button"
-                          disabled={!canMark || markMutation.isPending}
-                          onClick={() =>
-                            markMutation.mutate(
-                              {
-                                staffId: staff.id,
-                                status: st.id,
-                              },
-                              {
-                                onError: (err) =>
-                                  applyError(err, "Could not mark attendance"),
-                              }
-                            )
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)]">
+          <div className="min-w-0 space-y-5">
+            <Card className="rounded-2xl border-0 shadow-md">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-lg">Mark attendance</CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    type="date"
+                    value={date}
+                    max={orgTodayKey(timezone)}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="h-10 w-auto rounded-xl"
+                  />
+                  {canMark && (
+                    <Button
+                      variant="outline"
+                      className="h-10 rounded-xl"
+                      disabled={bulkMutation.isPending}
+                      onClick={() =>
+                        bulkMutation.mutate(
+                          { status: "PRESENT" },
+                          {
+                            onError: (err) =>
+                              applyError(err, "Could not mark all present"),
                           }
-                          className={cn(
-                            "rounded-lg border px-2 py-2 text-xs font-medium disabled:opacity-60",
-                            active
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border"
-                          )}
-                        >
-                          {st.label}
-                        </button>
-                      );
-                    })}
+                        )
+                      }
+                    >
+                      Mark all present
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {attendanceQuery.isLoading ? (
+                  <PageLoader label="Loading..." />
+                ) : (attendanceQuery.data ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No active staff.</p>
+                ) : (
+                  (attendanceQuery.data ?? []).map(({ staff, attendance }: AttendanceRow) => (
+                    <div
+                      key={staff.id}
+                      className="rounded-xl border p-3 lg:flex lg:items-center lg:justify-between lg:gap-3"
+                    >
+                      <div className="mb-2 min-w-0 lg:mb-0">
+                        <p className="font-medium">{staff.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {staff.roleTitle}
+                          {staff.wagePaise
+                            ? ` · ₹${paiseToRupees(BigInt(staff.wagePaise))}${
+                                staff.wagePeriod === "DAILY" ? "/day" : "/mo"
+                              }`
+                            : " · Salary not set"}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1 sm:max-w-md lg:max-w-none lg:ml-auto lg:shrink-0">
+                        {ATTENDANCE_STATUSES.map((st) => {
+                          const active = attendance?.status === st.id;
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              disabled={!canMark || markMutation.isPending}
+                              onClick={() =>
+                                markMutation.mutate(
+                                  {
+                                    staffId: staff.id,
+                                    status: st.id,
+                                  },
+                                  {
+                                    onError: (err) =>
+                                      applyError(err, "Could not mark attendance"),
+                                  }
+                                )
+                              }
+                              className={cn(
+                                "rounded-lg border px-2 py-2 text-xs font-medium disabled:opacity-60",
+                                active
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border"
+                              )}
+                            >
+                              {st.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-0 shadow-md">
+              <CardHeader className="pb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="text-lg">
+                    Monthly grid — {MONTHS[gridMonthKey.month - 1]} {gridMonthKey.year}
+                  </CardTitle>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {Object.values(ATTENDANCE_CELL).map((cell) => (
+                      <span
+                        key={cell.title}
+                        className={cn("rounded px-1.5 py-0.5 font-medium", cell.className)}
+                      >
+                        {cell.short} {cell.title}
+                      </span>
+                    ))}
+                    <span className="rounded px-1.5 py-0.5">· Unmarked</span>
                   </div>
                 </div>
-              ))
-            )}
-
-            <div className="border-t pt-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium">
-                  Monthly grid — {MONTHS[gridMonthKey.month - 1]} {gridMonthKey.year}
-                </p>
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  {Object.values(ATTENDANCE_CELL).map((cell) => (
-                    <span
-                      key={cell.title}
-                      className={cn("rounded px-1.5 py-0.5 font-medium", cell.className)}
-                    >
-                      {cell.short} {cell.title}
-                    </span>
-                  ))}
-                  <span className="rounded px-1.5 py-0.5">· Unmarked</span>
-                </div>
-              </div>
-              {gridQuery.isLoading ? (
-                <PageLoader label="Loading grid..." />
-              ) : (gridQuery.data?.rows ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No active staff to show.</p>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border">
-                  <table className="min-w-full text-xs">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="sticky left-0 bg-muted/50 p-2 text-left font-medium">
-                          Name
-                        </th>
-                        {(gridQuery.data?.dayKeys ?? []).map((dk) => (
-                          <th key={dk} className="p-1 text-center font-normal text-muted-foreground">
-                            {dk.slice(-2)}
+              </CardHeader>
+              <CardContent>
+                {gridQuery.isLoading ? (
+                  <PageLoader label="Loading grid..." />
+                ) : (gridQuery.data?.rows ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No active staff to show.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="sticky left-0 bg-muted/50 p-2 text-left font-medium">
+                            Name
                           </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(
-                        gridQuery.data?.rows as {
-                          staff: { id: string; name: string };
-                          days: {
-                            date: string;
-                            attendance: { status: AttendanceStatus } | null;
-                          }[];
-                        }[]
-                      )?.map((row) => (
-                        <tr key={row.staff.id} className="border-t">
-                          <td className="sticky left-0 bg-background p-2 font-medium">
-                            {row.staff.name}
-                          </td>
-                          {row.days.map((d) => {
-                            const status = d.attendance?.status;
-                            const cell = status ? ATTENDANCE_CELL[status] : null;
-                            return (
-                              <td key={d.date} className="p-0.5 text-center">
-                                <span
-                                  title={cell?.title ?? "Not marked"}
-                                  className={cn(
-                                    "inline-flex h-6 w-6 items-center justify-center rounded text-[10px] font-semibold",
-                                    cell?.className ?? "text-muted-foreground"
-                                  )}
-                                >
-                                  {cell?.short ?? "·"}
-                                </span>
-                              </td>
-                            );
-                          })}
+                          {(gridQuery.data?.dayKeys ?? []).map((dk) => (
+                            <th
+                              key={dk}
+                              className="p-1 text-center font-normal text-muted-foreground"
+                            >
+                              {dk.slice(-2)}
+                            </th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                      </thead>
+                      <tbody>
+                        {(
+                          gridQuery.data?.rows as {
+                            staff: { id: string; name: string };
+                            days: {
+                              date: string;
+                              attendance: { status: AttendanceStatus } | null;
+                            }[];
+                          }[]
+                        )?.map((row) => (
+                          <tr key={row.staff.id} className="border-t">
+                            <td className="sticky left-0 bg-background p-2 font-medium">
+                              {row.staff.name}
+                            </td>
+                            {row.days.map((d) => {
+                              const status = d.attendance?.status;
+                              const cell = status ? ATTENDANCE_CELL[status] : null;
+                              return (
+                                <td key={d.date} className="p-0.5 text-center">
+                                  <span
+                                    title={cell?.title ?? "Not marked"}
+                                    className={cn(
+                                      "inline-flex h-6 w-6 items-center justify-center rounded text-[10px] font-semibold",
+                                      cell?.className ?? "text-muted-foreground"
+                                    )}
+                                  >
+                                    {cell?.short ?? "·"}
+                                  </span>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <aside className="space-y-4 lg:sticky lg:top-4">
+            <Card className="rounded-2xl border-0 shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Most regular staff</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Last {regularityQuery.data?.days ?? 99} days · sorted by streak
+                </p>
+              </CardHeader>
+              <CardContent>
+                {regularityQuery.isLoading ? (
+                  <PageLoader label="Loading stats..." />
+                ) : (
+                  <RegularityTable
+                    subtitle="Streak = consecutive present / half / leave days without absent"
+                    rows={regularityQuery.data?.mostRegular ?? []}
+                    variant="best"
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-0 shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Least regular staff</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Lowest attendance rate in the same period
+                </p>
+              </CardHeader>
+              <CardContent>
+                {regularityQuery.isLoading ? (
+                  <PageLoader label="Loading stats..." />
+                ) : (
+                  <RegularityTable
+                    subtitle="Rate = paid days (present, half, leave) ÷ eligible days"
+                    rows={regularityQuery.data?.leastRegular ?? []}
+                    variant="worst"
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
       )}
 
       {tab === "payroll" && (
@@ -529,20 +724,53 @@ export default function StaffHubPage() {
                 ))}
               </select>
               {canPayroll && (
-                <Button
-                  className="h-10 rounded-xl"
-                  disabled={generatePayrollMutation.isPending}
-                  onClick={() => {
-                    setEditFinal({});
-                    generatePayrollMutation.mutate();
-                  }}
-                >
-                  Generate / refresh
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-10 rounded-xl"
+                    onClick={() => {
+                      clear();
+                      setAdvancePanelOpen(true);
+                    }}
+                  >
+                    Record advance
+                  </Button>
+                  <Button
+                    className="h-10 rounded-xl"
+                    disabled={generatePayrollMutation.isPending}
+                    onClick={() => {
+                      setEditFinal({});
+                      generatePayrollMutation.mutate();
+                    }}
+                  >
+                    Generate / refresh
+                  </Button>
+                </>
               )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
+            {openAdvances.length > 0 && (
+              <div className="space-y-2 rounded-xl bg-muted/40 p-3 text-sm">
+                <p className="font-medium">Open advances</p>
+                {openAdvances.map((adv: StaffAdvanceRow) => {
+                  const remaining =
+                    BigInt(adv.amountPaise) - BigInt(adv.repaidPaise);
+                  return (
+                    <div key={adv.id} className="flex flex-wrap justify-between gap-2">
+                      <span>
+                        {adv.staff.name} · {formatINR(adv.amountPaise)}
+                        {adv.notes ? ` — ${adv.notes}` : ""}
+                      </span>
+                      <span className="text-muted-foreground tabular-nums">
+                        Due {formatINR(remaining)} · {new Date(adv.createdAt).toLocaleDateString("en-IN")}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {payrollQuery.isLoading ? (
               <PageLoader label="Loading payroll..." />
             ) : payrollRows.length === 0 ? (
@@ -603,6 +831,26 @@ export default function StaffHubPage() {
                           <span className="font-medium tabular-nums">− {summary.deductions}</span>
                         </div>
                       )}
+                      {row.advanceDeductionPaise &&
+                        BigInt(row.advanceDeductionPaise) > BigInt(0) && (
+                          <div className="flex justify-between gap-4 text-amber-800">
+                            <span>Advance deduction</span>
+                            <span className="font-medium tabular-nums">
+                              − {formatINR(row.advanceDeductionPaise)}
+                            </span>
+                          </div>
+                        )}
+                      {row.openAdvances && row.openAdvances.length > 0 && (
+                        <div className="space-y-1 border-t pt-2 text-xs text-muted-foreground">
+                          {row.openAdvances.map((adv) => (
+                            <p key={adv.id}>
+                              Advance {formatINR(adv.amountPaise)}
+                              {adv.notes ? ` — ${adv.notes}` : ""} (
+                              {new Date(adv.createdAt).toLocaleDateString("en-IN")})
+                            </p>
+                          ))}
+                        </div>
+                      )}
                       <div className="border-t pt-2">
                         <p className="text-xs text-muted-foreground">
                           {summary.perDay}/day × {summary.paidDays} days
@@ -633,7 +881,28 @@ export default function StaffHubPage() {
                       )}
                   </div>
                   {canPayroll && row.status !== "PAID" && (
-                    <div className="flex flex-wrap items-end gap-2">
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Payment note (optional)
+                        </Label>
+                        <Input
+                          value={
+                            editPayrollNotes[row.id] !== undefined
+                              ? editPayrollNotes[row.id]
+                              : row.notes ?? ""
+                          }
+                          onChange={(e) =>
+                            setEditPayrollNotes((prev) => ({
+                              ...prev,
+                              [row.id]: e.target.value,
+                            }))
+                          }
+                          className="h-10 rounded-xl"
+                          placeholder="Reason for adjustment or payment details"
+                        />
+                      </div>
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">
                           Final amount (₹) — edit to add bonus/deduction
@@ -655,6 +924,10 @@ export default function StaffHubPage() {
                           updatePayrollMutation.mutate({
                             payrollId: row.id,
                             finalAmountRupees: Number(payrollFinalInput(row, editFinal)),
+                            notes:
+                              editPayrollNotes[row.id] !== undefined
+                                ? editPayrollNotes[row.id]
+                                : row.notes,
                           })
                         }
                       >
@@ -678,11 +951,16 @@ export default function StaffHubPage() {
                           updatePayrollMutation.mutate({
                             payrollId: row.id,
                             status: "PAID",
+                            notes:
+                              editPayrollNotes[row.id] !== undefined
+                                ? editPayrollNotes[row.id]
+                                : row.notes,
                           })
                         }
                       >
                         Mark paid
                       </Button>
+                    </div>
                     </div>
                   )}
                   {row.status === "PAID" && canPayroll && (
@@ -700,10 +978,13 @@ export default function StaffHubPage() {
                     </Button>
                   )}
                   {row.status === "PAID" && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-1">
                       <p className="text-sm font-medium">
-                        Paid ₹{paiseToRupees(BigInt(row.finalAmountPaise))}
+                        Paid {formatINR(row.finalAmountPaise)} · posted to shop expenses
                       </p>
+                      {row.notes && (
+                        <p className="text-xs text-muted-foreground">Note: {row.notes}</p>
+                      )}
                       <Link href={`/staff/payslip/${row.id}`}>
                         <Button variant="link" className="h-auto p-0">
                           Payslip
@@ -804,141 +1085,176 @@ export default function StaffHubPage() {
               ) : (staffQuery.data ?? []).length === 0 ? (
                 <p className="py-4 text-sm text-muted-foreground">No one yet.</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-muted-foreground">
-                        <th className="py-2 pr-3 font-medium">Name</th>
-                        <th className="py-2 pr-3 font-medium">Role</th>
-                        <th className="py-2 pr-3 font-medium">Salary</th>
-                        <th className="py-2 pr-3 font-medium">Phone</th>
-                        <th className="py-2 pr-3 font-medium">Status</th>
-                        {canManageStaff && (
-                          <th className="py-2 pr-3 font-medium">Login</th>
-                        )}
-                        {canManageStaff && (
-                          <th className="py-2 font-medium">Actions</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(staffQuery.data ?? []).map((s) => (
-                        <tr key={s.id} className="border-b last:border-0">
-                          <td className="py-3 pr-3 font-medium">{s.name}</td>
-                          <td className="py-3 pr-3 text-muted-foreground">{s.roleTitle}</td>
-                          <td className="py-3 pr-3">
-                            {editingStaffId === s.id ? (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  value={editWageRupees}
-                                  onChange={(e) => setEditWageRupees(e.target.value)}
-                                  className="h-9 w-24 rounded-lg"
-                                />
-                                <select
-                                  value={editWagePeriod}
-                                  onChange={(e) =>
-                                    setEditWagePeriod(
-                                      e.target.value as "DAILY" | "MONTHLY"
-                                    )
-                                  }
-                                  className="h-9 rounded-lg border bg-background px-2 text-xs"
-                                >
-                                  <option value="MONTHLY">Monthly</option>
-                                  <option value="DAILY">Daily</option>
-                                </select>
-                                <Button
-                                  size="sm"
-                                  className="h-9 rounded-lg"
-                                  onClick={() => saveWage(s.id)}
-                                >
-                                  Save
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-9 rounded-lg"
-                                  onClick={() => setEditingStaffId(null)}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            ) : (
-                              <span
-                                className={cn(
-                                  !s.wagePaise && "text-amber-700"
-                                )}
-                              >
-                                {formatWage(s)}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 pr-3 text-muted-foreground">
-                            {s.phone ?? "—"}
-                          </td>
-                          <td className="py-3 pr-3">{s.status}</td>
-                          {canManageStaff && (
-                            <td className="py-3 pr-3">
+                <div className="space-y-3">
+                  {(staffQuery.data ?? []).map((s) => (
+                    <div
+                      key={s.id}
+                      className={cn(
+                        "rounded-xl border p-3 sm:p-4",
+                        s.status === "LEFT" && "bg-muted/30"
+                      )}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium">{s.name}</p>
+                          <p className="text-sm text-muted-foreground">{s.roleTitle}</p>
+                        </div>
+                        <span
+                          className={cn(
+                            "inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+                            s.status === "ACTIVE"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                              : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {s.status === "ACTIVE" ? "Active" : "Left"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Salary</p>
+                          {editingStaffId === s.id ? (
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                value={editWageRupees}
+                                onChange={(e) => setEditWageRupees(e.target.value)}
+                                className="h-9 w-24 rounded-lg"
+                              />
                               <select
-                                value={s.userId ?? ""}
+                                value={editWagePeriod}
                                 onChange={(e) =>
-                                  linkStaffLogin(
-                                    s.id,
-                                    e.target.value ? e.target.value : null
+                                  setEditWagePeriod(
+                                    e.target.value as "DAILY" | "MONTHLY"
                                   )
                                 }
-                                className="h-9 max-w-[180px] rounded-lg border bg-background px-2 text-xs"
+                                className="h-9 rounded-lg border bg-background px-2 text-xs"
                               >
-                                <option value="">No login</option>
-                                {(orgMembers ?? []).map((m) => (
-                                  <option key={m.user.id} value={m.user.id}>
-                                    {m.user.name} ({m.role})
-                                  </option>
-                                ))}
+                                <option value="MONTHLY">Monthly</option>
+                                <option value="DAILY">Daily</option>
                               </select>
-                            </td>
+                              <Button
+                                size="sm"
+                                className="h-9 rounded-lg"
+                                onClick={() => saveWage(s.id)}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-9 rounded-lg"
+                                onClick={() => setEditingStaffId(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <p
+                              className={cn(
+                                "mt-0.5 font-medium",
+                                !s.wagePaise && "text-amber-700"
+                              )}
+                            >
+                              {formatWage(s)}
+                            </p>
                           )}
-                          {canManageStaff && (
-                            <td className="py-3">
-                              <div className="flex flex-wrap gap-2">
-                                {s.status === "ACTIVE" && editingStaffId !== s.id && (
-                                  <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="rounded-lg"
-                                      onClick={() => startEditWage(s)}
-                                    >
-                                      Edit salary
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="rounded-lg"
-                                      onClick={() =>
-                                        updateStaffMutation.mutate({
-                                          id: s.id,
-                                          status: "LEFT",
-                                        })
-                                      }
-                                    >
-                                      Mark left
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Phone</p>
+                          <p className="mt-0.5">{s.phone ?? "—"}</p>
+                        </div>
+                      </div>
+
+                      {canManageStaff && (
+                        <div className="mt-3 space-y-2">
+                          <div>
+                            <p className="mb-1 text-xs text-muted-foreground">Login link</p>
+                            <select
+                              value={s.userId ?? ""}
+                              disabled={s.status === "LEFT"}
+                              onChange={(e) =>
+                                linkStaffLogin(
+                                  s.id,
+                                  e.target.value ? e.target.value : null
+                                )
+                              }
+                              className="h-9 w-full rounded-lg border bg-background px-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <option value="">No login</option>
+                              {(orgMembers ?? []).map((m) => (
+                                <option key={m.user.id} value={m.user.id}>
+                                  {m.user.name} ({m.role})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {s.status === "ACTIVE" && editingStaffId !== s.id && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-lg"
+                                  onClick={() => startEditWage(s)}
+                                >
+                                  Edit salary
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-lg"
+                                  onClick={() => markStaffLeft(s.id, s.name)}
+                                >
+                                  Mark left
+                                </Button>
+                              </>
+                            )}
+                            {s.status === "LEFT" && (
+                              <Button
+                                size="sm"
+                                className="rounded-lg"
+                                disabled={updateStaffMutation.isPending}
+                                onClick={() => rehireStaff(s.id, s.name)}
+                              >
+                                Rehire
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
           </Card>
         </>
+      )}
+
+      {canPayroll && (
+        <StaffAdvancePanel
+          open={advancePanelOpen}
+          onClose={() => setAdvancePanelOpen(false)}
+          staffList={(staffQuery.data ?? []).filter((s) => s.status === "ACTIVE")}
+          openAdvances={openAdvances}
+          advanceStaffId={advanceStaffId}
+          onAdvanceStaffIdChange={setAdvanceStaffId}
+          advanceAmount={advanceAmount}
+          onAdvanceAmountChange={setAdvanceAmount}
+          advanceGivenDate={advanceGivenDate}
+          onAdvanceGivenDateChange={setAdvanceGivenDate}
+          advanceNotes={advanceNotes}
+          onAdvanceNotesChange={setAdvanceNotes}
+          advancePaymentMethod={advancePaymentMethod}
+          onAdvancePaymentMethodChange={setAdvancePaymentMethod}
+          onSubmit={submitStaffAdvance}
+          submitting={createAdvanceMutation.isPending}
+          warning={warning}
+          error={error}
+        />
       )}
     </div>
   );

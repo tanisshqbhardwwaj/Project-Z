@@ -9,6 +9,9 @@ import {
   Ruler,
   Building2,
   Palette,
+  Truck,
+  Wallet,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions/rbac";
@@ -19,6 +22,9 @@ export type ModuleKey =
   | "shop_sales"
   | "shop_inventory"
   | "shop_udhaar"
+  | "shop_purchases"
+  | "shop_expenses"
+  | "shop_activity"
   | "contractor_boq"
   | "contractor_material"
   | "architect_stages"
@@ -56,14 +62,14 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     key: "shop_sales",
     label: {
-      SHOPKEEPER: "Counter Sales",
+      SHOPKEEPER: "Invoices",
       CONTRACTOR: "Counter Sales",
       BUILDER: "Counter Sales",
       ARCHITECT: "Counter Sales",
     },
-    description: "Quick billing and daily sales",
+    description: "Recent invoices and shop billing",
     icon: ShoppingCart,
-    route: "/shop/sales",
+    route: "/shop/invoices",
     availableFor: ["SHOPKEEPER"],
     defaultOn: { SHOPKEEPER: true },
     requiredPermission: "shop.sales",
@@ -91,13 +97,57 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       BUILDER: "Udhaar",
       ARCHITECT: "Udhaar",
     },
-    description: "Customer credit ledger",
+    description: "Customer credit ledger (udhaar)",
     icon: UsersRound,
     route: "/shop/udhaar",
     availableFor: ["SHOPKEEPER"],
     defaultOn: { SHOPKEEPER: false },
     requiredPermission: "financial.view",
-    sectorOnly: ["GROCERY", "GENERAL", "PHARMACY"],
+  },
+  {
+    key: "shop_purchases",
+    label: {
+      SHOPKEEPER: "Purchases",
+      CONTRACTOR: "Purchases",
+      BUILDER: "Purchases",
+      ARCHITECT: "Purchases",
+    },
+    description: "Stock purchase entry and supplier bills",
+    icon: Truck,
+    route: "/shop/purchases",
+    availableFor: ["SHOPKEEPER"],
+    defaultOn: { SHOPKEEPER: true },
+    requiredPermission: "shop.purchase.view",
+  },
+  {
+    key: "shop_expenses",
+    label: {
+      SHOPKEEPER: "Expenses",
+      CONTRACTOR: "Expenses",
+      BUILDER: "Expenses",
+      ARCHITECT: "Expenses",
+    },
+    description: "Daily and monthly store expenses",
+    icon: Wallet,
+    route: "/shop/expenses",
+    availableFor: ["SHOPKEEPER"],
+    defaultOn: { SHOPKEEPER: true },
+    requiredPermission: "shop.expense.view",
+  },
+  {
+    key: "shop_activity",
+    label: {
+      SHOPKEEPER: "Activity Log",
+      CONTRACTOR: "Activity Log",
+      BUILDER: "Activity Log",
+      ARCHITECT: "Activity Log",
+    },
+    description: "Owner audit trail of shop actions",
+    icon: ClipboardList,
+    route: "/shop/activity",
+    availableFor: ["SHOPKEEPER"],
+    defaultOn: { SHOPKEEPER: true },
+    requiredPermission: "shop.activity.view",
   },
   {
     key: "contractor_boq",
@@ -169,6 +219,7 @@ export type OrgSettingsJson = {
   shop?: {
     brandName?: string;
     logoUrl?: string | null;
+    invoice?: import("@/lib/org/shop-settings").ShopInvoiceSettings;
   };
 };
 

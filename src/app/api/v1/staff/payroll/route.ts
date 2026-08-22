@@ -57,6 +57,15 @@ export async function PATCH(request: Request) {
     const data = updatePayrollSchema.parse(body);
 
     if (data.status === "PAID") {
+      if (data.notes !== undefined || data.finalAmountRupees !== undefined) {
+        await updatePayroll({
+          organizationId: ctx.organizationId,
+          payrollId: data.payrollId,
+          userId: ctx.userId,
+          notes: data.notes,
+          finalAmountRupees: data.finalAmountRupees,
+        });
+      }
       const row = await markPayrollPaid({
         organizationId: ctx.organizationId,
         payrollId: data.payrollId,

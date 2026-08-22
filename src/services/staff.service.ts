@@ -213,6 +213,7 @@ export async function updateStaffMember(input: {
     overtimeRatePaise?: bigint | null;
     status?: StaffStatus;
     leftAt?: Date | null;
+    joinedAt?: Date;
     notes?: string | null;
   } = {};
 
@@ -246,9 +247,19 @@ export async function updateStaffMember(input: {
         : null;
   }
   if (input.notes !== undefined) data.notes = input.notes?.trim() || null;
-  if (input.status !== undefined) {
+
+  let rehired = false;
+  if (input.status !== undefined && input.status !== existing.status) {
     data.status = input.status;
-    data.leftAt = input.status === "LEFT" ? new Date() : null;
+    if (input.status === "LEFT") {
+      data.leftAt = new Date();
+    } else {
+      data.leftAt = null;
+      if (existing.status === "LEFT") {
+        rehired = true;
+        data.joinedAt = new Date();
+      }
+    }
   }
 
   if (input.linkUserId !== undefined) {
@@ -280,7 +291,7 @@ export async function updateStaffMember(input: {
   await createAuditLog({
     organizationId: input.organizationId,
     userId: input.actorUserId,
-    action: "staff.updated",
+    action: rehired ? "staff.rehired" : "staff.updated",
     entityType: "StaffMember",
     entityId: updated.id,
     before: existing,

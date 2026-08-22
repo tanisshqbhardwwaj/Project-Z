@@ -12,7 +12,11 @@ export function paiseToRupees(paise: bigint | number | string): number {
 }
 
 export function formatINR(paise: bigint | number | string, locale = "en-IN"): string {
-  const rupees = paiseToRupees(typeof paise === "bigint" ? paise : BigInt(paise));
+  const p =
+    typeof paise === "bigint"
+      ? paise
+      : BigInt(Math.round(typeof paise === "number" ? paise : parseFloat(String(paise).replace(/,/g, "")) || 0));
+  const rupees = paiseToRupees(p);
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "INR",

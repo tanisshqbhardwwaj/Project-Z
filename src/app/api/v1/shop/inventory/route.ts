@@ -26,6 +26,9 @@ const createItemSchema = z.object({
   costRupees: z.number().min(0).optional().nullable(),
   sellRupees: z.number().min(0).optional().nullable(),
   autoBarcode: z.boolean().optional(),
+  category: z.string().max(40).optional().nullable(),
+  subCategory: z.string().max(40).optional().nullable(),
+  expiryDate: z.string().optional().nullable(),
 });
 
 const updateItemSchema = z.object({
@@ -39,6 +42,9 @@ const updateItemSchema = z.object({
   reorderLevel: z.number().min(0).optional(),
   costRupees: z.number().min(0).optional().nullable(),
   sellRupees: z.number().min(0).optional().nullable(),
+  category: z.string().max(40).optional().nullable(),
+  subCategory: z.string().max(40).optional().nullable(),
+  expiryDate: z.string().optional().nullable(),
 });
 
 const deleteItemSchema = z.object({
@@ -70,6 +76,7 @@ export async function POST(request: Request) {
     const item = await createInventoryItem({
       organizationId: ctx.organizationId,
       ...data,
+      expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
     });
 
     return NextResponse.json({ data: serializeBigInt(item) }, { status: 201 });
@@ -88,6 +95,12 @@ export async function PATCH(request: Request) {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       ...data,
+      expiryDate:
+        data.expiryDate !== undefined
+          ? data.expiryDate
+            ? new Date(data.expiryDate)
+            : null
+          : undefined,
     });
 
     return apiSuccess(serializeBigInt(item));

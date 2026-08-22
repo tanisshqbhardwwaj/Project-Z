@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
 import type { AttendanceStatus, PayrollStatus } from "@prisma/client";
 import { createAuditLog } from "./audit.service";
+import { scheduleShopInventoryAlertSync } from "./shop-notification.service";
+import {
+  applyAdvanceRepayments,
+  createSalaryShopExpense,
+  getOpenAdvanceDeductionPaise,
+} from "./staff-advance.service";
+import { setPayrollShopExpenseId, getPayrollShopExpenseId } from "@/lib/shop/staff-expense-links";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { requireModule, getOrgModuleContext, parseOrgSettings } from "@/lib/org/require-module";
 import {
@@ -9,6 +16,7 @@ import {
   monthRangeUtc,
   eachDayKeyInMonth,
   isFutureDayKey,
+  addDaysToDayKey,
   orgTodayKey,
 } from "@/lib/date/org-day";
 
@@ -292,6 +300,135 @@ export async function listAttendanceGrid(
   };
 }
 
+export type AttendanceRegularityRow = {
+  staffId: string;
+  name: string;
+  roleTitle: string;
+  currentStreak: number;
+  presentDays: number;
+  absentDays: number;
+  halfDays: number;
+  leaveDays: number;
+  unmarkedDays: number;
+  attendanceRate: number;
+  periodDays: number;
+};
+
+function attendancePresentUnits(status: AttendanceStatus): number {
+  if (status === "PRESENT" || status === "PAID_LEAVE") return 1;
+  if (status === "HALF_DAY") return 0.5;
+  return 0;
+}
+
+function streakEligible(status: AttendanceStatus): boolean {
+  return status !== "ABSENT";
+}
+
+export async function getAttendanceRegularityStats(
+  organizationId: string,
+  options?: { days?: number; timezone?: string | null }
+) {
+  await requireModule(organizationId, "staff");
+  const days = Math.min(Math.max(options?.days ?? 99, 7), 99);
+  const today = orgTodayKey(options?.timezone);
+  const from = addDaysToDayKey(today, -(days - 1));
+
+  const staffList = await prisma.staffMember.findMany({
+    where: { organizationId, status: "ACTIVE" },
+    orderBy: { name: "asc" },
+  });
+
+  const records = await prisma.staffAttendance.findMany({
+    where: {
+      organizationId,
+      date: { gte: dayKeyToUtcDate(from), lte: dayKeyToUtcDate(today) },
+    },
+  });
+
+  const byStaffDate = new Map<string, Map<string, AttendanceStatus>>();
+  for (const record of records) {
+    const dayKey = utcDateToDayKey(record.date);
+    if (!byStaffDate.has(record.staffId)) {
+      byStaffDate.set(record.staffId, new Map());
+    }
+    byStaffDate.get(record.staffId)!.set(dayKey, record.status);
+  }
+
+  const dayKeys: string[] = [];
+  for (let i = 0; i < days; i++) {
+    dayKeys.push(addDaysToDayKey(from, i));
+  }
+
+  const all: AttendanceRegularityRow[] = staffList.map((staff) => {
+    const joinedDay = staff.joinedAt ? utcDateToDayKey(staff.joinedAt) : from;
+    const eligibleDays = dayKeys.filter((dk) => dk >= joinedDay && dk <= today);
+    const statusMap = byStaffDate.get(staff.id) ?? new Map();
+
+    let presentDays = 0;
+    let absentDays = 0;
+    let halfDays = 0;
+    let leaveDays = 0;
+    let unmarkedDays = 0;
+
+    for (const dk of eligibleDays) {
+      const status = statusMap.get(dk);
+      if (!status) {
+        unmarkedDays += 1;
+        continue;
+      }
+      if (status === "ABSENT") absentDays += 1;
+      else if (status === "HALF_DAY") halfDays += 1;
+      else if (status === "PAID_LEAVE") leaveDays += 1;
+      presentDays += attendancePresentUnits(status);
+    }
+
+    let currentStreak = 0;
+    for (let i = eligibleDays.length - 1; i >= 0; i--) {
+      const status = statusMap.get(eligibleDays[i]!);
+      if (!status || !streakEligible(status)) break;
+      currentStreak += 1;
+    }
+
+    const periodDays = eligibleDays.length;
+    const attendanceRate =
+      periodDays > 0 ? Math.round((presentDays / periodDays) * 100) : 0;
+
+    return {
+      staffId: staff.id,
+      name: staff.name,
+      roleTitle: staff.roleTitle,
+      currentStreak,
+      presentDays,
+      absentDays,
+      halfDays,
+      leaveDays,
+      unmarkedDays,
+      attendanceRate,
+      periodDays,
+    };
+  });
+
+  const mostRegular = [...all]
+    .sort(
+      (a, b) =>
+        b.currentStreak - a.currentStreak ||
+        b.attendanceRate - a.attendanceRate ||
+        b.presentDays - a.presentDays
+    )
+    .slice(0, 5);
+
+  const leastRegular = [...all]
+    .sort(
+      (a, b) =>
+        a.attendanceRate - b.attendanceRate ||
+        b.absentDays - a.absentDays ||
+        a.presentDays - b.presentDays
+    )
+    .slice(0, 5);
+
+  return { days, from, to: today, mostRegular, leastRegular, all };
+}
+
 async function computeStaffMonthStats(input: {
   organizationId: string;
   staffId: string;
@@ -518,7 +655,7 @@ export async function generateOrRefreshPayroll(input: {
 
 export async function listPayroll(organizationId: string, year: number, month: number) {
   await requireModule(organizationId, "staff");
-  return prisma.staffPayroll.findMany({
+  const rows = await prisma.staffPayroll.findMany({
     where: { organizationId, year, month },
     include: {
       staff: {
@@ -534,6 +671,29 @@ export async function listPayroll(organizationId: string, year: number, month: n
     },
     orderBy: { staff: { name: "asc" } },
   });
+
+  const enriched = await Promise.all(
+    rows.map(async (row) => {
+      const [openAdvances, advanceDeductionPaise] = await Promise.all([
+        prisma.staffAdvance.findMany({
+          where: {
+            organizationId,
+            staffId: row.staffId,
+            status: "OPEN",
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        getOpenAdvanceDeductionPaise(organizationId, row.staffId),
+      ]);
+      return {
+        ...row,
+        openAdvances,
+        advanceDeductionPaise: advanceDeductionPaise.toString(),
+      };
+    })
+  );
+
+  return enriched;
 }
 
 export async function markPayrollPaid(input: {
@@ -547,6 +707,35 @@ export async function markPayrollPaid(input: {
     include: { staff: true },
   });
   if (!payroll) throw new Error("Payroll row not found");
+
+  const advanceDeduction = await getOpenAdvanceDeductionPaise(
+    input.organizationId,
+    payroll.staffId
+  );
+
+  let shopExpenseId = await getPayrollShopExpenseId(payroll.id);
+  if (!shopExpenseId && payroll.finalAmountPaise > BigInt(0)) {
+    const shopExpense = await createSalaryShopExpense({
+      organizationId: input.organizationId,
+      userId: input.userId,
+      payrollId: payroll.id,
+      staffId: payroll.staffId,
+      staffName: payroll.staff.name,
+      amountPaise: payroll.finalAmountPaise,
+      month: payroll.month,
+      year: payroll.year,
+      notes: payroll.notes,
+    });
+    shopExpenseId = shopExpense?.id ?? null;
+  }
+
+  if (advanceDeduction > BigInt(0)) {
+    await applyAdvanceRepayments({
+      organizationId: input.organizationId,
+      staffId: payroll.staffId,
+      repayPaise: advanceDeduction,
+    });
+  }
 
   let expenseId = payroll.expenseId;
   let paymentId = payroll.paymentId;
@@ -613,6 +802,7 @@ export async function markPayrollPaid(input: {
     status: "PAID",
     expenseId,
     paymentId,
+    shopExpenseId,
   });
 }
 
@@ -626,6 +816,7 @@ export async function updatePayroll(input: {
   notes?: string | null;
   expenseId?: string | null;
   paymentId?: string | null;
+  shopExpenseId?: string | null;
   lines?: { type: "EARNING" | "DEDUCTION"; label: string; amountRupees: number }[];
 }) {
   await requireModule(input.organizationId, "staff");
@@ -710,6 +901,8 @@ export async function updatePayroll(input: {
   if (input.expenseId !== undefined) data.expenseId = input.expenseId;
   if (input.paymentId !== undefined) data.paymentId = input.paymentId;
 
+  const shopExpenseIdToSet = input.shopExpenseId;
+
   if (input.status !== undefined) {
     data.status = input.status;
     data.paidAt = input.status === "PAID" ? new Date() : null;
@@ -724,6 +917,10 @@ export async function updatePayroll(input: {
       lines: true,
     },
   });
+
+  if (shopExpenseIdToSet !== undefined) {
+    await setPayrollShopExpenseId(prisma, input.payrollId, shopExpenseIdToSet);
+  }
 
   await createAuditLog({
     organizationId: input.organizationId,

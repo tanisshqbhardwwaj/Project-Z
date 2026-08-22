@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
@@ -151,6 +151,12 @@ export default function ShopUdhaarPage() {
         <CardContent className="space-y-3">
           {creditsQuery.isLoading ? (
             <PageLoader label="Loading customers..." />
+          ) : creditsQuery.error ? (
+            <p className="text-sm text-destructive">
+              {creditsQuery.error instanceof Error
+                ? creditsQuery.error.message
+                : "Failed to load ledger"}
+            </p>
           ) : (creditsQuery.data ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">No customers yet.</p>
           ) : (
@@ -166,6 +172,11 @@ export default function ShopUdhaarPage() {
                   <p className="font-semibold">{formatINR(c.balancePaise)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Link href={`/shop/udhaar/${c.id}`}>
+                    <Button type="button" variant="secondary" className="h-10 rounded-xl">
+                      View ledger
+                    </Button>
+                  </Link>
                   <Input
                     type="number"
                     placeholder="± ₹ adjust"

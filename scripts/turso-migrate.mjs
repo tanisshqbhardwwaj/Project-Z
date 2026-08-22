@@ -15,7 +15,44 @@ if (!url || !authToken) {
 const client = createClient({ url, authToken });
 const migrationsDir = join(process.cwd(), "prisma", "migrations");
 
-// Track which migrations have already been applied so redeploys are idempotent.
+function splitStatements(sql) {
+  return sql
+    .split(/;\s*(?:\n|$)/)
+    .map((s) => s.replace(/^\s*--[^\n]*\n?/gm, "").trim())
+    .filter(Boolean);
+}
+
+function errorText(err) {
+  const parts = [err?.message, err?.cause?.message, err?.cause?.proto?.message];
+  return parts.filter(Boolean).join(" ");
+}
+
+function isIgnorableError(err) {
+  const m = errorText(err).toLowerCase();
+  return (
+    m.includes("duplicate column") ||
+    m.includes("duplicate index") ||
+    m.includes("duplicate key") ||
+    m.includes("already exists") ||
+    m.includes("duplicate table")
+  );
+}
+
+async function applyMigrationSql(sql) {
+  const statements = splitStatements(sql);
+  for (const statement of statements) {
+    try {
+      await client.execute(statement);
+    } catch (err) {
+      if (isIgnorableError(err)) {
+        console.warn(`    ⚠ skipped (already applied): ${errorText(err)}`);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 await client.execute(
   `CREATE TABLE IF NOT EXISTS "_turso_migrations" (
     "name" TEXT PRIMARY KEY,
@@ -34,9 +71,6 @@ const folders = readdirSync(migrationsDir)
   .filter((name) => !name.startsWith(".") && name !== "migration_lock.toml")
   .sort();
 
-// Baseline: if the tracking table is empty but the schema already exists
-// (from an earlier deploy that ran before tracking was added), record all
-// current migrations as applied instead of re-running them.
 if (applied.size === 0) {
   const schemaCheck = await client.execute(
     `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'User'`
@@ -48,7 +82,7 @@ if (applied.size === 0) {
       const sql = readFileSync(migrationPath, "utf8").trim();
       const checksum = createHash("sha256").update(sql).digest("hex");
       await client.execute({
-        sql: `INSERT INTO "_turso_migrations" ("name", "checksum") VALUES (?, ?)`,
+        sql: `INSERT OR IGNORE INTO "_turso_migrations" ("name", "checksum") VALUES (?, ?)`,
         args: [folder, checksum],
       });
       applied.add(folder);
@@ -71,7 +105,7 @@ if (pending.length === 0) {
     const checksum = createHash("sha256").update(sql).digest("hex");
 
     console.log(`  → ${folder}`);
-    await client.executeMultiple(sql);
+    await applyMigrationSql(sql);
     await client.execute({
       sql: `INSERT INTO "_turso_migrations" ("name", "checksum") VALUES (?, ?)`,
       args: [folder, checksum],

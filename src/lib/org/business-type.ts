@@ -153,8 +153,8 @@ export const BUSINESS_TYPE_CONFIG: Record<BusinessType, BusinessTypeConfig> = {
   },
   SHOPKEEPER: {
     id: "SHOPKEEPER",
-    label: "Shopkeeper",
-    description: "Shop orders, purchases, expenses, and co-owner shares",
+    label: "Retail Store Management",
+    description: "Retail sales, inventory, purchases, expenses, and co-owner shares",
     workItemPlural: "Orders",
     workItemSingular: "Order",
     workItemSingularLower: "order",

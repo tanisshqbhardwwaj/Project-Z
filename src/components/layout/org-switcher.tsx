@@ -77,7 +77,7 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
 
   if (orgs.length <= 1 && !canCreateMore) {
     return (
-      <div className="flex h-9 max-w-[220px] items-center gap-2">
+      <div className="flex h-9 min-w-0 max-w-full items-center gap-2">
         <Building2 className="h-4 w-4 shrink-0 text-primary" />
         <span className="truncate text-sm font-medium">{activeName}</span>
       </div>
@@ -89,7 +89,7 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className="h-9 max-w-[220px] justify-start gap-2 px-2"
+          className="h-9 min-w-0 max-w-full justify-start gap-2 px-2 sm:max-w-[220px]"
         >
           <Building2 className="h-4 w-4 shrink-0 text-primary" />
           <span className="truncate text-sm font-medium">{activeName}</span>

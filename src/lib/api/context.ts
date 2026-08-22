@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import type { OrgRole } from "@prisma/client";
-import { hasPermission, type Permission } from "@/lib/permissions/rbac";
+import { hasPermission, canManageOrg, type Permission } from "@/lib/permissions/rbac";
 import { formatZodError } from "@/lib/api/validation";
 import { logger } from "@/lib/logger";
 import { RateLimitError } from "@/lib/rate-limit";
@@ -25,6 +25,12 @@ export interface AuthContext {
   userName: string;
   organizationId: string;
   role: OrgRole;
+}
+
+export function requireOwner(ctx: AuthContext) {
+  if (!canManageOrg(ctx.role)) {
+    throw new ApiError(403, "FORBIDDEN", "Owner access required");
+  }
 }
 
 export async function getAuthContext(

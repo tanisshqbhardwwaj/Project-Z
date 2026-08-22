@@ -19,13 +19,23 @@ import {
   INFINITE_STOCK_QTY,
   isInfiniteStock,
 } from "@/lib/shop/inventory";
-import { Plus } from "lucide-react";
+import { Plus, Wrench, FileText } from "lucide-react";
 import { BarcodeLabelPreview } from "@/components/shop/barcode-label";
 import { InventoryStockList } from "@/components/shop/inventory-stock-list";
+import { InventoryInsightsPanel } from "@/components/shop/inventory-insights-panel";
+import { InventoryToolsDialog } from "@/components/shop/inventory-tools-dialog";
 import { LabelCopiesActions } from "@/components/shop/label-copies-actions";
 import { LabelHeaderPicker } from "@/components/shop/label-header-picker";
 import { buildBarcodeLabelData } from "@/lib/shop/label-data";
 import { resolveShopLabelBranding, type FullLabelHeaderMode } from "@/lib/org/shop-settings";
+import {
+  defaultSubcategoryForCategory,
+  inventoryCategoriesForSector,
+  inventorySubcategoriesForCategory,
+  parseInventoryCategory,
+  parseInventorySubcategory,
+} from "@/lib/shop/inventory-categories";
+import { getShopSectorConfig } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -46,11 +56,13 @@ type InventoryItem = {
   reorderLevel: number;
   sellPaise: string | null;
   costPaise?: string | null;
+  expiryDate?: string | null;
+  sectorMeta?: unknown;
 };
 
 export default function ShopInventoryPage() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
-  const { activeBusinessType, enabledModules } = useAuthStore();
+  const { activeBusinessType, activeShopSector, enabledModules } = useAuthStore();
   const moduleEnabled = isModuleEnabled(enabledModules, "shop_inventory");
   const title = moduleLabel("shop_inventory", activeBusinessType ?? "SHOPKEEPER");
 
@@ -64,15 +76,40 @@ export default function ShopInventoryPage() {
   const [quantity, setQuantity] = useState("0");
   const [reorderLevel, setReorderLevel] = useState("5");
   const [sellPrice, setSellPrice] = useState("");
+  const [category, setCategory] = useState("");
+  const [subCategory, setSubCategory] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
   const [editTarget, setEditTarget] = useState<InventoryItem | null>(null);
   const [editDescription, setEditDescription] = useState("");
   const [editSize, setEditSize] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editSubCategory, setEditSubCategory] = useState("");
   const [printTarget, setPrintTarget] = useState<InventoryItem | null>(null);
   const [labelSize, setLabelSize] = useState<"small" | "full">("full");
   const [labelHeaderMode, setLabelHeaderMode] = useState<FullLabelHeaderMode>("both");
   const [labelCopies, setLabelCopies] = useState(1);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [expiryDate, setExpiryDate] = useState("");
+  const [editExpiryDate, setEditExpiryDate] = useState("");
+
+  const sectorCategories = inventoryCategoriesForSector(activeShopSector);
+  const sectorConfig = getShopSectorConfig(activeShopSector);
+  const showExpiryField = sectorConfig.inventoryFields?.includes("expiryDate") ?? false;
+  const sectorLabel = getShopSectorConfig(activeShopSector).label;
+  const defaultCategory = sectorCategories[0]?.id ?? "other";
+  const addSubcategories = inventorySubcategoriesForCategory(activeShopSector, category || defaultCategory);
+  const editSubcategories = inventorySubcategoriesForCategory(activeShopSector, editCategory || defaultCategory);
+
+  function handleCategoryChange(nextCategory: string) {
+    setCategory(nextCategory);
+    setSubCategory(defaultSubcategoryForCategory(activeShopSector, nextCategory));
+  }
+
+  function handleEditCategoryChange(nextCategory: string) {
+    setEditCategory(nextCategory);
+    setEditSubCategory(defaultSubcategoryForCategory(activeShopSector, nextCategory));
+  }
 
   const itemsQuery = useQuery({
     queryKey: orgId ? queryKeys.modules.shop.inventory(orgId) : ["disabled"],
@@ -84,7 +121,13 @@ export default function ShopInventoryPage() {
     mutationFn: (body: Record<string, unknown>) =>
       apiFetch("/api/v1/shop/inventory", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: () => {
-      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.modules.shop.inventory(orgId) });
+      if (orgId) {
+        qc.invalidateQueries({ queryKey: queryKeys.modules.shop.inventory(orgId) });
+        qc.invalidateQueries({
+          queryKey: [...queryKeys.org(orgId), "shop", "inventory", "analytics"],
+        });
+        qc.invalidateQueries({ queryKey: queryKeys.notificationsUnread(orgId) });
+      }
     },
   });
 
@@ -92,7 +135,13 @@ export default function ShopInventoryPage() {
     mutationFn: (body: Record<string, unknown>) =>
       apiFetch("/api/v1/shop/inventory", { method: "PATCH", body: JSON.stringify(body) }),
     onSuccess: () => {
-      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.modules.shop.inventory(orgId) });
+      if (orgId) {
+        qc.invalidateQueries({ queryKey: queryKeys.modules.shop.inventory(orgId) });
+        qc.invalidateQueries({
+          queryKey: [...queryKeys.org(orgId), "shop", "inventory", "analytics"],
+        });
+        qc.invalidateQueries({ queryKey: queryKeys.notificationsUnread(orgId) });
+      }
     },
   });
 
@@ -100,7 +149,13 @@ export default function ShopInventoryPage() {
     mutationFn: (body: Record<string, unknown>) =>
       apiFetch("/api/v1/shop/inventory", { method: "DELETE", body: JSON.stringify(body) }),
     onSuccess: () => {
-      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.modules.shop.inventory(orgId) });
+      if (orgId) {
+        qc.invalidateQueries({ queryKey: queryKeys.modules.shop.inventory(orgId) });
+        qc.invalidateQueries({
+          queryKey: [...queryKeys.org(orgId), "shop", "inventory", "analytics"],
+        });
+        qc.invalidateQueries({ queryKey: queryKeys.notificationsUnread(orgId) });
+      }
     },
   });
 
@@ -154,19 +209,29 @@ export default function ShopInventoryPage() {
     setQuantity("0");
     setReorderLevel("5");
     setSellPrice("");
+    setExpiryDate("");
+    setCategory(defaultCategory);
+    setSubCategory(defaultSubcategoryForCategory(activeShopSector, defaultCategory));
   }
 
-  function openAddDialog(prefill?: Partial<InventoryItem>) {
+  function openAddDialog(prefill?: InventoryItem) {
     clear();
     if (prefill) {
-      setName(prefill.name ?? "");
+      const prefillCategory =
+        parseInventoryCategory(prefill.sectorMeta) ?? defaultCategory;
+      setName(prefill.name);
       setDescription(prefill.description ?? "");
       setSize("");
       setBarcode("");
       setQuantity("0");
-      setReorderLevel(String(prefill.reorderLevel ?? 5));
+      setReorderLevel(String(prefill.reorderLevel));
       setSellPrice(
         prefill.sellPaise ? String(Number(prefill.sellPaise) / 100) : ""
+      );
+      setCategory(prefillCategory);
+      setSubCategory(
+        parseInventorySubcategory(prefill.sectorMeta) ??
+          defaultSubcategoryForCategory(activeShopSector, prefillCategory)
       );
     } else {
       resetAddForm();
@@ -187,6 +252,10 @@ export default function ShopInventoryPage() {
         quantity: Number(quantity) || 0,
         reorderLevel: Number(reorderLevel) || 0,
         sellRupees: sellPrice ? Number(sellPrice) : null,
+        category: category || defaultCategory,
+        subCategory:
+          subCategory || defaultSubcategoryForCategory(activeShopSector, category || defaultCategory),
+        expiryDate: showExpiryField && expiryDate ? expiryDate : null,
       });
       resetAddForm();
       setAddDialogOpen(false);
@@ -232,6 +301,11 @@ export default function ShopInventoryPage() {
         itemId: editTarget.id,
         description: editDescription.trim() || null,
         size: editSize.trim() || null,
+        category: editCategory || defaultCategory,
+        subCategory:
+          editSubCategory ||
+          defaultSubcategoryForCategory(activeShopSector, editCategory || defaultCategory),
+        expiryDate: showExpiryField ? editExpiryDate || null : undefined,
       });
       setEditTarget(null);
     } catch (err) {
@@ -252,7 +326,7 @@ export default function ShopInventoryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 pb-8">
+    <div className="mx-auto max-w-7xl space-y-5 pb-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
@@ -260,39 +334,82 @@ export default function ShopInventoryPage() {
             Stock levels, barcodes for scanning at counter, and printable shelf labels
           </p>
         </div>
-        <Button className="h-11 rounded-xl" onClick={() => openAddDialog()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add product
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/shop/inventory/report">
+            <Button variant="outline" className="h-11 rounded-xl">
+              <FileText className="mr-2 h-4 w-4" />
+              Stock report
+            </Button>
+          </Link>
+          <Button
+            variant="outline"
+            className="h-11 rounded-xl"
+            onClick={() => setToolsOpen(true)}
+          >
+            <Wrench className="mr-2 h-4 w-4" />
+            Tools
+          </Button>
+          <Button className="h-11 rounded-xl" onClick={() => openAddDialog()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add product
+          </Button>
+        </div>
       </div>
 
       <FormFeedback warning={warning} error={error} />
 
-      <Card className="rounded-2xl border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">Stock list</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Search, adjust stock, print labels. Same product in multiple sizes appears grouped.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <InventoryStockList
-            items={itemsQuery.data ?? []}
-            isLoading={itemsQuery.isLoading}
-            isUpdating={updateMutation.isPending}
-            onAdjustQty={adjustQty}
-            onAddSize={startAnotherSize}
-            onEditDetails={(item) => {
-              setEditTarget(item);
-              setEditDescription(item.description ?? "");
-              setEditSize(item.size ?? "");
-            }}
-            onGenerateBarcode={generateBarcode}
-            onPrintLabel={setPrintTarget}
-            onDelete={setDeleteTarget}
-          />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(280px,380px)] xl:items-start">
+        <Card className="rounded-2xl border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg">Stock list</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Search and filter by category for {sectorLabel.toLowerCase()}. Same product in
+              multiple sizes appears grouped.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {itemsQuery.error ? (
+              <p className="mb-3 text-sm text-destructive">
+                {itemsQuery.error instanceof Error
+                  ? itemsQuery.error.message
+                  : "Failed to load stock"}
+              </p>
+            ) : null}
+            <InventoryStockList
+              items={itemsQuery.data ?? []}
+              shopSector={activeShopSector}
+              isLoading={itemsQuery.isLoading}
+              isUpdating={updateMutation.isPending}
+              onAdjustQty={adjustQty}
+              onAddSize={startAnotherSize}
+              onEditDetails={(item) => {
+                const itemCategory =
+                  parseInventoryCategory(item.sectorMeta) ?? defaultCategory;
+                setEditTarget(item);
+                setEditDescription(item.description ?? "");
+                setEditSize(item.size ?? "");
+                setEditCategory(itemCategory);
+                setEditSubCategory(
+                  parseInventorySubcategory(item.sectorMeta) ??
+                    defaultSubcategoryForCategory(activeShopSector, itemCategory)
+                );
+                setEditExpiryDate(
+                  item.expiryDate
+                    ? new Date(item.expiryDate).toISOString().slice(0, 10)
+                    : ""
+                );
+              }}
+              onGenerateBarcode={generateBarcode}
+              onPrintLabel={setPrintTarget}
+              onDelete={setDeleteTarget}
+            />
+          </CardContent>
+        </Card>
+
+        <aside className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+          <InventoryInsightsPanel orgId={orgId} enabled={moduleEnabled} />
+        </aside>
+      </div>
 
       <Dialog
         open={addDialogOpen}
@@ -329,6 +446,36 @@ export default function ShopInventoryPage() {
                 placeholder="e.g. Cotton slim fit, blue"
                 maxLength={500}
               />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <select
+                  value={category || defaultCategory}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  {sectorCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Sub-category</Label>
+                <select
+                  value={subCategory || addSubcategories[0]?.id}
+                  onChange={(e) => setSubCategory(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  {addSubcategories.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -386,6 +533,17 @@ export default function ShopInventoryPage() {
                 />
               </div>
             </div>
+            {showExpiryField ? (
+              <div className="space-y-2">
+                <Label>Expiry date (optional)</Label>
+                <Input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  className="h-11 rounded-xl"
+                />
+              </div>
+            ) : null}
             {(warning || error) && (
               <FormFeedback warning={warning} error={error} />
             )}
@@ -443,6 +601,47 @@ export default function ShopInventoryPage() {
                 placeholder="e.g. M, 32, 500ml"
               />
             </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <select
+                  value={editCategory || defaultCategory}
+                  onChange={(e) => handleEditCategoryChange(e.target.value)}
+                  className="h-12 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  {sectorCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Sub-category</Label>
+                <select
+                  value={editSubCategory || editSubcategories[0]?.id}
+                  onChange={(e) => setEditSubCategory(e.target.value)}
+                  className="h-12 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  {editSubcategories.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {showExpiryField ? (
+              <div className="space-y-2">
+                <Label>Expiry date</Label>
+                <Input
+                  type="date"
+                  value={editExpiryDate}
+                  onChange={(e) => setEditExpiryDate(e.target.value)}
+                  className="h-12 rounded-xl"
+                />
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" className="rounded-xl" onClick={() => setEditTarget(null)}>
@@ -551,6 +750,14 @@ export default function ShopInventoryPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <InventoryToolsDialog
+        open={toolsOpen}
+        onOpenChange={setToolsOpen}
+        orgId={orgId}
+        items={itemsQuery.data ?? []}
+        shopSector={activeShopSector}
+      />
     </div>
   );
 }

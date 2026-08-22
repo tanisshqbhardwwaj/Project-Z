@@ -52,6 +52,43 @@ export type PayrollRow = {
     wagePeriod: string | null;
   };
   lines?: { id: string; type: string; label: string; amountPaise: string }[];
+  openAdvances?: StaffAdvanceRow[];
+  advanceDeductionPaise?: string;
+};
+
+export type StaffAdvanceRow = {
+  id: string;
+  staffId: string;
+  amountPaise: string;
+  repaidPaise: string;
+  status: "OPEN" | "CLOSED";
+  notes: string | null;
+  createdAt: string;
+  staff: { id: string; name: string; roleTitle: string };
+  createdBy: { name: string };
+};
+
+export type AttendanceRegularityRow = {
+  staffId: string;
+  name: string;
+  roleTitle: string;
+  currentStreak: number;
+  presentDays: number;
+  absentDays: number;
+  halfDays: number;
+  leaveDays: number;
+  unmarkedDays: number;
+  attendanceRate: number;
+  periodDays: number;
+};
+
+export type AttendanceRegularityStats = {
+  days: number;
+  from: string;
+  to: string;
+  mostRegular: AttendanceRegularityRow[];
+  leastRegular: AttendanceRegularityRow[];
+  all: AttendanceRegularityRow[];
 };
 
 function useOrgId() {
@@ -89,6 +126,20 @@ export function useAttendanceGrid(year: number, month: number) {
     queryFn: () =>
       apiFetch<{ dayKeys: string[]; rows: unknown[] }>(
         `/api/v1/staff/attendance?year=${year}&month=${month}`
+      ),
+    enabled: !!orgId,
+  });
+}
+
+const REGULARITY_DAYS = 99;
+
+export function useAttendanceRegularity(days = REGULARITY_DAYS) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgId ? queryKeys.staff.regularity(orgId, days) : ["disabled"],
+    queryFn: () =>
+      apiFetch<AttendanceRegularityStats>(
+        `/api/v1/staff/attendance/regularity?days=${days}`
       ),
     enabled: !!orgId,
   });
@@ -227,6 +278,49 @@ export function useUpdatePayroll(year: number, month: number) {
     onSuccess: () => {
       if (orgId) {
         qc.invalidateQueries({ queryKey: queryKeys.staff.payroll(orgId, year, month) });
+        qc.invalidateQueries({ queryKey: queryKeys.staff.advances(orgId) });
+        qc.invalidateQueries({ queryKey: queryKeys.modules.shop.expenses(orgId) });
+      }
+    },
+  });
+}
+
+export function useStaffAdvances(options?: { staffId?: string; status?: "OPEN" | "CLOSED" }) {
+  const orgId = useOrgId();
+  const params = new URLSearchParams();
+  if (options?.staffId) params.set("staffId", options.staffId);
+  if (options?.status) params.set("status", options.status);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: orgId
+      ? [...queryKeys.staff.advances(orgId), options?.staffId ?? "all", options?.status ?? "all"]
+      : ["disabled"],
+    queryFn: () =>
+      apiFetch<StaffAdvanceRow[]>(`/api/v1/staff/advances${qs ? `?${qs}` : ""}`),
+    enabled: !!orgId,
+  });
+}
+
+export function useCreateStaffAdvance() {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      staffId: string;
+      amountRupees: number;
+      notes?: string;
+      givenDate?: string;
+      paymentMethod?: string;
+    }) =>
+      apiFetch("/api/v1/staff/advances", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      if (orgId) {
+        qc.invalidateQueries({ queryKey: queryKeys.staff.advances(orgId) });
+        qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+        qc.invalidateQueries({ queryKey: queryKeys.modules.shop.expenses(orgId) });
       }
     },
   });

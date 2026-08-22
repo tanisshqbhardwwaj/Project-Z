@@ -77,7 +77,7 @@ export const SHOP_SECTOR_CONFIG: Record<ShopSector, ShopSectorConfig> = {
     id: "CLOTHING",
     label: "Clothing / Fashion",
     description: "Apparel, textiles, footwear",
-    capabilities: ["size_color_matrix"],
+    capabilities: ["size_color_matrix", "udhaar"],
     inventoryFields: ["size", "color"],
     expenseCategories: [
       "Purchase",

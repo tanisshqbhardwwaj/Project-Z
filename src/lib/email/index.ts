@@ -66,7 +66,7 @@ export async function sendEmail(options: {
 
   if (error) {
     console.error("[EMAIL ERROR]", error.message);
-    if (options.devLink) {
+    if (process.env.NODE_ENV === "development" && options.devLink) {
       console.log("[DEV EMAIL FALLBACK — use this link]", options.devLink);
     }
     throw new Error(error.message);
