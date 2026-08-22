@@ -104,7 +104,7 @@ export default function PurchaseDetailPage() {
       setPayNotes("");
       clear();
     },
-    onError: applyError,
+    onError: (err) => applyError(err, "Failed to add payment"),
   });
 
   if (isLoading) return <PageLoader label="Loading purchase..." />;

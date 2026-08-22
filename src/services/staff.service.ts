@@ -213,6 +213,7 @@ export async function updateStaffMember(input: {
     overtimeRatePaise?: bigint | null;
     status?: StaffStatus;
     leftAt?: Date | null;
+    joinedAt?: Date;
     notes?: string | null;
   } = {};
 

@@ -118,7 +118,20 @@ export async function createShopExpenseWithLinks(
 }
 
 export async function createShopPurchasePaymentRecord(
-  client: DbClient & { shopPurchasePayment?: { create: (args: unknown) => Promise<unknown> } },
+  client: DbClient & {
+    shopPurchasePayment?: {
+      create: (args: {
+        data: {
+          organizationId: string;
+          purchaseId: string;
+          amountPaise: bigint;
+          paymentMethod: PaymentMethod;
+          notes: string | null;
+          createdById: string;
+        };
+      }) => Promise<{ id: string }>;
+    };
+  },
   data: {
     organizationId: string;
     purchaseId: string;

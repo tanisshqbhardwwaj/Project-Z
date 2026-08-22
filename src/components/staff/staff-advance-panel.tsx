@@ -81,7 +81,7 @@ export function StaffAdvancePanel({
         </header>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <FormFeedback warning={warning} error={error} />
+          <FormFeedback warning={warning ?? undefined} error={error ?? undefined} />
 
           <form
             className="space-y-4"

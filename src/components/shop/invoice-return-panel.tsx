@@ -85,7 +85,7 @@ export function InvoiceReturnPanel({
       setOpen(false);
       setQtyByLine({});
     },
-    onError: applyError,
+    onError: (err) => applyError(err, "Failed to process return"),
   });
 
   async function submitReturn() {
