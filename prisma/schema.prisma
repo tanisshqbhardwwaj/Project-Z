@@ -24,6 +24,7 @@ enum OrgRole {
   PARTNER
   ACCOUNTANT
   VIEWER
+  CASHIER
 }
 
 enum MemberStatus {
@@ -54,6 +55,7 @@ enum PaymentMethod {
   BANK
   CARD
   CHEQUE
+  CREDIT
   OTHER
 }
 
@@ -77,8 +79,6 @@ enum ExtractionStatus {
   REVIEWED
 }
 
-<<<<<<< Updated upstream
-=======
 enum BusinessType {
   CONTRACTOR
   ARCHITECT
@@ -211,70 +211,6 @@ enum UnitStatus {
   SOLD
 }
 
-enum BillingPlan {
-  BASIC
-  BUSINESS
-  PROFESSIONAL
-  BUSINESS_PRO
-}
-
-enum SubscriptionStatus {
-  TRIAL
-  PENDING_PAYMENT
-  ACTIVE
-  PAST_DUE
-  CANCELLED
-}
-
-enum SetupFeeStatus {
-  UNPAID
-  PAID
-  WAIVED
-}
-
-enum BillingCycle {
-  MONTHLY
-}
-
-enum PlanRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
-enum BillingEventType {
-  PLAN_REQUEST
-  PLAN_ACTIVATED
-  PLAN_CHANGED
-  SETUP_FEE_PAID
-  SETUP_FEE_WAIVED
-  CANCELLED
-  REACTIVATED
-  REQUEST_REJECTED
-}
-
-enum SyncOutboxStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-enum DeviceType {
-  WINDOWS
-  ANDROID
-  IOS
-  MAC
-}
-
-enum DeviceStatus {
-  PENDING
-  ACTIVE
-  REVOKED
-}
-
->>>>>>> Stashed changes
 model User {
   id              String    @id @default(uuid())
   email           String    @unique
@@ -305,8 +241,6 @@ model User {
   partnerRequests     ProjectPartnerRequest[] @relation("PartnerRequestUser")
   partnerReviews      ProjectPartnerRequest[] @relation("PartnerRequestReviewer")
   betaTestEmailsAdded BetaTestEmail[]         @relation("BetaTestEmailAddedBy")
-<<<<<<< Updated upstream
-=======
   staffCreated        StaffMember[]           @relation("StaffCreatedBy")
   staffLinked         StaffMember[]           @relation("StaffUserLink")
   attendanceMarked    StaffAttendance[]       @relation("AttendanceMarkedBy")
@@ -327,10 +261,6 @@ model User {
   materialIssuesCreated MaterialIssue[]     @relation("MaterialIssueCreatedBy")
   drawingRevisionsCreated DrawingRevision[] @relation("DrawingRevisionCreatedBy")
   unitBookingsCreated UnitBooking[]           @relation("UnitBookingCreatedBy")
-  planRequestsCreated PlanRequest[]           @relation("PlanRequestCreatedBy")
-  planRequestsReviewed PlanRequest[]          @relation("PlanRequestReviewedBy")
-  billingEventsActed  BillingEvent[]          @relation("BillingEventActor")
->>>>>>> Stashed changes
 }
 
 model BetaTestEmail {
@@ -361,6 +291,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -370,6 +301,8 @@ model Session {
   expires      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -391,16 +324,8 @@ model PasswordResetToken {
 }
 
 model Organization {
-  id                    String   @id @default(uuid())
+  id                    String       @id @default(uuid())
   name                  String
-<<<<<<< Updated upstream
-  slug                  String   @unique
-  defaultCompletionDays Int      @default(30)
-  currency              String   @default("INR")
-  settings              Json     @default("{}")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-=======
   slug                  String       @unique
   businessType          BusinessType @default(CONTRACTOR)
   shopSector            ShopSector?
@@ -409,22 +334,8 @@ model Organization {
   defaultCompletionDays Int          @default(30)
   currency              String       @default("INR")
   settings              Json         @default("{}")
-  plan                  BillingPlan        @default(BASIC)
-  subscriptionStatus    SubscriptionStatus @default(ACTIVE)
-  storageQuotaBytes     BigInt             @default(2147483648)
-  storageUsedBytes      BigInt             @default(0)
-  billingCycle          BillingCycle       @default(MONTHLY)
-  currentPeriodEnd      DateTime?
-  setupFeePaise         BigInt?
-  setupFeeStatus        SetupFeeStatus     @default(UNPAID)
-  earlyBirdSetup        Boolean            @default(false)
-  onboardingCompleteAt  DateTime?
-  cancelledAt           DateTime?
-  cancelReason          String?
-  localPinHash          String?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
->>>>>>> Stashed changes
 
   members          OrganizationMember[]
   invites          OrganizationInvite[]
@@ -439,8 +350,6 @@ model Organization {
   documents        Document[]
   notifications    Notification[]
   auditLogs        AuditLog[]
-<<<<<<< Updated upstream
-=======
   staffMembers     StaffMember[]
   staffAttendance  StaffAttendance[]
   staffPayrolls    StaffPayroll[]
@@ -468,104 +377,6 @@ model Organization {
   drawingRevisions DrawingRevision[]
   builderUnits     BuilderUnit[]
   unitBookings     UnitBooking[]
-  planRequests     PlanRequest[]
-  billingEvents    BillingEvent[]
-  syncOutbox       SyncOutbox[]
-  devices          Device[]
-  storageObjects   StorageObject[]
-  invoiceDraft     ShopInvoiceDraft?
-}
-
-model ShopInvoiceDraft {
-  id             String   @id @default(uuid())
-  organizationId String   @unique
-  draftJson      Json
-  updatedAt      DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-}
-
-model PlanRequest {
-  id             String            @id @default(uuid())
-  organizationId String
-  fromPlan       BillingPlan
-  toPlan         BillingPlan
-  status         PlanRequestStatus @default(PENDING)
-  createdById    String
-  reviewedById   String?
-  reviewedAt     DateTime?
-  rejectReason   String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy    User         @relation("PlanRequestCreatedBy", fields: [createdById], references: [id])
-  reviewedBy   User?        @relation("PlanRequestReviewedBy", fields: [reviewedById], references: [id])
-
-  @@index([organizationId, status])
-  @@index([status, createdAt])
-}
-
-model BillingEvent {
-  id             String           @id @default(uuid())
-  organizationId String
-  type           BillingEventType
-  actorUserId    String?
-  metadata       Json             @default("{}")
-  createdAt      DateTime         @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  actor        User?        @relation("BillingEventActor", fields: [actorUserId], references: [id])
-
-  @@index([organizationId, createdAt])
-}
-
-model SyncOutbox {
-  id             String           @id @default(uuid())
-  organizationId String
-  kind           String
-  payload        Json
-  status         SyncOutboxStatus @default(PENDING)
-  attempts       Int              @default(0)
-  lastError      String?
-  createdAt      DateTime         @default(now())
-  processedAt    DateTime?
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, status, createdAt])
-}
-
-model Device {
-  id             String       @id @default(uuid())
-  organizationId String
-  deviceType     DeviceType
-  name           String
-  pairingToken   String?      @unique
-  pairingExpires DateTime?
-  status         DeviceStatus @default(PENDING)
-  lastSeenAt     DateTime?
-  metadata       Json         @default("{}")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, status])
-}
-
-model StorageObject {
-  id             String   @id @default(uuid())
-  organizationId String
-  storageKey     String   @unique
-  byteSize       BigInt
-  category       String   @default("file")
-  createdAt      DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
->>>>>>> Stashed changes
 }
 
 model OrganizationMember {
@@ -584,6 +395,675 @@ model OrganizationMember {
 
   @@unique([organizationId, userId])
   @@index([userId, organizationId])
+  @@index([userId, status])
+}
+
+model StaffMember {
+  id                 String      @id @default(uuid())
+  organizationId     String
+  userId             String?
+  name               String
+  phone              String?
+  roleTitle          String
+  wagePaise          BigInt?
+  wagePeriod         String?
+  overtimeRatePaise  BigInt?
+  status             StaffStatus @default(ACTIVE)
+  joinedAt           DateTime?
+  leftAt             DateTime?
+  notes              String?
+  createdById        String
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?             @relation("StaffUserLink", fields: [userId], references: [id], onDelete: SetNull)
+  createdBy    User              @relation("StaffCreatedBy", fields: [createdById], references: [id])
+  attendance   StaffAttendance[]
+  payrolls     StaffPayroll[]
+  wageHistory  StaffWage[]
+  advances     StaffAdvance[]
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, status])
+  @@index([userId])
+}
+
+model StaffWage {
+  id             String   @id @default(uuid())
+  organizationId String
+  staffId        String
+  wagePaise      BigInt
+  wagePeriod     String
+  overtimeRatePaise BigInt?
+  effectiveFrom  DateTime
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("StaffWageCreatedBy", fields: [createdById], references: [id])
+
+  @@index([staffId, effectiveFrom])
+}
+
+model StaffAttendance {
+  id             String           @id @default(uuid())
+  organizationId String
+  staffId        String
+  date           DateTime
+  status         AttendanceStatus @default(PRESENT)
+  overtimeHours  Float            @default(0)
+  notes          String?
+  markedById     String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  markedBy     User         @relation("AttendanceMarkedBy", fields: [markedById], references: [id])
+
+  @@unique([staffId, date])
+  @@index([organizationId, date])
+}
+
+model StaffAdvance {
+  id               String        @id @default(uuid())
+  organizationId   String
+  staffId          String
+  amountPaise      BigInt
+  repaidPaise      BigInt        @default(0)
+  monthlyDeductionPaise BigInt?
+  status           AdvanceStatus @default(OPEN)
+  notes            String?
+  shopExpenseId    String?
+  createdById      String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("StaffAdvanceCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, staffId])
+}
+
+model StaffPayroll {
+  id                  String        @id @default(uuid())
+  organizationId      String
+  staffId             String
+  year                Int
+  month               Int
+  presentDays         Float         @default(0)
+  halfDays            Float         @default(0)
+  absentDays          Float         @default(0)
+  paidLeaveDays       Float         @default(0)
+  workingDays         Float         @default(0)
+  overtimeHours       Float         @default(0)
+  calculatedPaise     BigInt        @default(0)
+  adjustmentPaise     BigInt        @default(0)
+  finalAmountPaise    BigInt        @default(0)
+  driftCalculatedPaise BigInt?
+  status              PayrollStatus @default(DRAFT)
+  notes               String?
+  paidAt              DateTime?
+  expenseId           String?
+  paymentId           String?
+  shopExpenseId       String?
+  createdById         String
+  updatedById         String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("PayrollCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?        @relation("PayrollUpdatedBy", fields: [updatedById], references: [id])
+  lines        StaffPayrollLine[]
+
+  @@unique([staffId, year, month])
+  @@index([organizationId, year, month])
+}
+
+model StaffPayrollLine {
+  id          String          @id @default(uuid())
+  payrollId   String
+  type        PayrollLineType
+  label       String
+  amountPaise BigInt
+  createdAt   DateTime        @default(now())
+
+  payroll StaffPayroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  @@index([payrollId])
+}
+
+model OrgHoliday {
+  id             String   @id @default(uuid())
+  organizationId String
+  date           DateTime
+  name           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, date])
+  @@index([organizationId, date])
+}
+
+model ShopSale {
+  id             String     @id @default(uuid())
+  organizationId String
+  customerId     String?
+  billNumber     String?
+  customerName   String?
+  customerPhone  String?
+  customerGstin  String?
+  salesBoyName   String?
+  totalPaise     BigInt
+  gstPaise       BigInt     @default(0)
+  paidAmountPaise BigInt    @default(0)
+  totalCostPaise BigInt     @default(0)
+  paymentStatus  InvoicePaymentStatus @default(PAID)
+  paymentMethod  PaymentMethod @default(CASH)
+  status         SaleStatus @default(COMPLETED)
+  issueInvoice   Boolean    @default(false)
+  itemsJson      Json
+  notes          String?
+  pricingJson    Json         @default("{}")
+  createdById    String
+  createdAt      DateTime   @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     ShopCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("ShopSaleCreatedBy", fields: [createdById], references: [id])
+  creditEntries CustomerCreditEntry[]
+  returns      ShopSaleReturn[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, customerId])
+  @@index([organizationId, paymentStatus])
+  @@index([organizationId, billNumber])
+  @@index([organizationId, salesBoyName, createdAt])
+}
+
+model ShopHeldBill {
+  id               String          @id @default(uuid())
+  organizationId   String
+  holdNumber       Int
+  customerId       String?
+  customerName       String?
+  customerPhone      String?
+  customerGstin      String?
+  salesBoyName       String?
+  cartJson           Json
+  pricingJson        Json            @default("{}")
+  status             HeldBillStatus  @default(ACTIVE)
+  expiresAt          DateTime
+  createdById        String
+  resumedAt          DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     ShopCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("ShopHeldBillCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([organizationId, holdNumber])
+  @@index([organizationId, status, expiresAt])
+}
+
+model ShopOffer {
+  id                  String            @id @default(uuid())
+  organizationId        String
+  name                  String
+  description           String?
+  discountType          OfferDiscountType
+  discountValue         Float
+  productIdsJson        Json?
+  categoryKeysJson      Json?
+  minQuantity           Int?
+  minPurchasePaise      BigInt?
+  buyQuantity           Int?
+  getQuantity           Int?
+  startDate             DateTime
+  endDate               DateTime
+  isActive              Boolean           @default(true)
+  priority              Int               @default(0)
+  usageCount            Int               @default(0)
+  totalDiscountPaise    BigInt            @default(0)
+  createdById           String
+  deletedAt             DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ShopOfferCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, isActive, startDate, endDate])
+}
+
+model ShopSaleReturn {
+  id                 String                 @id @default(uuid())
+  organizationId     String
+  shopSaleId         String
+  returnNumber       String
+  type               ReturnTransactionType  @default(RETURN)
+  refundAmountPaise  BigInt
+  refundMethod       PaymentMethod          @default(CASH)
+  reason             ReturnReason
+  notes              String?
+  exchangeSaleId     String?
+  createdById        String
+  createdAt          DateTime               @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  shopSale     ShopSale     @relation(fields: [shopSaleId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ShopReturnCreatedBy", fields: [createdById], references: [id])
+  lines        ShopSaleReturnLine[]
+
+  @@unique([organizationId, returnNumber])
+  @@index([organizationId, shopSaleId])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+model ShopSaleReturnLine {
+  id              String   @id @default(uuid())
+  returnId        String
+  lineKey         String
+  inventoryItemId String?
+  productName     String
+  barcode         String?
+  originalQty     Float
+  returnQty       Float
+  unitPricePaise  BigInt
+  lineRefundPaise BigInt
+  isExchangeOut   Boolean  @default(true)
+  isExchangeIn    Boolean  @default(false)
+
+  returnRecord ShopSaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+}
+
+model ShopCustomer {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  phone          String?
+  gstin          String?
+  email          String?
+  notes          String?
+  lastSaleAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sales        ShopSale[]
+  heldBills    ShopHeldBill[]
+  creditAccounts CustomerCredit[]
+
+  @@unique([organizationId, phone])
+  @@index([organizationId, name])
+}
+
+model InventoryItem {
+  id             String   @id @default(uuid())
+  organizationId String
+  sku            String?
+  size           String?
+  barcode        String?
+  name           String
+  description    String?
+  unit           String   @default("pcs")
+  quantity       Float    @default(0)
+  reorderLevel   Float    @default(0)
+  costPaise      BigInt?
+  sellPaise      BigInt?
+  expiryDate     DateTime?
+  sectorMeta     Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, barcode])
+  @@index([organizationId, name])
+}
+
+model CustomerCredit {
+  id             String   @id @default(uuid())
+  organizationId String
+  shopCustomerId String?
+  customerName   String
+  phone          String?
+  balancePaise   BigInt   @default(0)
+  creditLimitPaise BigInt?
+  totalPurchasesPaise BigInt @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  shopCustomer ShopCustomer? @relation(fields: [shopCustomerId], references: [id], onDelete: SetNull)
+  entries      CustomerCreditEntry[]
+
+  @@index([organizationId, customerName])
+  @@index([organizationId, shopCustomerId])
+}
+
+model CustomerCreditEntry {
+  id             String   @id @default(uuid())
+  organizationId String
+  creditId       String
+  shopSaleId     String?
+  type           CreditTransactionType
+  amountPaise    BigInt
+  balanceAfterPaise BigInt
+  paymentMethod  PaymentMethod?
+  notes          String?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  credit       CustomerCredit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  shopSale     ShopSale? @relation(fields: [shopSaleId], references: [id], onDelete: SetNull)
+  createdBy    User @relation("CreditEntryCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, creditId, createdAt(sort: Desc)])
+  @@index([shopSaleId])
+}
+
+model ShopSupplier {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  phone          String?
+  email          String?
+  address        String?
+  gstNumber      String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchases    ShopPurchase[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model ShopPurchase {
+  id               String   @id @default(uuid())
+  organizationId   String
+  supplierId       String
+  purchaseDate     DateTime
+  billNumber       String?
+  subtotalPaise    BigInt
+  discountPaise    BigInt   @default(0)
+  taxPaise         BigInt   @default(0)
+  extraChargesPaise BigInt  @default(0)
+  totalPaise       BigInt
+  paidAmountPaise  BigInt   @default(0)
+  paymentStatus    PurchasePaymentStatus @default(PAID)
+  paymentMethod    PaymentMethod @default(CASH)
+  status           PurchaseRecordStatus @default(ACTIVE)
+  notes            String?
+  idempotencyKey   String?
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier     ShopSupplier @relation(fields: [supplierId], references: [id])
+  createdBy    User @relation("ShopPurchaseCreatedBy", fields: [createdById], references: [id])
+  items        ShopPurchaseItem[]
+  payments     ShopPurchasePayment[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, purchaseDate(sort: Desc)])
+  @@index([organizationId, supplierId])
+  @@index([organizationId, paymentStatus])
+  @@index([organizationId, status])
+}
+
+model ShopPurchaseItem {
+  id              String   @id @default(uuid())
+  purchaseId      String
+  inventoryItemId String?
+  productName     String
+  quantity        Float
+  ratePaise       BigInt
+  lineTotalPaise  BigInt
+
+  purchase ShopPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseId])
+  @@index([inventoryItemId])
+}
+
+model ShopPurchasePayment {
+  id             String        @id @default(uuid())
+  organizationId String
+  purchaseId     String
+  amountPaise    BigInt
+  paymentMethod  PaymentMethod @default(CASH)
+  notes          String?
+  createdById    String
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchase     ShopPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ShopPurchasePaymentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, purchaseId, createdAt(sort: Desc)])
+}
+
+model ShopExpenseCategory {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenses     ShopExpense[]
+  recurringExpenses ShopRecurringExpense[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model ShopExpense {
+  id             String   @id @default(uuid())
+  organizationId String
+  categoryId     String
+  expenseDate    DateTime
+  title          String
+  description    String?
+  amountPaise    BigInt
+  paymentMethod  PaymentMethod @default(CASH)
+  paidBy         String?
+  expenseType    ShopExpenseType @default(DAILY)
+  notes          String?
+  receiptHash    String?
+  staffId        String?
+  staffAdvanceId String?
+  payrollId      String?
+  createdById    String
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     ShopExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdBy    User @relation("ShopExpenseCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, expenseDate(sort: Desc)])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, expenseType])
+  @@index([organizationId, staffId])
+  @@index([organizationId, payrollId])
+  @@index([organizationId, deletedAt])
+}
+
+model ShopRecurringExpense {
+  id             String   @id @default(uuid())
+  organizationId String
+  categoryId     String
+  name           String
+  monthlyAmountPaise BigInt
+  dueDay         Int      @default(1)
+  startDate      DateTime
+  endDate        DateTime?
+  isActive       Boolean  @default(true)
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     ShopExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdBy    User @relation("ShopRecurringExpenseCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, isActive])
+}
+
+model BoqItem {
+  id             String   @id @default(uuid())
+  organizationId String
+  projectId      String
+  itemCode       String?
+  description    String
+  unit           String
+  quantity       Float
+  ratePaise      BigInt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model MeasurementEntry {
+  id             String   @id @default(uuid())
+  organizationId String
+  projectId      String
+  boqItemId      String?
+  description    String
+  quantity       Float
+  unit           String
+  date           DateTime
+  notes          String?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("MeasurementCreatedBy", fields: [createdById], references: [id])
+
+  @@index([projectId, date])
+}
+
+model MaterialIssue {
+  id             String   @id @default(uuid())
+  organizationId String
+  projectId      String
+  itemName       String
+  quantity       Float
+  unit           String
+  issuedTo       String?
+  date           DateTime
+  notes          String?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("MaterialIssueCreatedBy", fields: [createdById], references: [id])
+
+  @@index([projectId, date])
+}
+
+model DesignStage {
+  id             String            @id @default(uuid())
+  organizationId String
+  projectId      String
+  name           String
+  sortOrder      Int               @default(0)
+  feePaise       BigInt?
+  status         DesignStageStatus @default(PENDING)
+  dueDate        DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisions    DrawingRevision[]
+
+  @@index([projectId, sortOrder])
+}
+
+model DrawingRevision {
+  id             String   @id @default(uuid())
+  organizationId String
+  stageId        String
+  revisionNo     Int
+  title          String
+  notes          String?
+  submittedAt    DateTime?
+  approvedAt     DateTime?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stage        DesignStage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("DrawingRevisionCreatedBy", fields: [createdById], references: [id])
+
+  @@index([stageId, revisionNo])
+}
+
+model BuilderUnit {
+  id             String     @id @default(uuid())
+  organizationId String
+  projectId      String
+  unitNumber     String
+  floor          String?
+  areaSqft       Float?
+  pricePaise     BigInt?
+  status         UnitStatus @default(AVAILABLE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bookings     UnitBooking[]
+
+  @@unique([projectId, unitNumber])
+}
+
+model UnitBooking {
+  id             String        @id @default(uuid())
+  organizationId String
+  projectId      String
+  unitId         String
+  buyerName      String
+  buyerPhone     String?
+  bookingPaise   BigInt
+  status         BookingStatus @default(BOOKED)
+  bookedAt       DateTime      @default(now())
+  notes          String?
+  createdById    String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  unit         BuilderUnit  @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("UnitBookingCreatedBy", fields: [createdById], references: [id])
+
+  @@index([projectId, status])
 }
 
 model OrganizationInvite {
@@ -631,9 +1111,16 @@ model Project {
   expenses     Expense[]
   payments     Payment[]
   documents    Document[]
+  boqItems         BoqItem[]
+  measurementEntries MeasurementEntry[]
+  materialIssues   MaterialIssue[]
+  designStages     DesignStage[]
+  builderUnits     BuilderUnit[]
+  unitBookings     UnitBooking[]
 
   @@index([organizationId])
   @@index([organizationId, status])
+  @@index([organizationId, deletedAt])
 }
 
 model ProjectMember {
@@ -747,6 +1234,7 @@ model Vendor {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([organizationId, deletedAt])
 }
 
 model ExpenseCategory {
@@ -796,6 +1284,7 @@ model Expense {
   @@index([organizationId])
   @@index([projectId, expenseDate])
   @@index([vendorId])
+  @@index([organizationId, deletedAt])
 }
 
 model Payment {
@@ -828,6 +1317,7 @@ model Payment {
   @@index([vendorId, paymentDate])
   @@index([projectId])
   @@index([paidByUserId])
+  @@index([organizationId, deletedAt])
 }
 
 model PaymentAllocation {
@@ -866,6 +1356,8 @@ model Document {
   extraction   AIExtraction?
 
   @@index([organizationId])
+  @@index([projectId])
+  @@index([expenseId])
 }
 
 model AIExtraction {
