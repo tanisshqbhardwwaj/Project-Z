@@ -599,7 +599,7 @@ export async function markPayrollPaid(input: {
           paymentDate: new Date(),
           notes: `Payroll ${payroll.staff.name}`,
           createdById: input.userId,
-          paidById: input.userId,
+          paidByUserId: input.userId,
         },
       });
       paymentId = payment.id;

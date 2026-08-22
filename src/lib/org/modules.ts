@@ -227,7 +227,7 @@ export function moduleLabel(
 export function enabledNavModules(input: {
   businessType: BusinessType;
   shopSector?: ShopSector | null;
-  enabledModules: Record<ModuleKey, boolean>;
+  enabledModules: Partial<Record<ModuleKey, boolean>>;
   role?: OrgRole | null;
 }): ModuleDefinition[] {
   return modulesForBusinessType(input.businessType, input.shopSector).filter(
