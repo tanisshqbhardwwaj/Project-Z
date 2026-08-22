@@ -175,9 +175,9 @@ export default function StaffHubPage() {
 
   const [tab, setTab] = useState<Tab>("attendance");
   const [date, setDate] = useState(() => orgTodayKey(timezone));
-  const now = useMemo(() => new Date(), []);
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const orgMonth = parseDayKey(orgTodayKey(timezone));
+  const [year, setYear] = useState(orgMonth.year);
+  const [month, setMonth] = useState(orgMonth.month);
   const [editFinal, setEditFinal] = useState<Record<string, string>>({});
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editWageRupees, setEditWageRupees] = useState("");
