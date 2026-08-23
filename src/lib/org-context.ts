@@ -2,6 +2,17 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { redirect } from "next/navigation";
 
+const organizationSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  businessType: true,
+  shopSector: true,
+  enableStaff: true,
+  timezone: true,
+  settings: true,
+} as const;
+
 export async function getSessionAndOrg() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -16,7 +27,7 @@ export async function getSessionAndOrg() {
             userId: session.user.id,
           },
         },
-        include: { organization: true },
+        include: { organization: { select: organizationSelect } },
       })
     : null;
 
@@ -25,7 +36,7 @@ export async function getSessionAndOrg() {
       ? membership
       : await prisma.organizationMember.findFirst({
           where: { userId: session.user.id, status: "ACTIVE" },
-          include: { organization: true },
+          include: { organization: { select: organizationSelect } },
           orderBy: { joinedAt: "asc" },
         });
 

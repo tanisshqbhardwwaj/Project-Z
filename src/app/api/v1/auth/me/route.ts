@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { handleApi, apiSuccess } from "@/lib/api/context";
 import { modulesPayloadForClient } from "@/lib/org/require-module";
+import { isPlatformAdminEmail } from "@/lib/billing/platform-admin";
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
@@ -49,6 +50,8 @@ export async function GET() {
                 enableStaff: true,
                 timezone: true,
                 settings: true,
+                plan: true,
+                subscriptionStatus: true,
               },
             },
             user: { select: { id: true, name: true, email: true } },
@@ -89,7 +92,12 @@ export async function GET() {
       }),
     };
 
-    return NextResponse.json({ data: serializeBigInt(enriched) });
+    return NextResponse.json({
+      data: serializeBigInt({
+        ...enriched,
+        isPlatformAdmin: isPlatformAdminEmail(user.email),
+      }),
+    });
   });
 }
 

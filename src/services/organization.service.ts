@@ -8,6 +8,7 @@ import { mergeModuleSettings, parseOrgSettings } from "@/lib/org/require-module"
 import { mergeShopOrgSettings, type ShopOrgSettings } from "@/lib/org/shop-settings";
 import type { ModuleKey } from "@/lib/org/modules";
 import { defaultEnabledModules } from "@/lib/org/modules";
+import { setupFeeForNewOrg } from "@/services/billing.service";
 
 export async function createOrganization(input: {
   name: string;
@@ -29,6 +30,13 @@ export async function createOrganization(input: {
   const defaultModules = defaultEnabledModules(businessType, shopSector);
   if (enableStaff) defaultModules.staff = true;
 
+  const { setupFeePaise, earlyBird } =
+    businessType === "SHOPKEEPER"
+      ? await setupFeeForNewOrg()
+      : { setupFeePaise: BigInt(0), earlyBird: false };
+  const trialEnd = new Date();
+  trialEnd.setDate(trialEnd.getDate() + 14);
+
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
     select: { id: true },
@@ -48,6 +56,16 @@ export async function createOrganization(input: {
         shopSector,
         enableStaff,
         settings: { modules: defaultModules },
+        plan: businessType === "SHOPKEEPER" ? "BASIC" : "BUSINESS",
+        subscriptionStatus: businessType === "SHOPKEEPER" ? "TRIAL" : "ACTIVE",
+        storageQuotaBytes:
+          businessType === "SHOPKEEPER"
+            ? BigInt(2 * 1024 * 1024 * 1024)
+            : BigInt(5 * 1024 * 1024 * 1024),
+        currentPeriodEnd: businessType === "SHOPKEEPER" ? trialEnd : null,
+        setupFeePaise: businessType === "SHOPKEEPER" ? setupFeePaise : null,
+        setupFeeStatus: businessType === "SHOPKEEPER" ? "UNPAID" : "WAIVED",
+        earlyBirdSetup: businessType === "SHOPKEEPER" ? earlyBird : false,
       },
     });
 

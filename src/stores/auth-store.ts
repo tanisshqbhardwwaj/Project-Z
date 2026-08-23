@@ -26,6 +26,7 @@ export type AuthUser = {
   name: string;
   phone: string | null;
   organizationMembers: OrgMembership[];
+  isPlatformAdmin?: boolean;
 };
 
 type AuthState = {
@@ -41,6 +42,7 @@ type AuthState = {
   role: string | null;
   linkedStaffId: string | null;
   linkedStaffName: string | null;
+  isPlatformAdmin: boolean;
   status: "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
   error: string | null;
   initialized: boolean;
@@ -105,6 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   role: null,
   linkedStaffId: null,
   linkedStaffName: null,
+  isPlatformAdmin: false,
   status: "idle",
   error: null,
   initialized: false,
@@ -145,6 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role: activeOrg?.role ?? membership?.role ?? null,
         linkedStaffId: activeOrg?.linkedStaff?.id ?? null,
         linkedStaffName: activeOrg?.linkedStaff?.name ?? null,
+        isPlatformAdmin: Boolean(me.isPlatformAdmin),
         status: "authenticated",
         initialized: true,
         error: null,
@@ -167,6 +171,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: null,
           linkedStaffId: null,
           linkedStaffName: null,
+          isPlatformAdmin: false,
           status: "unauthenticated",
           initialized: true,
           error: null,
@@ -235,6 +240,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       role: null,
       linkedStaffId: null,
       linkedStaffName: null,
+      isPlatformAdmin: false,
       status: "unauthenticated",
       initialized: true,
     });

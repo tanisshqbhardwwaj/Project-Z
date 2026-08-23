@@ -18,7 +18,20 @@ export async function GET() {
 
     const memberships = await prisma.organizationMember.findMany({
       where: { userId: session.user.id, status: "ACTIVE" },
-      include: { organization: true },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            businessType: true,
+            shopSector: true,
+            enableStaff: true,
+            timezone: true,
+            settings: true,
+          },
+        },
+      },
       orderBy: { joinedAt: "asc" },
     });
 
