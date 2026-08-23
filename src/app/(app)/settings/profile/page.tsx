@@ -25,7 +25,7 @@ type BetaTestEmail = {
 };
 
 export default function SettingsProfilePage() {
-  const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, updateUser, logout } =
+  const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, isPlatformAdmin, updateUser, logout } =
     useAuthStore();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -291,6 +291,20 @@ export default function SettingsProfilePage() {
                   Manage Members
                 </Button>
               </Link>
+              {isOrgOwner ? (
+                <Link href="/settings/billing">
+                  <Button variant="outline" className="rounded-xl">
+                    Billing
+                  </Button>
+                </Link>
+              ) : null}
+              {isPlatformAdmin ? (
+                <Link href="/ops">
+                  <Button variant="outline" className="rounded-xl">
+                    Owner dashboard
+                  </Button>
+                </Link>
+              ) : null}
               {enabledModules.staff && (
                 <Link href="/staff">
                   <Button variant="outline" className="rounded-xl">

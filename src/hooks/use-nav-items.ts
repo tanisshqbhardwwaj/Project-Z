@@ -7,6 +7,8 @@ import {
   ScanBarcode,
   Bell,
   User,
+  CreditCard,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 import type { OrgRole } from "@prisma/client";
@@ -35,6 +37,7 @@ export function useNavGroups(): NavGroups {
   const role = useAuthStore((s) => s.role) as OrgRole | null;
   const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
   const enabledModules = useAuthStore((s) => s.enabledModules);
+  const isPlatformAdmin = useAuthStore((s) => s.isPlatformAdmin);
   const moduleNav = useModuleNav();
   const isShopkeeper = activeBusinessType === "SHOPKEEPER";
   const showProjects =
@@ -85,6 +88,24 @@ export function useNavGroups(): NavGroups {
       });
     }
 
+    if (role === "OWNER") {
+      tools.push({
+        href: "/settings/billing",
+        icon: CreditCard,
+        label: "Billing",
+        key: "billing",
+      });
+    }
+
+    if (isPlatformAdmin) {
+      tools.push({
+        href: "/ops",
+        icon: Shield,
+        label: "Ops",
+        key: "ops",
+      });
+    }
+
     tools.push(
       {
         href: "/notifications",
@@ -96,5 +117,14 @@ export function useNavGroups(): NavGroups {
     );
 
     return { core, modules, tools, showProjects };
-  }, [showDashboard, showProjects, biz.workItemPlural, moduleNav, isShopkeeper, enabledModules]);
+  }, [
+    showDashboard,
+    showProjects,
+    biz.workItemPlural,
+    moduleNav,
+    isShopkeeper,
+    enabledModules,
+    role,
+    isPlatformAdmin,
+  ]);
 }

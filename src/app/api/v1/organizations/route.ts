@@ -123,7 +123,23 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    const org = await prisma.organization.findUnique({ where: { id: ctx.organizationId } });
+    const org = await prisma.organization.findUnique({
+      where: { id: ctx.organizationId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        businessType: true,
+        shopSector: true,
+        enableStaff: true,
+        timezone: true,
+        defaultCompletionDays: true,
+        currency: true,
+        settings: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
     return NextResponse.json({ data: serializeBigInt(org) });
   });
 }

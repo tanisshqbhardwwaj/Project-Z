@@ -32,17 +32,31 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { update } = useSession();
-  const { activeOrganizationId, setActiveOrg } = useAuthStore();
+  const { user, activeOrganizationId, setActiveOrg } = useAuthStore();
   const [open, setOpen] = useState(false);
-  const [orgs, setOrgs] = useState<OrgItem[]>([]);
-  const [canCreateMore, setCanCreateMore] = useState(false);
+  const [listOrgs, setListOrgs] = useState<OrgItem[] | null>(null);
+
+  const membershipOrgs: OrgItem[] = (user?.organizationMembers ?? []).map((m) => ({
+    id: m.organization.id,
+    name: m.organization.name,
+    role: m.role,
+    businessType: m.organization.businessType,
+    shopSector: m.organization.shopSector ?? null,
+    enableStaff: m.organization.enableStaff,
+    timezone: m.organization.timezone,
+    enabledModules: m.organization.enabledModules,
+    linkedStaff: null,
+  }));
+
+  const orgs = listOrgs ?? membershipOrgs;
+  const canCreateMore = orgs.length < MAX_ORGANIZATIONS;
 
   useEffect(() => {
     fetch("/api/v1/organizations/list")
       .then((r) => r.json())
       .then((d) => {
-        setOrgs(d.data?.organizations ?? []);
-        setCanCreateMore(d.data?.canCreateMore ?? false);
+        if (!d.data?.organizations) return;
+        setListOrgs(d.data.organizations);
       })
       .catch(() => {});
   }, [activeOrganizationId]);

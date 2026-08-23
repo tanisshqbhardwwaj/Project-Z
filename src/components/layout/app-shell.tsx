@@ -24,7 +24,7 @@ function isNavActive(pathname: string, href: string) {
     return pathname.startsWith("/projects") || pathname.startsWith("/work-orders");
   }
   if (href === "/settings/profile") {
-    return pathname.startsWith("/settings");
+    return pathname.startsWith("/settings") && !pathname.startsWith("/settings/billing");
   }
   if (href === "/dashboard") {
     return pathname === "/dashboard" || pathname === "/";

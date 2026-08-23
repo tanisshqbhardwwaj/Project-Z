@@ -96,6 +96,70 @@ enum ShopSector {
   GENERAL
 }
 
+enum BillingPlan {
+  BASIC
+  BUSINESS
+  PROFESSIONAL
+  BUSINESS_PRO
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  PENDING_PAYMENT
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum SetupFeeStatus {
+  UNPAID
+  PAID
+  WAIVED
+}
+
+enum PlanRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum BillingEventType {
+  PLAN_ACTIVATED
+  PLAN_CHANGED
+  PLAN_REQUEST
+  REQUEST_REJECTED
+  CANCELLED
+  REACTIVATED
+  SETUP_FEE_WAIVED
+  SETUP_FEE_PAID
+}
+
+enum SyncOutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum DeviceType {
+  WINDOWS
+  ANDROID
+  IOS
+  MAC
+}
+
+enum DeviceStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
 enum StaffStatus {
   ACTIVE
   LEFT
@@ -261,6 +325,9 @@ model User {
   materialIssuesCreated MaterialIssue[]     @relation("MaterialIssueCreatedBy")
   drawingRevisionsCreated DrawingRevision[] @relation("DrawingRevisionCreatedBy")
   unitBookingsCreated UnitBooking[]           @relation("UnitBookingCreatedBy")
+  planRequestsCreated PlanRequest[]           @relation("PlanRequestCreatedBy")
+  planRequestsReviewed PlanRequest[]          @relation("PlanRequestReviewedBy")
+  billingEventsActed  BillingEvent[]          @relation("BillingEventActor")
 }
 
 model BetaTestEmail {
@@ -333,9 +400,22 @@ model Organization {
   timezone              String       @default("Asia/Kolkata")
   defaultCompletionDays Int          @default(30)
   currency              String       @default("INR")
-  settings              Json         @default("{}")
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  settings              Json               @default("{}")
+  plan                  BillingPlan        @default(BASIC)
+  subscriptionStatus    SubscriptionStatus @default(ACTIVE)
+  storageQuotaBytes     BigInt             @default(2147483648)
+  storageUsedBytes      BigInt             @default(0)
+  billingCycle          BillingCycle       @default(MONTHLY)
+  currentPeriodEnd      DateTime?
+  setupFeePaise         BigInt?
+  setupFeeStatus        SetupFeeStatus     @default(UNPAID)
+  earlyBirdSetup        Boolean            @default(false)
+  onboardingCompleteAt  DateTime?
+  cancelledAt           DateTime?
+  cancelReason          String?
+  localPinHash          String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   members          OrganizationMember[]
   invites          OrganizationInvite[]
@@ -377,6 +457,103 @@ model Organization {
   drawingRevisions DrawingRevision[]
   builderUnits     BuilderUnit[]
   unitBookings     UnitBooking[]
+  planRequests     PlanRequest[]
+  billingEvents    BillingEvent[]
+  syncOutbox       SyncOutbox[]
+  devices          Device[]
+  storageObjects   StorageObject[]
+  shopInvoiceDraft ShopInvoiceDraft?
+}
+
+model PlanRequest {
+  id             String            @id @default(uuid())
+  organizationId String
+  fromPlan       BillingPlan
+  toPlan         BillingPlan
+  status         PlanRequestStatus @default(PENDING)
+  createdById    String
+  reviewedById   String?
+  reviewedAt     DateTime?
+  rejectReason   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("PlanRequestCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy   User?        @relation("PlanRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([status, createdAt])
+}
+
+model BillingEvent {
+  id             String           @id @default(uuid())
+  organizationId String
+  type           BillingEventType
+  actorUserId    String?
+  metadata       Json             @default("{}")
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation("BillingEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+}
+
+model SyncOutbox {
+  id             String           @id @default(uuid())
+  organizationId String
+  kind           String
+  payload        Json
+  status         SyncOutboxStatus @default(PENDING)
+  attempts       Int              @default(0)
+  lastError      String?
+  createdAt      DateTime         @default(now())
+  processedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt])
+}
+
+model Device {
+  id             String       @id @default(uuid())
+  organizationId String
+  deviceType     DeviceType
+  name           String
+  pairingToken   String?      @unique
+  pairingExpires DateTime?
+  status         DeviceStatus @default(PENDING)
+  lastSeenAt     DateTime?
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+}
+
+model StorageObject {
+  id             String   @id @default(uuid())
+  organizationId String
+  storageKey     String   @unique
+  byteSize       BigInt
+  category       String   @default("file")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model ShopInvoiceDraft {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  draftJson      Json
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model OrganizationMember {
