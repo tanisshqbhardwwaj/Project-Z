@@ -6,15 +6,17 @@ export function generateShopBarcode(orgSuffix: string): string {
 }
 
 /**
- * Barcode for one of several variants created in the same request. `Date.now()`
- * alone repeats within a millisecond, so the last 3 digits carry a per-variant
- * salt to keep every size in a size run unique.
+ * Barcode for one of several variants created in the same request.
+ *
+ * `Date.now()` repeats within a millisecond, so the identifying part comes from
+ * `seed` instead: 890 (India) + 4 org digits + 5 seed digits, which is exactly
+ * the 12 digits EAN-13 needs before the check digit. Nothing is truncated, so
+ * the seed always reaches the output.
  */
 export function generateVariantBarcode(orgSuffix: string, seed: number): string {
-  const org = orgSuffix.replace(/\D/g, "").slice(-4).padStart(4, "0");
-  const stamp = Date.now().toString().slice(-5);
-  const salt = String(Math.abs(seed) % 1000).padStart(3, "0");
-  const digits = `890${org}${stamp}${salt}`.slice(0, 12).padStart(12, "0");
+  const org = (orgSuffix.replace(/\D/g, "") || "0").slice(-4).padStart(4, "0");
+  const unique = String(Math.abs(Math.trunc(seed)) % 100_000).padStart(5, "0");
+  const digits = `890${org}${unique}`;
   return digits + ean13CheckDigit(digits);
 }
 
@@ -27,10 +29,11 @@ export function nextFreeBarcode(
   taken: Set<string>,
   seed = 0
 ): string {
-  for (let attempt = 0; attempt < 50; attempt++) {
+  for (let attempt = 0; attempt < 200; attempt++) {
     const code = generateVariantBarcode(
       orgSuffix,
-      seed * 97 + attempt * 7 + Math.floor(Math.random() * 1000)
+      Date.now() * 31 + seed * 7919 + attempt * 104_729 +
+        Math.floor(Math.random() * 100_000)
     );
     if (!taken.has(code)) {
       taken.add(code);
