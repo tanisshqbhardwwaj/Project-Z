@@ -37,6 +37,8 @@ function notificationIcon(type: string) {
       return CalendarClock;
     case SHOP_ALERT.NO_BARCODE:
       return Barcode;
+    case SHOP_ALERT.RECURRING_EXPENSE_DUE:
+      return CalendarClock;
     default:
       return Bell;
   }
@@ -50,6 +52,8 @@ function notificationAccent(type: string) {
       return "text-amber-700";
     case SHOP_ALERT.NO_BARCODE:
       return "text-primary";
+    case SHOP_ALERT.RECURRING_EXPENSE_DUE:
+      return "text-amber-700";
     default:
       return "text-muted-foreground";
   }

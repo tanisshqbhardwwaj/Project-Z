@@ -30,18 +30,84 @@ export const bulkAttendanceSchema = z.object({
   staffIds: z.array(z.string().min(1)).optional(),
 });
 
-export const createStaffSchema = z.object({
-  name: z.string().min(2).max(100),
+/** Suggested roles. `roleTitle` stays free text so shops can invent their own. */
+export const STAFF_ROLE_KEYS = [
+  "OWNER",
+  "MANAGER",
+  "SALES_STAFF",
+  "CASHIER",
+  "ACCOUNTANT",
+  "INVENTORY_MANAGER",
+  "DELIVERY_STAFF",
+  "CUSTOM",
+] as const;
+
+export const staffCommissionTypeSchema = z.enum([
+  "NONE",
+  "PERCENT",
+  "FIXED_PER_SALE",
+  "FIXED_PER_ITEM",
+]);
+
+export const createStaffSchema = z
+  .object({
+    name: z.string().min(2).max(100),
+    phone: z.string().max(20).optional().nullable(),
+    email: z.string().email().max(160).optional().nullable().or(z.literal("")),
+    roleKey: z.enum(STAFF_ROLE_KEYS).optional().nullable(),
+    roleTitle: z.string().min(1).max(80),
+    wageRupees: z.number().nonnegative().optional().nullable(),
+    wagePeriod: z.enum(["DAILY", "MONTHLY"]).optional().nullable(),
+    paymentFrequency: z
+      .enum(["DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY"])
+      .optional()
+      .nullable(),
+    overtimeRateRupees: z.number().nonnegative().optional().nullable(),
+    commissionType: staffCommissionTypeSchema.optional(),
+    commissionPercent: z.number().min(0).max(100).optional().nullable(),
+    commissionAmountRupees: z.number().min(0).optional().nullable(),
+    joinedAt: dayKeySchema.optional().nullable(),
+    notes: z.string().max(500).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.commissionType === "PERCENT" && !data.commissionPercent) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["commissionPercent"],
+        message: "Enter a commission percentage",
+      });
+    }
+    if (
+      (data.commissionType === "FIXED_PER_SALE" ||
+        data.commissionType === "FIXED_PER_ITEM") &&
+      !data.commissionAmountRupees
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["commissionAmountRupees"],
+        message: "Enter a commission amount",
+      });
+    }
+  });
+
+export const updateStaffSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
   phone: z.string().max(20).optional().nullable(),
-  roleTitle: z.string().min(1).max(80),
+  email: z.string().email().max(160).optional().nullable().or(z.literal("")),
+  roleKey: z.enum(STAFF_ROLE_KEYS).optional().nullable(),
+  roleTitle: z.string().min(1).max(80).optional(),
   wageRupees: z.number().nonnegative().optional().nullable(),
   wagePeriod: z.enum(["DAILY", "MONTHLY"]).optional().nullable(),
+  paymentFrequency: z
+    .enum(["DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY"])
+    .optional()
+    .nullable(),
   overtimeRateRupees: z.number().nonnegative().optional().nullable(),
+  commissionType: staffCommissionTypeSchema.optional(),
+  commissionPercent: z.number().min(0).max(100).optional().nullable(),
+  commissionAmountRupees: z.number().min(0).optional().nullable(),
   joinedAt: dayKeySchema.optional().nullable(),
   notes: z.string().max(500).optional().nullable(),
-});
-
-export const updateStaffSchema = createStaffSchema.partial().extend({
   status: z.enum(["ACTIVE", "LEFT"]).optional(),
   userId: z.string().uuid().nullable().optional(),
 });

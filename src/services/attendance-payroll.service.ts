@@ -8,6 +8,7 @@ import {
   getOpenAdvanceDeductionPaise,
 } from "./staff-advance.service";
 import { setPayrollShopExpenseId, getPayrollShopExpenseId } from "@/lib/shop/staff-expense-links";
+import { computeStaffCommission } from "./staff-commission.service";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { requireModule, getOrgModuleContext, parseOrgSettings } from "@/lib/org/require-module";
 import {
@@ -61,6 +62,74 @@ export function calculateWagePaise(input: {
   return (input.wagePaise * paidMilli) / BigInt(1000);
 }
 
+export type PayrollBreakdown = {
+  /** Attendance-adjusted salary. */
+  basePaise: bigint;
+  overtimePaise: bigint;
+  /** Sales commission earned this month, already net of returns. */
+  commissionPaise: bigint;
+  /** Approved incentives and bonuses entered as EARNING lines. */
+  earningsPaise: bigint;
+  grossPaise: bigint;
+  advanceDeductionPaise: bigint;
+  /** Other deductions entered as DEDUCTION lines. */
+  deductionsPaise: bigint;
+  netPaise: bigint;
+};
+
+/**
+ * Net pay = base salary + overtime + commission + bonuses − advances − deductions.
+ * Returned as a breakdown so the payroll screen can show the same numbers the
+ * server used, instead of re-deriving them on the client.
+ */
+export function calculatePayrollBreakdown(input: {
+  wagePaise: bigint;
+  wagePeriod: string;
+  paidUnits?: number;
+  absentDays?: number;
+  halfDays?: number;
+  unmarkedDays?: number;
+  unmarkedDayPolicy?: "PRESENT" | "ABSENT" | "EXCLUDED";
+  overtimeHours: number;
+  overtimeRatePaise: bigint | null | undefined;
+  commissionPaise?: bigint;
+  advanceDeductionPaise: bigint;
+  lineEarningsPaise: bigint;
+  lineDeductionsPaise: bigint;
+  daysInMonth: number;
+}): PayrollBreakdown {
+  const basePaise = calculateWagePaise({
+    wagePaise: input.wagePaise,
+    wagePeriod: input.wagePeriod,
+    paidUnits: input.paidUnits,
+    absentDays: input.absentDays,
+    halfDays: input.halfDays,
+    unmarkedDays: input.unmarkedDays,
+    unmarkedDayPolicy: input.unmarkedDayPolicy,
+    daysInMonth: input.daysInMonth,
+  });
+  const overtimePaise =
+    input.overtimeRatePaise && input.overtimeHours > 0
+      ? BigInt(Math.round(Number(input.overtimeRatePaise) * input.overtimeHours))
+      : BigInt(0);
+  const commissionPaise = input.commissionPaise ?? BigInt(0);
+  const grossPaise =
+    basePaise + overtimePaise + commissionPaise + input.lineEarningsPaise;
+  const netPaise =
+    grossPaise - input.advanceDeductionPaise - input.lineDeductionsPaise;
+
+  return {
+    basePaise,
+    overtimePaise,
+    commissionPaise,
+    earningsPaise: input.lineEarningsPaise,
+    grossPaise,
+    advanceDeductionPaise: input.advanceDeductionPaise,
+    deductionsPaise: input.lineDeductionsPaise,
+    netPaise: netPaise > BigInt(0) ? netPaise : BigInt(0),
+  };
+}
+
 export function calculateMonthlyPayrollPaise(input: {
   wagePaise: bigint;
   wagePeriod: string;
@@ -71,28 +140,13 @@ export function calculateMonthlyPayrollPaise(input: {
   unmarkedDayPolicy?: "PRESENT" | "ABSENT" | "EXCLUDED";
   overtimeHours: number;
   overtimeRatePaise: bigint | null | undefined;
+  commissionPaise?: bigint;
   advanceDeductionPaise: bigint;
   lineEarningsPaise: bigint;
   lineDeductionsPaise: bigint;
   daysInMonth: number;
 }): bigint {
-  const base = calculateWagePaise({
-    wagePaise: input.wagePaise,
-    wagePeriod: input.wagePeriod,
-    paidUnits: input.paidUnits,
-    absentDays: input.absentDays,
-    halfDays: input.halfDays,
-    unmarkedDays: input.unmarkedDays,
-    unmarkedDayPolicy: input.unmarkedDayPolicy,
-    daysInMonth: input.daysInMonth,
-  });
-  const ot =
-    input.overtimeRatePaise && input.overtimeHours > 0
-      ? BigInt(Math.round(Number(input.overtimeRatePaise) * input.overtimeHours))
-      : BigInt(0);
-  const gross = base + ot + input.lineEarningsPaise;
-  const net = gross - input.advanceDeductionPaise - input.lineDeductionsPaise;
-  return net > BigInt(0) ? net : BigInt(0);
+  return calculatePayrollBreakdown(input).netPaise;
 }
 
 async function getStaffWageForDay(
@@ -569,23 +623,34 @@ export async function generateOrRefreshPayroll(input: {
     const wagePaise = stats.wage.wagePaise ?? staff.wagePaise;
     const wagePeriod = stats.wage.wagePeriod ?? staff.wagePeriod ?? "DAILY";
 
-    const calculatedPaise = wagePaise
-      ? calculateMonthlyPayrollPaise({
-          wagePaise,
-          wagePeriod,
-          paidUnits: stats.paidUnits,
-          absentDays: stats.absentDays,
-          halfDays: stats.halfDays,
-          unmarkedDays: stats.unmarkedDays,
-          unmarkedDayPolicy: stats.unmarkedDayPolicy,
-          overtimeHours: stats.overtimeHours,
-          overtimeRatePaise: stats.wage.overtimeRatePaise ?? staff.overtimeRatePaise,
-          advanceDeductionPaise: stats.advanceDeductionPaise,
-          lineEarningsPaise: lineEarnings,
-          lineDeductionsPaise: lineDeductions,
-          daysInMonth: ctx.daysInMonth,
-        })
-      : BigInt(0);
+    // Commission comes from real invoices and is already net of returns and
+    // exchanges, so a returned sale stops being paid on.
+    const commission = await computeStaffCommission({
+      organizationId: input.organizationId,
+      staffId: staff.id,
+      year: input.year,
+      month: input.month,
+    }).catch(() => null);
+    const commissionPaise = commission?.commissionPaise ?? BigInt(0);
+    const commissionSalesPaise = commission?.eligibleSalesPaise ?? BigInt(0);
+
+    const breakdown = calculatePayrollBreakdown({
+      wagePaise: wagePaise ?? BigInt(0),
+      wagePeriod,
+      paidUnits: stats.paidUnits,
+      absentDays: stats.absentDays,
+      halfDays: stats.halfDays,
+      unmarkedDays: stats.unmarkedDays,
+      unmarkedDayPolicy: stats.unmarkedDayPolicy,
+      overtimeHours: stats.overtimeHours,
+      overtimeRatePaise: stats.wage.overtimeRatePaise ?? staff.overtimeRatePaise,
+      commissionPaise,
+      advanceDeductionPaise: stats.advanceDeductionPaise,
+      lineEarningsPaise: lineEarnings,
+      lineDeductionsPaise: lineDeductions,
+      daysInMonth: ctx.daysInMonth,
+    });
+    const calculatedPaise = breakdown.netPaise;
 
     if (existing?.status === "PAID") {
       const drift = calculatedPaise !== existing.finalAmountPaise;
@@ -621,6 +686,9 @@ export async function generateOrRefreshPayroll(input: {
         paidLeaveDays: stats.paidLeaveDays,
         workingDays: stats.workingDays,
         overtimeHours: stats.overtimeHours,
+        basePaise: breakdown.basePaise,
+        commissionPaise: breakdown.commissionPaise,
+        commissionSalesPaise,
         calculatedPaise,
         adjustmentPaise,
         finalAmountPaise,
@@ -635,7 +703,12 @@ export async function generateOrRefreshPayroll(input: {
         paidLeaveDays: stats.paidLeaveDays,
         workingDays: stats.workingDays,
         overtimeHours: stats.overtimeHours,
+        basePaise: breakdown.basePaise,
+        commissionPaise: breakdown.commissionPaise,
+        commissionSalesPaise,
         calculatedPaise,
+        // A manual adjustment cannot survive a recalculation: the amounts it was
+        // based on have changed. Payroll lines (bonuses, deductions) are kept.
         adjustmentPaise: BigInt(0),
         finalAmountPaise: calculatedPaise,
         driftCalculatedPaise: null,
@@ -665,6 +738,9 @@ export async function listPayroll(organizationId: string, year: number, month: n
           roleTitle: true,
           wagePaise: true,
           wagePeriod: true,
+          commissionType: true,
+          commissionPercent: true,
+          commissionAmountPaise: true,
         },
       },
       lines: true,
@@ -674,7 +750,7 @@ export async function listPayroll(organizationId: string, year: number, month: n
 
   const enriched = await Promise.all(
     rows.map(async (row) => {
-      const [openAdvances, advanceDeductionPaise] = await Promise.all([
+      const [openAdvances, advanceDeductionPaise, commission] = await Promise.all([
         prisma.staffAdvance.findMany({
           where: {
             organizationId,
@@ -684,11 +760,48 @@ export async function listPayroll(organizationId: string, year: number, month: n
           orderBy: { createdAt: "desc" },
         }),
         getOpenAdvanceDeductionPaise(organizationId, row.staffId),
+        computeStaffCommission({
+          organizationId,
+          staffId: row.staffId,
+          year,
+          month,
+        }).catch(() => null),
       ]);
+
+      const lineEarnings = row.lines
+        .filter((l) => l.type === "EARNING")
+        .reduce((sum, l) => sum + l.amountPaise, BigInt(0));
+      const lineDeductions = row.lines
+        .filter((l) => l.type === "DEDUCTION")
+        .reduce((sum, l) => sum + l.amountPaise, BigInt(0));
+
       return {
         ...row,
         openAdvances,
         advanceDeductionPaise: advanceDeductionPaise.toString(),
+        // Server-computed breakdown so the payroll UI never has to re-derive
+        // amounts and drift from what will actually be paid.
+        breakdown: {
+          basePaise: row.basePaise.toString(),
+          commissionPaise: row.commissionPaise.toString(),
+          commissionSalesPaise: row.commissionSalesPaise.toString(),
+          earningsPaise: lineEarnings.toString(),
+          deductionsPaise: lineDeductions.toString(),
+          advanceDeductionPaise: advanceDeductionPaise.toString(),
+          calculatedPaise: row.calculatedPaise.toString(),
+          adjustmentPaise: row.adjustmentPaise.toString(),
+          netPaise: row.finalAmountPaise.toString(),
+        },
+        commission: commission
+          ? {
+              invoiceCount: commission.invoiceCount,
+              grossSalesPaise: commission.grossSalesPaise.toString(),
+              returnedValuePaise: commission.returnedValuePaise.toString(),
+              eligibleSalesPaise: commission.eligibleSalesPaise.toString(),
+              commissionPaise: commission.commissionPaise.toString(),
+              returnAdjustmentPaise: commission.returnAdjustmentPaise.toString(),
+            }
+          : null,
       };
     })
   );

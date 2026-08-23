@@ -262,52 +262,6 @@ export async function deleteShopExpense(input: {
   return deleted;
 }
 
-export async function listRecurringExpenses(organizationId: string) {
-  await ensureShopExtendedSchema();
-  return prisma.shopRecurringExpense.findMany({
-    where: { organizationId },
-    include: { category: { select: { id: true, name: true } } },
-    orderBy: { name: "asc" },
-  });
-}
-
-export async function createRecurringExpense(input: {
-  organizationId: string;
-  userId: string;
-  categoryId: string;
-  name: string;
-  monthlyAmountRupees: number;
-  dueDay?: number;
-  startDate: Date;
-  endDate?: Date | null;
-}) {
-  await ensureShopExtendedSchema();
-  const recurring = await prisma.shopRecurringExpense.create({
-    data: {
-      organizationId: input.organizationId,
-      categoryId: input.categoryId,
-      name: input.name.trim(),
-      monthlyAmountPaise: rupeesToPaise(input.monthlyAmountRupees),
-      dueDay: Math.min(28, Math.max(1, input.dueDay ?? 1)),
-      startDate: input.startDate,
-      endDate: input.endDate ?? null,
-      createdById: input.userId,
-    },
-    include: { category: true },
-  });
-
-  await createAuditLog({
-    organizationId: input.organizationId,
-    userId: input.userId,
-    action: "shop.recurring_expense.created",
-    entityType: "ShopRecurringExpense",
-    entityId: recurring.id,
-    after: recurring,
-  });
-
-  return recurring;
-}
-
 export async function getExpenseSummary(
   organizationId: string,
   from: Date,
@@ -326,7 +280,7 @@ export async function getExpenseSummary(
       _count: { _all: true },
     }),
     prisma.shopRecurringExpense.aggregate({
-      where: { organizationId, isActive: true },
+      where: { organizationId, isActive: true, deletedAt: null },
       _sum: { monthlyAmountPaise: true },
     }),
   ]);

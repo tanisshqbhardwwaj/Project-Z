@@ -884,7 +884,7 @@ export async function getInventoryAnalytics(organizationId: string, salesDays = 
     },
   });
 
-  let salesLines: SaleLineInput[] = [];
+  const salesLines: SaleLineInput[] = [];
 
   try {
     await requireModule(organizationId, "shop_sales");

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import {
   getAuthContext,
   handleApi,
@@ -9,6 +8,7 @@ import {
 import {
   createStaffMember,
   listStaffMembers,
+  listStaffWithPerformance,
 } from "@/services/staff.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { createStaffSchema } from "@/lib/validation/staff";
@@ -19,9 +19,27 @@ export async function GET(request: Request) {
     requirePermission(ctx, "staff.view");
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
-    const staff = await listStaffMembers(ctx.organizationId, {
-      status: status === "ACTIVE" || status === "LEFT" ? status : undefined,
-    });
+    const options = {
+      status: (status === "ACTIVE" || status === "LEFT" ? status : undefined) as
+        | "ACTIVE"
+        | "LEFT"
+        | undefined,
+      search: searchParams.get("q") ?? undefined,
+    };
+
+    // `withPerformance=1` adds this month's sales and commission per person.
+    if (searchParams.get("withPerformance") === "1") {
+      const now = new Date();
+      const staff = await listStaffWithPerformance({
+        organizationId: ctx.organizationId,
+        year: Number(searchParams.get("year") ?? now.getFullYear()),
+        month: Number(searchParams.get("month") ?? now.getMonth() + 1),
+        ...options,
+      });
+      return apiSuccess(serializeBigInt(staff));
+    }
+
+    const staff = await listStaffMembers(ctx.organizationId, options);
     return apiSuccess(serializeBigInt(staff));
   });
 }
@@ -39,10 +57,16 @@ export async function POST(request: Request) {
       createdById: ctx.userId,
       name: data.name,
       phone: data.phone ?? undefined,
+      email: data.email || null,
+      roleKey: data.roleKey,
       roleTitle: data.roleTitle,
       wageRupees: data.wageRupees,
       wagePeriod: data.wagePeriod,
+      paymentFrequency: data.paymentFrequency,
       overtimeRateRupees: data.overtimeRateRupees,
+      commissionType: data.commissionType,
+      commissionPercent: data.commissionPercent,
+      commissionAmountRupees: data.commissionAmountRupees,
       joinedAt: data.joinedAt,
       notes: data.notes,
     });
