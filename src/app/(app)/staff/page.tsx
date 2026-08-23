@@ -12,7 +12,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
+import { Badge } from "@/components/ui/badge";
 import { StaffAdvancePanel } from "@/components/staff/staff-advance-panel";
+import {
+  StaffProfileDialog,
+  describeCommissionType,
+  emptyStaffProfile,
+  type CommissionType,
+  type StaffProfileValues,
+} from "@/components/staff/staff-profile-dialog";
+import { Pencil, Search, UserPlus, UsersRound } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { paiseToRupees, formatINR } from "@/lib/finance/money";
 import { cn } from "@/lib/utils";
@@ -92,6 +108,23 @@ const MONTHS = [
   "November",
   "December",
 ];
+
+/** Owner-facing wording for the payroll lifecycle. */
+const PAYROLL_STATUS: Record<
+  PayrollRow["status"],
+  { label: string; className: string }
+> = {
+  DRAFT: { label: "Pending", className: "bg-muted text-muted-foreground" },
+  FINALIZED: {
+    label: "Processed",
+    className: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
+  },
+  PAID: {
+    label: "Paid",
+    className:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+  },
+};
 
 function paidDayUnits(row: PayrollRow) {
   return row.presentDays + row.halfDays * 0.5 + row.paidLeaveDays;
@@ -261,13 +294,26 @@ export default function StaffHubPage() {
   const [advancePaymentMethod, setAdvancePaymentMethod] = useState<
     "CASH" | "UPI" | "CARD" | "BANK" | "OTHER"
   >("CASH");
-  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
-  const [editWageRupees, setEditWageRupees] = useState("");
-  const [editWagePeriod, setEditWagePeriod] = useState<"DAILY" | "MONTHLY">("MONTHLY");
+  const [peopleSearch, setPeopleSearch] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileTarget, setProfileTarget] = useState<StaffMember | null>(null);
+  const [profileInitial, setProfileInitial] = useState<StaffProfileValues>(() =>
+    emptyStaffProfile()
+  );
+  const [payConfirm, setPayConfirm] = useState<{
+    payrollId: string;
+    staffName: string;
+    amountPaise: string;
+    notes: string | null;
+  } | null>(null);
 
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
 
-  const staffQuery = useStaffList();
+  const staffQuery = useStaffList(undefined, {
+    withPerformance: true,
+    year,
+    month,
+  });
   const { data: orgMembers } = useFetch(
     canManageStaff && activeOrganizationId
       ? `org:${activeOrganizationId}:members-link`
@@ -298,11 +344,22 @@ export default function StaffHubPage() {
   const generatePayrollMutation = useGeneratePayroll(year, month);
   const updatePayrollMutation = useUpdatePayroll(year, month);
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [roleTitle, setRoleTitle] = useState("Helper");
-  const [wageRupees, setWageRupees] = useState("");
-  const [wagePeriod, setWagePeriod] = useState<"DAILY" | "MONTHLY">("MONTHLY");
+  const staffList = useMemo(() => staffQuery.data ?? [], [staffQuery.data]);
+  const activeStaffCount = staffList.filter((s) => s.status === "ACTIVE").length;
+  const leftStaffCount = staffList.filter((s) => s.status === "LEFT").length;
+  const commissionStaffCount = staffList.filter(
+    (s) => s.commissionType && s.commissionType !== "NONE"
+  ).length;
+  const filteredStaff = useMemo(() => {
+    const query = peopleSearch.trim().toLowerCase();
+    if (!query) return staffList;
+    return staffList.filter((s) =>
+      [s.name, s.phone ?? "", s.email ?? "", s.roleTitle]
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [staffList, peopleSearch]);
 
   if (!staffEnabled) {
     return (
@@ -322,54 +379,82 @@ export default function StaffHubPage() {
     return <PageLoader label="Opening your attendance..." />;
   }
 
-  async function addStaff(e: React.FormEvent) {
-    e.preventDefault();
+  function openStaffProfile(staff: StaffMember) {
     clear();
-    if (!name.trim()) return showWarning("Name is required");
-    if (!wageRupees || Number(wageRupees) <= 0) {
-      return showWarning("Salary is required for payroll");
-    }
-    try {
-      await createStaffMutation.mutateAsync({
-        name: name.trim(),
-        phone: phone.trim() || null,
-        roleTitle: roleTitle.trim(),
-        wageRupees: Number(wageRupees),
-        wagePeriod,
-      });
-      setName("");
-      setPhone("");
-      setWageRupees("");
-      setRoleTitle("Helper");
-    } catch (err) {
-      applyError(err, "Failed to add staff");
-    }
+    setProfileTarget(staff);
+    setProfileInitial({
+      name: staff.name,
+      phone: staff.phone ?? "",
+      email: staff.email ?? "",
+      roleKey: staff.roleKey ?? "CUSTOM",
+      roleTitle: staff.roleTitle,
+      wageRupees: staff.wagePaise
+        ? String(paiseToRupees(BigInt(staff.wagePaise)))
+        : "",
+      wagePeriod: staff.wagePeriod === "DAILY" ? "DAILY" : "MONTHLY",
+      paymentFrequency:
+        (staff.paymentFrequency as StaffProfileValues["paymentFrequency"]) ??
+        "MONTHLY",
+      overtimeRateRupees: staff.overtimeRatePaise
+        ? String(paiseToRupees(BigInt(staff.overtimeRatePaise)))
+        : "",
+      commissionType: (staff.commissionType ?? "NONE") as CommissionType,
+      commissionPercent:
+        staff.commissionPercent != null ? String(staff.commissionPercent) : "",
+      commissionAmountRupees: staff.commissionAmountPaise
+        ? String(paiseToRupees(BigInt(staff.commissionAmountPaise)))
+        : "",
+      joinedAt: staff.joinedAt
+        ? new Date(staff.joinedAt).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10),
+      status: staff.status,
+      notes: staff.notes ?? "",
+    });
+    setProfileOpen(true);
   }
 
-  function startEditWage(staff: StaffMember) {
-    setEditingStaffId(staff.id);
-    setEditWageRupees(
-      staff.wagePaise ? String(paiseToRupees(BigInt(staff.wagePaise))) : ""
-    );
-    setEditWagePeriod(
-      staff.wagePeriod === "DAILY" ? "DAILY" : "MONTHLY"
-    );
-  }
-
-  async function saveWage(staffId: string) {
+  async function saveStaffProfile(values: StaffProfileValues) {
     clear();
-    if (!editWageRupees || Number(editWageRupees) <= 0) {
-      return showWarning("Enter a valid salary amount");
-    }
+    const payload = {
+      name: values.name.trim(),
+      phone: values.phone.trim() || null,
+      email: values.email.trim() || null,
+      roleKey: values.roleKey,
+      roleTitle: values.roleTitle.trim(),
+      wageRupees: values.wageRupees ? Number(values.wageRupees) : null,
+      wagePeriod: values.wagePeriod,
+      paymentFrequency: values.paymentFrequency,
+      overtimeRateRupees: values.overtimeRateRupees
+        ? Number(values.overtimeRateRupees)
+        : null,
+      commissionType: values.commissionType,
+      commissionPercent:
+        values.commissionType === "PERCENT"
+          ? Number(values.commissionPercent)
+          : null,
+      commissionAmountRupees:
+        values.commissionType === "FIXED_PER_SALE" ||
+        values.commissionType === "FIXED_PER_ITEM"
+          ? Number(values.commissionAmountRupees)
+          : null,
+      joinedAt: values.joinedAt || null,
+      notes: values.notes.trim() || null,
+    };
+
     try {
-      await updateStaffMutation.mutateAsync({
-        id: staffId,
-        wageRupees: Number(editWageRupees),
-        wagePeriod: editWagePeriod,
-      });
-      setEditingStaffId(null);
+      if (profileTarget) {
+        await updateStaffMutation.mutateAsync({
+          id: profileTarget.id,
+          ...payload,
+          status: values.status,
+        });
+      } else {
+        await createStaffMutation.mutateAsync(payload);
+      }
+      setProfileOpen(false);
+      setProfileTarget(null);
     } catch (err) {
-      applyError(err, "Failed to update salary");
+      applyError(err, "Could not save this profile");
     }
   }
 
@@ -792,6 +877,12 @@ export default function StaffHubPage() {
               payrollRows.map((row: PayrollRow) => {
                 const adjustmentPaise = BigInt(row.adjustmentPaise || "0");
                 const summary = payrollCalcSummary(row);
+                const breakdown = row.breakdown;
+                const commissionPaise = BigInt(
+                  breakdown?.commissionPaise ?? row.commissionPaise ?? "0"
+                );
+                const earningsPaise = BigInt(breakdown?.earningsPaise ?? "0");
+                const deductionsPaise = BigInt(breakdown?.deductionsPaise ?? "0");
                 return (
                 <div key={row.id} className="space-y-3 rounded-xl border p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -802,39 +893,81 @@ export default function StaffHubPage() {
                         · Leave {row.paidLeaveDays}
                       </p>
                     </div>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-                      {row.status}
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-xs font-medium",
+                        PAYROLL_STATUS[row.status].className
+                      )}
+                    >
+                      {PAYROLL_STATUS[row.status].label}
                     </span>
                   </div>
 
-                  {summary ? (
+                  {summary || breakdown ? (
                     <div className="space-y-2 rounded-lg bg-muted/40 p-3 text-sm">
-                      {summary.monthlySalary && (
-                        <div className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">Monthly salary</span>
-                          <span className="font-medium tabular-nums">{summary.monthlySalary}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Per day</span>
-                        <span className="font-medium tabular-nums">{summary.perDay}/day</span>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Paid days</span>
+                        <span className="text-muted-foreground">
+                          Base salary
+                          {summary
+                            ? ` (${summary.paidDays} of ${summary.daysInMonth} days)`
+                            : ""}
+                        </span>
                         <span className="font-medium tabular-nums">
-                          {summary.paidDays} of {summary.daysInMonth}
+                          {formatINR(breakdown?.basePaise ?? row.basePaise ?? "0")}
                         </span>
                       </div>
-                      {summary.deductions && (
-                        <div className="flex justify-between gap-4 text-amber-800">
-                          <span>Deductions (absent / half)</span>
-                          <span className="font-medium tabular-nums">− {summary.deductions}</span>
-                        </div>
+                      {summary?.monthlySalary && (
+                        <p className="text-xs text-muted-foreground">
+                          {summary.monthlySalary}/month · {summary.perDay}/day
+                          {summary.deductions
+                            ? ` · ${summary.deductions} deducted for absence`
+                            : ""}
+                        </p>
                       )}
+                      {commissionPaise > BigInt(0) ? (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">
+                            Sales commission
+                          </span>
+                          <span className="font-medium tabular-nums">
+                            + {formatINR(commissionPaise)}
+                          </span>
+                        </div>
+                      ) : null}
+                      {row.commission &&
+                      BigInt(row.commission.eligibleSalesPaise) > BigInt(0) ? (
+                        <p className="text-xs text-muted-foreground">
+                          {row.commission.invoiceCount} invoice
+                          {row.commission.invoiceCount === 1 ? "" : "s"} ·{" "}
+                          {formatINR(row.commission.eligibleSalesPaise)} eligible
+                          sales
+                          {BigInt(row.commission.returnedValuePaise) > BigInt(0)
+                            ? ` · ${formatINR(row.commission.returnedValuePaise)} returned, commission reduced by ${formatINR(row.commission.returnAdjustmentPaise)}`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {earningsPaise > BigInt(0) ? (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">
+                            Bonus / incentives
+                          </span>
+                          <span className="font-medium tabular-nums">
+                            + {formatINR(earningsPaise)}
+                          </span>
+                        </div>
+                      ) : null}
+                      {deductionsPaise > BigInt(0) ? (
+                        <div className="flex justify-between gap-4 text-amber-800">
+                          <span>Deductions</span>
+                          <span className="font-medium tabular-nums">
+                            − {formatINR(deductionsPaise)}
+                          </span>
+                        </div>
+                      ) : null}
                       {row.advanceDeductionPaise &&
                         BigInt(row.advanceDeductionPaise) > BigInt(0) && (
                           <div className="flex justify-between gap-4 text-amber-800">
-                            <span>Advance deduction</span>
+                            <span>Advance recovery</span>
                             <span className="font-medium tabular-nums">
                               − {formatINR(row.advanceDeductionPaise)}
                             </span>
@@ -851,19 +984,17 @@ export default function StaffHubPage() {
                           ))}
                         </div>
                       )}
-                      <div className="border-t pt-2">
-                        <p className="text-xs text-muted-foreground">
-                          {summary.perDay}/day × {summary.paidDays} days
-                          {summary.deductions ? ` − ${summary.deductions}` : ""}
-                        </p>
-                        <div className="mt-1 flex justify-between gap-4 font-semibold">
-                          <span>Total</span>
-                          <span className="tabular-nums">{summary.total}</span>
-                        </div>
+                      <div className="mt-1 flex justify-between gap-4 border-t pt-2 text-base font-semibold">
+                        <span>Net pay</span>
+                        <span className="tabular-nums">
+                          {formatINR(row.calculatedPaise)}
+                        </span>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-amber-700">Set salary on People tab first</p>
+                    <p className="text-sm text-amber-700">
+                      Set a salary or commission on the Team tab first
+                    </p>
                   )}
 
                   <div className="space-y-1">
@@ -943,14 +1074,15 @@ export default function StaffHubPage() {
                           })
                         }
                       >
-                        Finalize
+                        Mark processed
                       </Button>
                       <Button
                         className="h-10 rounded-xl"
                         onClick={() =>
-                          updatePayrollMutation.mutate({
+                          setPayConfirm({
                             payrollId: row.id,
-                            status: "PAID",
+                            staffName: row.staff.name,
+                            amountPaise: row.finalAmountPaise,
                             notes:
                               editPayrollNotes[row.id] !== undefined
                                 ? editPayrollNotes[row.id]
@@ -1001,104 +1133,90 @@ export default function StaffHubPage() {
       )}
 
       {tab === "people" && (
-        <>
-          {canManageStaff && (
-            <Card className="rounded-2xl border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg">Add {moduleTitle.toLowerCase()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={addStaff} className="space-y-3">
-                  <div className="space-y-2">
-                    <Label>Name</Label>
-                    <Input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="h-12 rounded-xl"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="h-12 rounded-xl"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Role</Label>
-                    <Input
-                      value={roleTitle}
-                      onChange={(e) => setRoleTitle(e.target.value)}
-                      className="h-12 rounded-xl"
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Salary (₹)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        step="0.01"
-                        value={wageRupees}
-                        onChange={(e) => setWageRupees(e.target.value)}
-                        className="h-12 rounded-xl"
-                        placeholder="15000"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Pay period</Label>
-                      <select
-                        value={wagePeriod}
-                        onChange={(e) =>
-                          setWagePeriod(e.target.value as "DAILY" | "MONTHLY")
-                        }
-                        className="h-12 w-full rounded-xl border bg-background px-3"
-                      >
-                        <option value="MONTHLY">Monthly</option>
-                        <option value="DAILY">Daily</option>
-                      </select>
-                    </div>
-                  </div>
-                  <Button
-                    type="submit"
-                    className="h-12 w-full rounded-xl"
-                    disabled={createStaffMutation.isPending}
-                  >
-                    {createStaffMutation.isPending ? "Adding..." : "Add"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="rounded-2xl border-0 shadow-md">
-            <CardHeader>
+        <Card className="rounded-2xl border-0 shadow-md">
+          <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
               <CardTitle className="text-lg">Team</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {staffQuery.isLoading ? (
-                <PageLoader label="Loading..." />
-              ) : (staffQuery.data ?? []).length === 0 ? (
-                <p className="py-4 text-sm text-muted-foreground">No one yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {(staffQuery.data ?? []).map((s) => (
-                    <div
-                      key={s.id}
-                      className={cn(
-                        "rounded-xl border p-3 sm:p-4",
-                        s.status === "LEFT" && "bg-muted/30"
-                      )}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium">{s.name}</p>
-                          <p className="text-sm text-muted-foreground">{s.roleTitle}</p>
-                        </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {activeStaffCount} active · {leftStaffCount} left ·{" "}
+                {commissionStaffCount} on commission
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={peopleSearch}
+                  onChange={(e) => setPeopleSearch(e.target.value)}
+                  placeholder="Search name, phone, role…"
+                  className="h-10 w-full rounded-xl pl-9 sm:w-56"
+                />
+              </div>
+              {canManageStaff && (
+                <Button
+                  className="h-10 rounded-xl"
+                  onClick={() => {
+                    setProfileTarget(null);
+                    setProfileInitial(emptyStaffProfile());
+                    setProfileOpen(true);
+                  }}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add {moduleTitle.toLowerCase()}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {staffQuery.isLoading ? (
+              <PageLoader label="Loading team..." />
+            ) : filteredStaff.length === 0 ? (
+              <div className="rounded-xl border border-dashed py-12 text-center">
+                <UsersRound className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+                <p className="font-medium">
+                  {(staffQuery.data ?? []).length === 0
+                    ? "No team members yet"
+                    : "No one matches that search"}
+                </p>
+                <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                  {(staffQuery.data ?? []).length === 0
+                    ? "Add your first team member to start marking attendance, running payroll and tracking sales commission."
+                    : "Try a different name, phone or role."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredStaff.map((s) => (
+                  <div
+                    key={s.id}
+                    className={cn(
+                      "rounded-xl border p-3 sm:p-4",
+                      s.status === "LEFT" && "bg-muted/30"
+                    )}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{s.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {s.roleTitle}
+                          {s.joinedAt
+                            ? ` · joined ${new Date(s.joinedAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}`
+                            : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {s.commissionType !== "NONE" ? (
+                          <Badge
+                            variant="secondary"
+                            className="rounded-full text-[10px]"
+                          >
+                            {describeCommissionType(
+                              s.commissionType,
+                              s.commissionPercent,
+                              s.commissionAmountPaise
+                            )}
+                          </Badge>
+                        ) : null}
                         <span
                           className={cn(
                             "inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
@@ -1110,129 +1228,175 @@ export default function StaffHubPage() {
                           {s.status === "ACTIVE" ? "Active" : "Left"}
                         </span>
                       </div>
+                    </div>
 
-                      <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Salary</p>
-                          {editingStaffId === s.id ? (
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <Input
-                                type="number"
-                                min={1}
-                                value={editWageRupees}
-                                onChange={(e) => setEditWageRupees(e.target.value)}
-                                className="h-9 w-24 rounded-lg"
-                              />
-                              <select
-                                value={editWagePeriod}
-                                onChange={(e) =>
-                                  setEditWagePeriod(
-                                    e.target.value as "DAILY" | "MONTHLY"
-                                  )
-                                }
-                                className="h-9 rounded-lg border bg-background px-2 text-xs"
-                              >
-                                <option value="MONTHLY">Monthly</option>
-                                <option value="DAILY">Daily</option>
-                              </select>
-                              <Button
-                                size="sm"
-                                className="h-9 rounded-lg"
-                                onClick={() => saveWage(s.id)}
-                              >
-                                Save
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-9 rounded-lg"
-                                onClick={() => setEditingStaffId(null)}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : (
-                            <p
-                              className={cn(
-                                "mt-0.5 font-medium",
-                                !s.wagePaise && "text-amber-700"
-                              )}
-                            >
-                              {formatWage(s)}
+                    <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Salary</p>
+                        <p
+                          className={cn(
+                            "mt-0.5 font-medium",
+                            !s.wagePaise && "text-amber-700"
+                          )}
+                        >
+                          {formatWage(s)}
+                        </p>
+                        {s.paymentFrequency ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            Paid {s.paymentFrequency.toLowerCase()}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Contact</p>
+                        <p className="mt-0.5">{s.phone ?? "—"}</p>
+                        {s.email ? (
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {s.email}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Sales this month
+                        </p>
+                        {s.performance ? (
+                          <>
+                            <p className="mt-0.5 font-medium tabular-nums">
+                              {formatINR(s.performance.eligibleSalesPaise)}
                             </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {s.performance.invoiceCount} invoice
+                              {s.performance.invoiceCount === 1 ? "" : "s"}
+                              {BigInt(s.performance.commissionPaise) > BigInt(0)
+                                ? ` · commission ${formatINR(s.performance.commissionPaise)}`
+                                : ""}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="mt-0.5 text-muted-foreground">—</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {canManageStaff && (
+                      <div className="mt-3 space-y-2">
+                        <div>
+                          <p className="mb-1 text-xs text-muted-foreground">
+                            Login link
+                          </p>
+                          <select
+                            value={s.userId ?? ""}
+                            disabled={s.status === "LEFT"}
+                            onChange={(e) =>
+                              linkStaffLogin(
+                                s.id,
+                                e.target.value ? e.target.value : null
+                              )
+                            }
+                            className="h-9 w-full rounded-lg border bg-background px-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <option value="">No login</option>
+                            {(orgMembers ?? []).map((m) => (
+                              <option key={m.user.id} value={m.user.id}>
+                                {m.user.name} ({m.role})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg"
+                            onClick={() => openStaffProfile(s)}
+                          >
+                            <Pencil className="mr-1 h-3.5 w-3.5" />
+                            Edit profile
+                          </Button>
+                          {s.status === "ACTIVE" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-lg"
+                              onClick={() => markStaffLeft(s.id, s.name)}
+                            >
+                              Mark left
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="rounded-lg"
+                              disabled={updateStaffMutation.isPending}
+                              onClick={() => rehireStaff(s.id, s.name)}
+                            >
+                              Rehire
+                            </Button>
                           )}
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Phone</p>
-                          <p className="mt-0.5">{s.phone ?? "—"}</p>
-                        </div>
                       </div>
-
-                      {canManageStaff && (
-                        <div className="mt-3 space-y-2">
-                          <div>
-                            <p className="mb-1 text-xs text-muted-foreground">Login link</p>
-                            <select
-                              value={s.userId ?? ""}
-                              disabled={s.status === "LEFT"}
-                              onChange={(e) =>
-                                linkStaffLogin(
-                                  s.id,
-                                  e.target.value ? e.target.value : null
-                                )
-                              }
-                              className="h-9 w-full rounded-lg border bg-background px-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <option value="">No login</option>
-                              {(orgMembers ?? []).map((m) => (
-                                <option key={m.user.id} value={m.user.id}>
-                                  {m.user.name} ({m.role})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {s.status === "ACTIVE" && editingStaffId !== s.id && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="rounded-lg"
-                                  onClick={() => startEditWage(s)}
-                                >
-                                  Edit salary
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="rounded-lg"
-                                  onClick={() => markStaffLeft(s.id, s.name)}
-                                >
-                                  Mark left
-                                </Button>
-                              </>
-                            )}
-                            {s.status === "LEFT" && (
-                              <Button
-                                size="sm"
-                                className="rounded-lg"
-                                disabled={updateStaffMutation.isPending}
-                                onClick={() => rehireStaff(s.id, s.name)}
-                              >
-                                Rehire
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
+
+      {/* Paying salary moves money, so confirm before it posts an expense. */}
+      <Dialog
+        open={!!payConfirm}
+        onOpenChange={(open) => !open && setPayConfirm(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pay {payConfirm?.staffName}?</DialogTitle>
+            <DialogDescription>
+              {payConfirm
+                ? `${formatINR(payConfirm.amountPaise)} will be recorded as paid for ${MONTHS[month - 1]} ${year}, posted to shop expenses, and any open advance will be recovered.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setPayConfirm(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-xl"
+              disabled={updatePayrollMutation.isPending}
+              onClick={() => {
+                if (!payConfirm) return;
+                updatePayrollMutation.mutate({
+                  payrollId: payConfirm.payrollId,
+                  status: "PAID",
+                  notes: payConfirm.notes,
+                });
+                setPayConfirm(null);
+              }}
+            >
+              {updatePayrollMutation.isPending ? "Saving…" : "Confirm payment"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <StaffProfileDialog
+        key={profileTarget?.id ?? "new-staff"}
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        title={profileTarget ? `Edit ${profileTarget.name}` : `Add ${moduleTitle.toLowerCase()}`}
+        initial={profileInitial}
+        submitting={
+          createStaffMutation.isPending || updateStaffMutation.isPending
+        }
+        errorMessage={error}
+        onSubmit={saveStaffProfile}
+      />
 
       {canPayroll && (
         <StaffAdvancePanel

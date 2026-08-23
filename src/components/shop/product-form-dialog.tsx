@@ -134,18 +134,14 @@ export function ProductFormDialog({
     (f) => f !== "expiryDate" && f !== "size" && f !== "color" && f !== "brand"
   );
 
-  const subcategories = useMemo(
-    () => categories.find((c) => c.key === categoryKey)?.subcategories ?? [],
-    [categories, categoryKey]
-  );
+  // Categories arrive asynchronously; fall back to the first one until the user
+  // picks, rather than syncing it into state from an effect.
+  const effectiveCategoryKey = categoryKey || categories[0]?.key || "";
 
-  useEffect(() => {
-    if (!open) return;
-    setHasVariants(variantsByDefault);
-    if (!categoryKey && categories.length > 0) {
-      setCategoryKey(categories[0]!.key);
-    }
-  }, [open, variantsByDefault, categories, categoryKey]);
+  const subcategories = useMemo(
+    () => categories.find((c) => c.key === effectiveCategoryKey)?.subcategories ?? [],
+    [categories, effectiveCategoryKey]
+  );
 
   function reset() {
     setName("");
@@ -239,7 +235,7 @@ export function ProductFormDialog({
       name: name.trim(),
       description: description.trim() || null,
       brand: brand.trim() || null,
-      categoryKey: categoryKey || null,
+      categoryKey: effectiveCategoryKey || null,
       subCategoryKey: subCategoryKey || null,
       unit: unit.trim() || "pcs",
       hasVariants,
@@ -368,7 +364,7 @@ export function ProductFormDialog({
               <div className="space-y-1.5">
                 <Label>Category</Label>
                 <select
-                  value={categoryKey}
+                  value={effectiveCategoryKey}
                   onChange={(e) => {
                     setCategoryKey(e.target.value);
                     setSubCategoryKey("");

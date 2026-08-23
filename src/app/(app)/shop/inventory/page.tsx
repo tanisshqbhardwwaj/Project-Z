@@ -131,10 +131,14 @@ export default function ShopInventoryPage() {
     enabled: !!orgId && moduleEnabled,
   });
 
-  const businessTypes = categoriesQuery.data?.businessTypes ?? [
-    activeShopSector ?? "GENERAL",
-  ];
-  const categories = categoriesQuery.data?.categories ?? [];
+  const businessTypes = useMemo(
+    () => categoriesQuery.data?.businessTypes ?? [activeShopSector ?? "GENERAL"],
+    [categoriesQuery.data?.businessTypes, activeShopSector]
+  );
+  const categories = useMemo(
+    () => categoriesQuery.data?.categories ?? [],
+    [categoriesQuery.data?.categories]
+  );
   const attributeFields = useMemo(
     () => inventoryFieldsForSectors(businessTypes),
     [businessTypes]
