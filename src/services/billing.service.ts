@@ -3,6 +3,7 @@ import type {
   BillingEventType,
   BillingPlan,
   PlanRequestStatus,
+  Prisma,
   SetupFeeStatus,
   SubscriptionStatus,
 } from "@prisma/client";
@@ -33,7 +34,7 @@ async function logBillingEvent(input: {
       organizationId: input.organizationId,
       type: input.type,
       actorUserId: input.actorUserId ?? null,
-      metadata: input.metadata ?? {},
+      metadata: (input.metadata ?? {}) as Prisma.InputJsonValue,
     },
   });
 }

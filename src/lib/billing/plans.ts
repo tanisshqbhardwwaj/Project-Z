@@ -164,8 +164,8 @@ export function defaultStorageQuotaBytes(plan: BillingPlan): bigint {
   return BigInt(BILLING_PLANS[plan].storageBytes);
 }
 
-export function formatStorageBytes(bytes: bigint | number): string {
-  const n = typeof bytes === "bigint" ? Number(bytes) : bytes;
+export function formatStorageBytes(bytes: bigint | number | string): string {
+  const n = Number(bytes);
   if (n >= GB) return `${(n / GB).toFixed(1)} GB`;
   if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(0)} MB`;
   return `${n} B`;

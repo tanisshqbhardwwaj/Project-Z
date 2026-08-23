@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import type { SyncOutboxStatus } from "@prisma/client";
+import type { Prisma, SyncOutboxStatus } from "@prisma/client";
 
 export async function enqueueSyncOutbox(input: {
   organizationId: string;
@@ -10,7 +10,7 @@ export async function enqueueSyncOutbox(input: {
     data: {
       organizationId: input.organizationId,
       kind: input.kind,
-      payload: input.payload,
+      payload: input.payload as Prisma.InputJsonValue,
       status: "PENDING",
     },
   });
