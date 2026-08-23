@@ -22,11 +22,17 @@ export function useRequireAuth() {
     if (!initialized) return;
 
     if (status === "unauthenticated") {
-      router.replace("/login");
+      router.replace(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
       return;
     }
 
-    if (status === "authenticated" && !activeOrganizationId && !pathname.startsWith("/onboarding")) {
+    const isOps = pathname.startsWith("/ops");
+    if (
+      status === "authenticated" &&
+      !activeOrganizationId &&
+      !pathname.startsWith("/onboarding") &&
+      !isOps
+    ) {
       router.replace("/onboarding");
     }
   }, [status, initialized, activeOrganizationId, pathname, router]);

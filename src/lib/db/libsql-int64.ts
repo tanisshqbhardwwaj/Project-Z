@@ -11,10 +11,20 @@ function asInt64String(value: unknown): unknown {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.trunc(value).toString();
   }
-  if (typeof value === "string" && /^-?\d+\.0+$/.test(value)) {
-    return value.slice(0, value.indexOf("."));
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (/^-?\d+\.0+$/.test(trimmed)) {
+      return trimmed.slice(0, trimmed.indexOf("."));
+    }
+    if (/^-?\d+$/.test(trimmed)) return trimmed;
   }
   return value;
+}
+
+function columnLooksInt64(name: string, type: number): boolean {
+  if (type === INT64) return true;
+  const bare = name.replace(/"/g, "").split(".").pop() ?? name;
+  return BIGINT_COLUMN.test(bare);
 }
 
 function coerceResult(result: SqlResultSet): SqlResultSet {
@@ -22,7 +32,11 @@ function coerceResult(result: SqlResultSet): SqlResultSet {
   const rows = result.rows.map((row) =>
     row.map((value, i) => {
       const name = result.columnNames[i] ?? "";
-      if (columnTypes[i] === INT64 || BIGINT_COLUMN.test(name)) {
+      if (columnLooksInt64(name, columnTypes[i])) {
+        columnTypes[i] = INT64;
+        return asInt64String(value);
+      }
+      if (typeof value === "string" && /^-?\d+\.0+$/.test(value.trim())) {
         columnTypes[i] = INT64;
         return asInt64String(value);
       }
