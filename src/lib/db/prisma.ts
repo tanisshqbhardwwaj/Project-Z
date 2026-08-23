@@ -5,6 +5,7 @@ import { wrapLibSqlAdapter } from "@/lib/db/libsql-int64";
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
   prismaInt64Coerce?: boolean;
+  prismaInt64CoerceV2?: boolean;
 };
 
 function createPrismaClient() {
@@ -25,9 +26,10 @@ function createPrismaClient() {
 }
 
 function getClient() {
-  if (!globalForPrisma.prisma || !globalForPrisma.prismaInt64Coerce) {
+  if (!globalForPrisma.prisma || !globalForPrisma.prismaInt64CoerceV2) {
     globalForPrisma.prisma = createPrismaClient();
     globalForPrisma.prismaInt64Coerce = true;
+    globalForPrisma.prismaInt64CoerceV2 = true;
   }
   return globalForPrisma.prisma;
 }
