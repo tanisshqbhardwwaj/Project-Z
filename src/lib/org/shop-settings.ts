@@ -37,6 +37,14 @@ export type ShopOrgSettings = {
   brandName?: string;
   logoUrl?: string | null;
   nextBillSeq?: number;
+  /**
+   * Every business type this shop sells in. The `Organization.shopSector` column
+   * stays the primary type for back-compat; this list drives category choices
+   * and which product attributes the product form offers.
+   */
+  businessTypes?: string[];
+  /** Free-text description when the org selected the OTHER business type. */
+  customBusinessType?: string;
   invoice?: ShopInvoiceSettings;
 };
 
@@ -198,8 +206,38 @@ export function parseShopOrgSettings(settings: unknown): ShopOrgSettings {
     brandName: typeof s.brandName === "string" ? s.brandName : undefined,
     logoUrl: typeof s.logoUrl === "string" ? s.logoUrl : null,
     nextBillSeq: typeof s.nextBillSeq === "number" ? s.nextBillSeq : undefined,
+    businessTypes: Array.isArray(s.businessTypes)
+      ? s.businessTypes.filter((t): t is string => typeof t === "string" && !!t)
+      : undefined,
+    customBusinessType:
+      typeof s.customBusinessType === "string" && s.customBusinessType.trim()
+        ? s.customBusinessType.trim()
+        : undefined,
     invoice: Object.keys(invoice).length > 0 ? invoice : undefined,
   };
+}
+
+/**
+ * Business types for the org, newest multi-select taking precedence and the
+ * legacy single `shopSector` column as the fallback. Always non-empty.
+ */
+export function resolveShopBusinessTypes(
+  settings: unknown,
+  primarySector: string | null | undefined
+): string[] {
+  const fromSettings = parseShopOrgSettings(settings).businessTypes ?? [];
+  if (fromSettings.length > 0) {
+    // Keep the primary sector first so category ordering stays predictable.
+    if (primarySector && fromSettings.includes(primarySector)) {
+      return [primarySector, ...fromSettings.filter((t) => t !== primarySector)];
+    }
+    return fromSettings;
+  }
+  return [primarySector || "GENERAL"];
+}
+
+export function resolveCustomBusinessTypeLabel(settings: unknown): string | null {
+  return parseShopOrgSettings(settings).customBusinessType ?? null;
 }
 
 export function resolveShopLabelBranding(
@@ -324,6 +362,22 @@ export function mergeShopOrgSettings(
   }
   if (shopPatch.logoUrl !== undefined) {
     nextShop.logoUrl = shopPatch.logoUrl?.trim() || null;
+  }
+  if (shopPatch.businessTypes !== undefined) {
+    const unique = [...new Set(shopPatch.businessTypes.filter(Boolean))];
+    if (unique.length > 0) {
+      nextShop.businessTypes = unique;
+    } else {
+      delete nextShop.businessTypes;
+    }
+  }
+  if (shopPatch.customBusinessType !== undefined) {
+    const trimmed = shopPatch.customBusinessType?.trim();
+    if (trimmed) {
+      nextShop.customBusinessType = trimmed;
+    } else {
+      delete nextShop.customBusinessType;
+    }
   }
   if (shopPatch.invoice !== undefined) {
     const merged = mergeInvoiceSettings(prev.invoice ?? {}, shopPatch.invoice);

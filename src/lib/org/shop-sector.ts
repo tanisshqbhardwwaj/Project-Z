@@ -3,13 +3,20 @@ import type { ShopSector } from "@prisma/client";
 export type { ShopSector };
 
 export const SHOP_SECTORS = [
-  "GROCERY",
-  "HARDWARE",
-  "ELECTRONICS",
   "CLOTHING",
+  "FOOTWEAR",
+  "GROCERY",
+  "ELECTRONICS",
+  "COSMETICS",
   "PHARMACY",
   "RESTAURANT",
+  "HARDWARE",
+  "FURNITURE",
+  "STATIONERY",
+  "JEWELLERY",
   "GENERAL",
+  "SERVICES",
+  "OTHER",
 ] as const satisfies readonly ShopSector[];
 
 export type ShopSectorConfig = {
@@ -18,7 +25,13 @@ export type ShopSectorConfig = {
   description: string;
   expenseCategories: string[];
   capabilities: string[];
+  /**
+   * Product attributes this business type cares about. Drives which optional
+   * fields the product form shows — nothing is hard-coded per sector elsewhere.
+   */
   inventoryFields?: string[];
+  /** Whether size/variant matrices are the norm for this business type. */
+  variantsByDefault?: boolean;
 };
 
 export const SHOP_SECTOR_CONFIG: Record<ShopSector, ShopSectorConfig> = {
@@ -75,10 +88,11 @@ export const SHOP_SECTOR_CONFIG: Record<ShopSector, ShopSectorConfig> = {
   },
   CLOTHING: {
     id: "CLOTHING",
-    label: "Clothing / Fashion",
-    description: "Apparel, textiles, footwear",
+    label: "Clothing & Fashion",
+    description: "Apparel, textiles, ethnic wear",
     capabilities: ["size_color_matrix", "udhaar"],
-    inventoryFields: ["size", "color"],
+    inventoryFields: ["brand", "size", "color", "material", "gender"],
+    variantsByDefault: true,
     expenseCategories: [
       "Purchase",
       "Inventory",
@@ -87,6 +101,122 @@ export const SHOP_SECTOR_CONFIG: Record<ShopSector, ShopSectorConfig> = {
       "Staff wages",
       "Marketing",
       "Packaging",
+      "Miscellaneous",
+    ],
+  },
+  FOOTWEAR: {
+    id: "FOOTWEAR",
+    label: "Footwear",
+    description: "Shoes, sandals, sports footwear",
+    capabilities: ["size_color_matrix", "udhaar"],
+    inventoryFields: ["brand", "size", "color", "material", "gender"],
+    variantsByDefault: true,
+    expenseCategories: [
+      "Purchase",
+      "Inventory",
+      "Rent",
+      "Utilities",
+      "Staff wages",
+      "Marketing",
+      "Packaging",
+      "Miscellaneous",
+    ],
+  },
+  COSMETICS: {
+    id: "COSMETICS",
+    label: "Cosmetics & Beauty",
+    description: "Skincare, makeup, personal care",
+    capabilities: ["batch_expiry", "udhaar"],
+    inventoryFields: ["brand", "shade", "volume", "batch", "expiryDate"],
+    expenseCategories: [
+      "Purchase",
+      "Inventory",
+      "Rent",
+      "Utilities",
+      "Staff wages",
+      "Marketing",
+      "Packaging",
+      "Miscellaneous",
+    ],
+  },
+  FURNITURE: {
+    id: "FURNITURE",
+    label: "Furniture & Home",
+    description: "Furniture, furnishing, home decor",
+    capabilities: ["variants", "quotations"],
+    inventoryFields: ["brand", "material", "dimensions", "color"],
+    expenseCategories: [
+      "Purchase",
+      "Inventory",
+      "Transport",
+      "Rent",
+      "Utilities",
+      "Staff wages",
+      "Maintenance",
+      "Miscellaneous",
+    ],
+  },
+  STATIONERY: {
+    id: "STATIONERY",
+    label: "Stationery & Books",
+    description: "Books, school and office supplies",
+    capabilities: ["basic_inventory", "udhaar"],
+    inventoryFields: ["brand", "author", "publisher"],
+    expenseCategories: [
+      "Purchase",
+      "Inventory",
+      "Rent",
+      "Utilities",
+      "Staff wages",
+      "Packaging",
+      "Miscellaneous",
+    ],
+  },
+  JEWELLERY: {
+    id: "JEWELLERY",
+    label: "Jewellery",
+    description: "Gold, silver, imitation jewellery",
+    capabilities: ["weight_units", "hallmark"],
+    inventoryFields: ["metal", "purity", "grossWeight", "netWeight", "size"],
+    expenseCategories: [
+      "Purchase",
+      "Inventory",
+      "Making charges",
+      "Rent",
+      "Utilities",
+      "Staff wages",
+      "Insurance",
+      "Miscellaneous",
+    ],
+  },
+  SERVICES: {
+    id: "SERVICES",
+    label: "Services",
+    description: "Repairs, salon, consulting and other services",
+    capabilities: ["service_catalog"],
+    inventoryFields: ["duration"],
+    expenseCategories: [
+      "Consumables",
+      "Rent",
+      "Utilities",
+      "Staff wages",
+      "Marketing",
+      "Travel",
+      "Miscellaneous",
+    ],
+  },
+  OTHER: {
+    id: "OTHER",
+    label: "Other / Custom",
+    description: "Tell us what your business actually is",
+    capabilities: ["basic_inventory"],
+    expenseCategories: [
+      "Purchase",
+      "Inventory",
+      "Rent",
+      "Utilities",
+      "Staff wages",
+      "Marketing",
       "Miscellaneous",
     ],
   },
@@ -126,8 +256,8 @@ export const SHOP_SECTOR_CONFIG: Record<ShopSector, ShopSectorConfig> = {
   },
   GENERAL: {
     id: "GENERAL",
-    label: "General / Other",
-    description: "Any other shop type",
+    label: "General Retail",
+    description: "Mixed retail — a bit of everything",
     capabilities: ["basic_inventory"],
     expenseCategories: [
       "Purchase",
@@ -155,4 +285,24 @@ export function getShopSectorConfig(
 
 export function isShopSector(value: unknown): value is ShopSector {
   return typeof value === "string" && SHOP_SECTORS.includes(value as ShopSector);
+}
+
+/** Union of the product attributes every selected business type asks for. */
+export function inventoryFieldsForSectors(
+  sectors: readonly (ShopSector | string)[]
+): string[] {
+  const fields = new Set<string>();
+  for (const sector of sectors) {
+    for (const field of getShopSectorConfig(sector).inventoryFields ?? []) {
+      fields.add(field);
+    }
+  }
+  return [...fields];
+}
+
+/** True when any selected business type normally sells size/variant products. */
+export function variantsExpectedForSectors(
+  sectors: readonly (ShopSector | string)[]
+): boolean {
+  return sectors.some((s) => getShopSectorConfig(s).variantsByDefault === true);
 }

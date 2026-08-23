@@ -94,6 +94,13 @@ enum ShopSector {
   PHARMACY
   RESTAURANT
   GENERAL
+  FOOTWEAR
+  COSMETICS
+  FURNITURE
+  STATIONERY
+  JEWELLERY
+  SERVICES
+  OTHER
 }
 
 enum BillingPlan {
@@ -163,6 +170,20 @@ enum DeviceStatus {
 enum StaffStatus {
   ACTIVE
   LEFT
+}
+
+enum StaffCommissionType {
+  NONE
+  PERCENT
+  FIXED_PER_SALE
+  FIXED_PER_ITEM
+}
+
+enum RecurringOccurrenceStatus {
+  UPCOMING
+  PENDING
+  PAID
+  SKIPPED
 }
 
 enum AttendanceStatus {
@@ -318,6 +339,7 @@ model User {
   shopReturnsCreated  ShopSaleReturn[]        @relation("ShopReturnCreatedBy")
   shopPurchasesCreated ShopPurchase[]         @relation("ShopPurchaseCreatedBy")
   shopPurchasePaymentsCreated ShopPurchasePayment[] @relation("ShopPurchasePaymentCreatedBy")
+  shopProductsCreated ShopProduct[]           @relation("ShopProductCreatedBy")
   shopExpensesCreated ShopExpense[]           @relation("ShopExpenseCreatedBy")
   shopRecurringExpensesCreated ShopRecurringExpense[] @relation("ShopRecurringExpenseCreatedBy")
   creditEntriesCreated CustomerCreditEntry[]  @relation("CreditEntryCreatedBy")
@@ -447,6 +469,9 @@ model Organization {
   shopExpenseCategories ShopExpenseCategory[]
   shopExpenses     ShopExpense[]
   shopRecurringExpenses ShopRecurringExpense[]
+  shopRecurringExpenseOccurrences ShopRecurringExpenseOccurrence[]
+  shopProducts     ShopProduct[]
+  shopCategories   ShopCategory[]
   inventoryItems   InventoryItem[]
   customerCredits  CustomerCredit[]
   customerCreditEntries CustomerCreditEntry[]
@@ -581,10 +606,16 @@ model StaffMember {
   userId             String?
   name               String
   phone              String?
+  email              String?
+  roleKey            String?
   roleTitle          String
   wagePaise          BigInt?
   wagePeriod         String?
+  paymentFrequency   String?
   overtimeRatePaise  BigInt?
+  commissionType     StaffCommissionType @default(NONE)
+  commissionPercent  Float?
+  commissionAmountPaise BigInt?
   status             StaffStatus @default(ACTIVE)
   joinedAt           DateTime?
   leftAt             DateTime?
@@ -600,6 +631,8 @@ model StaffMember {
   payrolls     StaffPayroll[]
   wageHistory  StaffWage[]
   advances     StaffAdvance[]
+  sales        ShopSale[]        @relation("ShopSaleStaff")
+  returns      ShopSaleReturn[]  @relation("ShopReturnStaff")
 
   @@unique([organizationId, userId])
   @@index([organizationId, status])
@@ -677,6 +710,9 @@ model StaffPayroll {
   paidLeaveDays       Float         @default(0)
   workingDays         Float         @default(0)
   overtimeHours       Float         @default(0)
+  basePaise           BigInt        @default(0)
+  commissionPaise     BigInt        @default(0)
+  commissionSalesPaise BigInt       @default(0)
   calculatedPaise     BigInt        @default(0)
   adjustmentPaise     BigInt        @default(0)
   finalAmountPaise    BigInt        @default(0)
@@ -736,6 +772,7 @@ model ShopSale {
   customerName   String?
   customerPhone  String?
   customerGstin  String?
+  staffId        String?
   salesBoyName   String?
   totalPaise     BigInt
   gstPaise       BigInt     @default(0)
@@ -753,6 +790,7 @@ model ShopSale {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   customer     ShopCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  staff        StaffMember? @relation("ShopSaleStaff", fields: [staffId], references: [id], onDelete: SetNull)
   createdBy    User         @relation("ShopSaleCreatedBy", fields: [createdById], references: [id])
   creditEntries CustomerCreditEntry[]
   returns      ShopSaleReturn[]
@@ -762,6 +800,7 @@ model ShopSale {
   @@index([organizationId, paymentStatus])
   @@index([organizationId, billNumber])
   @@index([organizationId, salesBoyName, createdAt])
+  @@index([organizationId, staffId, createdAt])
 }
 
 model ShopHeldBill {
@@ -822,27 +861,41 @@ model ShopOffer {
 }
 
 model ShopSaleReturn {
-  id                 String                 @id @default(uuid())
-  organizationId     String
-  shopSaleId         String
-  returnNumber       String
-  type               ReturnTransactionType  @default(RETURN)
-  refundAmountPaise  BigInt
-  refundMethod       PaymentMethod          @default(CASH)
-  reason             ReturnReason
-  notes              String?
-  exchangeSaleId     String?
-  createdById        String
-  createdAt          DateTime               @default(now())
+  id                  String                 @id @default(uuid())
+  organizationId      String
+  shopSaleId          String
+  returnNumber        String
+  type                ReturnTransactionType  @default(RETURN)
+  /// Value of the goods coming back from the customer.
+  returnValuePaise    BigInt                 @default(0)
+  /// Value of the replacement goods handed to the customer (exchange only).
+  exchangeValuePaise  BigInt                 @default(0)
+  /// Extra money the customer paid because the replacement cost more.
+  additionalPaidPaise BigInt                 @default(0)
+  /// Money (or store credit) given back to the customer.
+  refundAmountPaise   BigInt
+  refundMethod        PaymentMethod          @default(CASH)
+  reason              ReturnReason
+  notes               String?
+  customerId          String?
+  customerName        String?
+  customerPhone       String?
+  staffId             String?
+  staffName           String?
+  exchangeSaleId      String?
+  createdById         String
+  createdAt           DateTime               @default(now())
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  shopSale     ShopSale     @relation(fields: [shopSaleId], references: [id], onDelete: Cascade)
-  createdBy    User         @relation("ShopReturnCreatedBy", fields: [createdById], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  shopSale     ShopSale      @relation(fields: [shopSaleId], references: [id], onDelete: Cascade)
+  createdBy    User          @relation("ShopReturnCreatedBy", fields: [createdById], references: [id])
+  staff        StaffMember?  @relation("ShopReturnStaff", fields: [staffId], references: [id], onDelete: SetNull)
   lines        ShopSaleReturnLine[]
 
   @@unique([organizationId, returnNumber])
   @@index([organizationId, shopSaleId])
   @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, staffId])
 }
 
 model ShopSaleReturnLine {
@@ -850,13 +903,20 @@ model ShopSaleReturnLine {
   returnId        String
   lineKey         String
   inventoryItemId String?
+  productId       String?
   productName     String
+  size            String?
+  variantLabel    String?
+  sku             String?
+  unitLabel       String?
   barcode         String?
   originalQty     Float
   returnQty       Float
   unitPricePaise  BigInt
   lineRefundPaise BigInt
+  /// Goods leaving the customer's hands (the returned item).
   isExchangeOut   Boolean  @default(true)
+  /// Goods handed to the customer as a replacement.
   isExchangeIn    Boolean  @default(false)
 
   returnRecord ShopSaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
@@ -885,11 +945,47 @@ model ShopCustomer {
   @@index([organizationId, name])
 }
 
+/// Parent product. A product owns one or more InventoryItem variants (each variant
+/// is the stock-keeping unit that carries its own barcode, SKU and quantity).
+/// Products without variants still get exactly one variant row so that every
+/// sale/return/purchase flow keeps pointing at an InventoryItem.
+model ShopProduct {
+  id              String    @id @default(uuid())
+  organizationId  String
+  name            String
+  description     String?
+  brand           String?
+  categoryKey     String?
+  subCategoryKey  String?
+  unit            String    @default("pcs")
+  hasVariants     Boolean   @default(false)
+  variantAxis     String?
+  supplierName    String?
+  batchNo         String?
+  attributes      Json      @default("{}")
+  notes           String?
+  createdById     String
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User            @relation("ShopProductCreatedBy", fields: [createdById], references: [id])
+  variants     InventoryItem[]
+
+  @@index([organizationId, name])
+  @@index([organizationId, categoryKey])
+  @@index([organizationId, deletedAt])
+}
+
 model InventoryItem {
   id             String   @id @default(uuid())
   organizationId String
+  productId      String?
   sku            String?
   size           String?
+  color          String?
+  variantLabel   String?
   barcode        String?
   name           String
   description    String?
@@ -898,15 +994,43 @@ model InventoryItem {
   reorderLevel   Float    @default(0)
   costPaise      BigInt?
   sellPaise      BigInt?
+  supplierName   String?
+  batchNo        String?
   expiryDate     DateTime?
+  attributes     Json     @default("{}")
   sectorMeta     Json     @default("{}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      ShopProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, barcode])
   @@index([organizationId, name])
+  @@index([organizationId, productId])
+  @@index([organizationId, sku])
+}
+
+/// Org-scoped product category. Predefined rows are seeded from the business-type
+/// catalog; users can add their own at any time (isCustom).
+model ShopCategory {
+  id             String   @id @default(uuid())
+  organizationId String
+  key            String
+  label          String
+  parentKey      String?
+  sectorKey      String?
+  isCustom       Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+  @@index([organizationId, parentKey])
+  @@index([organizationId, isActive])
 }
 
 model CustomerCredit {
@@ -1095,15 +1219,50 @@ model ShopRecurringExpense {
   startDate      DateTime
   endDate        DateTime?
   isActive       Boolean  @default(true)
+  reminderDaysBefore Int  @default(3)
+  paymentMethod  PaymentMethod?
+  notes          String?
   createdById    String
+  deletedAt      DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   category     ShopExpenseCategory @relation(fields: [categoryId], references: [id])
   createdBy    User @relation("ShopRecurringExpenseCreatedBy", fields: [createdById], references: [id])
+  occurrences  ShopRecurringExpenseOccurrence[]
 
   @@index([organizationId, isActive])
+  @@index([organizationId, deletedAt])
+}
+
+/// One month's instalment of a recurring expense rule. The rule keeps generating
+/// these forever; each occurrence carries its own payment status so marking
+/// January paid never touches February.
+model ShopRecurringExpenseOccurrence {
+  id             String   @id @default(uuid())
+  organizationId String
+  recurringId    String
+  periodYear     Int
+  periodMonth    Int
+  dueDate        DateTime
+  amountPaise    BigInt
+  status         RecurringOccurrenceStatus @default(UPCOMING)
+  paidAt         DateTime?
+  paidAmountPaise BigInt?
+  paymentMethod  PaymentMethod?
+  shopExpenseId  String?
+  notes          String?
+  remindedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recurring    ShopRecurringExpense @relation(fields: [recurringId], references: [id], onDelete: Cascade)
+
+  @@unique([recurringId, periodYear, periodMonth])
+  @@index([organizationId, status, dueDate])
+  @@index([organizationId, dueDate])
 }
 
 model BoqItem {

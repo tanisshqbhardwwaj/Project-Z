@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import {
   getAuthContext,
   handleApi,
@@ -5,11 +6,8 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import {
-  getReturnableLines,
-  listSaleReturns,
-  processReturn,
-} from "@/services/shop-return.service";
+import { processReturnSchema } from "@/lib/validation/shop-return";
+import { listSaleReturns, processReturn } from "@/services/shop-return.service";
 
 export async function GET(request: Request) {
   return handleApi(async () => {
@@ -17,7 +15,14 @@ export async function GET(request: Request) {
     requirePermission(ctx, "shop.sales");
     const { searchParams } = new URL(request.url);
     const shopSaleId = searchParams.get("shopSaleId") ?? undefined;
-    const rows = await listSaleReturns(ctx.organizationId, shopSaleId);
+    const type = searchParams.get("type");
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    const rows = await listSaleReturns(ctx.organizationId, shopSaleId, {
+      type: type === "RETURN" || type === "EXCHANGE" ? type : undefined,
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+    });
     return apiSuccess(serializeBigInt(rows));
   });
 }
@@ -26,20 +31,20 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     requirePermission(ctx, "shop.sales");
-    const body = await request.json();
+    const data = processReturnSchema.parse(await request.json());
     const row = await processReturn({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
-      shopSaleId: body.shopSaleId,
-      type: body.type,
-      reason: body.reason,
-      notes: body.notes,
-      refundMethod: body.refundMethod ?? "CASH",
-      lines: body.lines ?? [],
-      exchangeItems: body.exchangeItems,
-      exchangePaymentMethod: body.exchangePaymentMethod,
-      exchangePaidRupees: body.exchangePaidRupees,
+      shopSaleId: data.shopSaleId,
+      type: data.type,
+      reason: data.reason,
+      notes: data.notes,
+      refundMethod: data.refundMethod,
+      lines: data.lines,
+      exchangeItems: data.exchangeItems,
+      staffId: data.staffId,
+      staffName: data.staffName,
     });
-    return apiSuccess(serializeBigInt(row));
+    return NextResponse.json({ data: serializeBigInt(row) }, { status: 201 });
   });
 }

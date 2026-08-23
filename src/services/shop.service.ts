@@ -45,15 +45,73 @@ import {
   parseSaleItemsJson,
   type SaleLineInput,
 } from "@/lib/shop/inventory-analytics";
+import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
+import {
+  hasVariantAttributes,
+  variantDisplayName,
+  variantSubtitle,
+} from "@/lib/shop/variant-display";
 
 export type ShopSaleItem = {
   name: string;
   qty: number;
   priceRupees: number;
   inventoryItemId?: string;
+  productId?: string;
   barcode?: string;
+  sku?: string;
+  size?: string;
+  color?: string;
+  variantLabel?: string;
+  unit?: string;
   costPaisePerUnit?: number;
 };
+
+/**
+ * Copies the variant attributes of each cart line off the inventory row so the
+ * stored invoice keeps saying "Size M" forever, and returns/exchanges can never
+ * put stock back on the wrong size.
+ */
+async function enrichSaleItemsWithVariants(
+  organizationId: string,
+  items: ShopSaleItem[]
+): Promise<ShopSaleItem[]> {
+  const ids = [
+    ...new Set(items.map((i) => i.inventoryItemId).filter((id): id is string => !!id)),
+  ];
+  if (ids.length === 0) return items;
+
+  const rows = await prisma.inventoryItem.findMany({
+    where: { id: { in: ids }, organizationId },
+    select: {
+      id: true,
+      productId: true,
+      size: true,
+      color: true,
+      variantLabel: true,
+      sku: true,
+      barcode: true,
+      unit: true,
+    },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  return items.map((item) => {
+    if (!item.inventoryItemId) return item;
+    const row = byId.get(item.inventoryItemId);
+    if (!row) return item;
+    return {
+      ...item,
+      productId: item.productId ?? row.productId ?? undefined,
+      size: item.size ?? row.size ?? undefined,
+      color: item.color ?? row.color ?? undefined,
+      variantLabel: item.variantLabel ?? row.variantLabel ?? undefined,
+      sku: item.sku ?? row.sku ?? undefined,
+      barcode: item.barcode ?? row.barcode ?? undefined,
+      unit: item.unit ?? row.unit ?? undefined,
+    };
+  });
+}
 
 export async function getShopSale(organizationId: string, saleId: string) {
   await requireModule(organizationId, "shop_sales");
@@ -69,6 +127,10 @@ export async function getShopSale(organizationId: string, saleId: string) {
   return sale;
 }
 
+/**
+ * A barcode always resolves to exactly one variant, so scanning BAR002 selects
+ * "Premium T-Shirt — Black — Size M" and deducts stock from that size only.
+ */
 export async function lookupInventoryByBarcode(
   organizationId: string,
   barcode: string
@@ -79,9 +141,48 @@ export async function lookupInventoryByBarcode(
 
   const item = await prisma.inventoryItem.findFirst({
     where: { organizationId, barcode: code },
+    include: {
+      product: {
+        select: { id: true, name: true, brand: true, hasVariants: true, variantAxis: true },
+      },
+    },
   });
   if (!item) throw new Error(`No product found for barcode ${code}`);
-  return item;
+  return withVariantDisplay(item);
+}
+
+type InventoryRowWithProduct = {
+  name: string;
+  size: string | null;
+  color: string | null;
+  variantLabel: string | null;
+  sku: string | null;
+  barcode: string | null;
+  unit: string;
+  attributes?: unknown;
+  product?: { name: string; brand: string | null } | null;
+};
+
+/** Attaches the canonical variant display strings used across every screen. */
+function withVariantDisplay<T extends InventoryRowWithProduct>(item: T) {
+  const descriptor = {
+    productName: item.product?.name ?? item.name,
+    name: item.name,
+    size: item.size,
+    color: item.color,
+    variantLabel: item.variantLabel,
+    brand: item.product?.brand ?? null,
+    sku: item.sku,
+    barcode: item.barcode,
+    unit: item.unit,
+    attributes: item.attributes,
+  };
+  return {
+    ...item,
+    displayName: variantDisplayName(descriptor),
+    variantSubtitle: variantSubtitle(descriptor),
+    hasVariantAttributes: hasVariantAttributes(descriptor),
+  };
 }
 
 const saleScanSelect = {
@@ -436,6 +537,40 @@ export async function getStaffSalesInvoices(
   };
 }
 
+/**
+ * Ties a sale to a staff record so commission can be computed from real
+ * invoices. Falls back to name matching for tills that still type a name, and
+ * degrades to a plain name when the staff module is off.
+ */
+async function resolveSaleStaff(
+  organizationId: string,
+  input: { staffId?: string | null; salesBoyName?: string | null }
+): Promise<{ staffId: string | null; staffName: string | null }> {
+  const typedName = input.salesBoyName?.trim() || null;
+
+  if (input.staffId) {
+    const staff = await prisma.staffMember
+      .findFirst({
+        where: { id: input.staffId, organizationId },
+        select: { id: true, name: true },
+      })
+      .catch(() => null);
+    if (staff) return { staffId: staff.id, staffName: staff.name };
+  }
+
+  if (typedName) {
+    const match = await prisma.staffMember
+      .findFirst({
+        where: { organizationId, status: "ACTIVE", name: typedName },
+        select: { id: true, name: true },
+      })
+      .catch(() => null);
+    if (match) return { staffId: match.id, staffName: match.name };
+  }
+
+  return { staffId: null, staffName: typedName };
+}
+
 export async function createShopSale(input: {
   organizationId: string;
   createdById: string;
@@ -443,6 +578,7 @@ export async function createShopSale(input: {
   customerName?: string | null;
   customerPhone?: string | null;
   customerGstin?: string | null;
+  staffId?: string | null;
   salesBoyName?: string | null;
   billNumber?: string | null;
   issueInvoice?: boolean;
@@ -465,12 +601,18 @@ export async function createShopSale(input: {
   await requireModule(input.organizationId, "shop_sales");
   await ensureShopSaleSchema();
   await ensureShopExtendedSchema();
+  await ensureCatalogSchema();
 
   const org = await prisma.organization.findUnique({
     where: { id: input.organizationId },
     select: { settings: true },
   });
   const invoiceSettings = parseShopInvoiceSettings(org?.settings ?? {});
+
+  const { staffId, staffName } = await resolveSaleStaff(input.organizationId, {
+    staffId: input.staffId,
+    salesBoyName: input.salesBoyName,
+  });
 
   let appliedOffers: { offerId: string; name: string; discountRupees: number }[] = [];
   let offerDiscountRupees = 0;
@@ -565,9 +707,13 @@ export async function createShopSale(input: {
     }
   }
 
-  const { totalCostPaise, itemsWithCost } = await computeSaleCostPaise(
+  const enrichedItems = await enrichSaleItemsWithVariants(
     input.organizationId,
     input.items
+  );
+  const { totalCostPaise, itemsWithCost } = await computeSaleCostPaise(
+    input.organizationId,
+    enrichedItems
   );
 
   const paidPaise =
@@ -622,7 +768,8 @@ export async function createShopSale(input: {
         customerName,
         customerPhone,
         customerGstin,
-        salesBoyName: input.salesBoyName?.trim() || null,
+        staffId,
+        salesBoyName: staffName,
         billNumber:
           input.billNumber?.trim() ||
           (await nextShopBillNumber(tx, input.organizationId)),
@@ -688,12 +835,32 @@ export async function createShopSale(input: {
   return sale;
 }
 
+/**
+ * Every inventory row is a sellable variant. Rows come back with the resolved
+ * variant display name so any product selector in the app can show
+ * "T-Shirt — Black — Size M" without duplicating the formatting rules.
+ */
 export async function listInventoryItems(organizationId: string) {
   await requireModule(organizationId, "shop_inventory");
-  return prisma.inventoryItem.findMany({
+  await ensureCatalogSchema();
+  const items = await prisma.inventoryItem.findMany({
     where: { organizationId },
-    orderBy: { name: "asc" },
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+          brand: true,
+          hasVariants: true,
+          variantAxis: true,
+          categoryKey: true,
+          subCategoryKey: true,
+        },
+      },
+    },
+    orderBy: [{ name: "asc" }, { size: "asc" }],
   });
+  return items.map(withVariantDisplay);
 }
 
 export async function getInventoryAnalytics(organizationId: string, salesDays = 30) {
@@ -741,21 +908,29 @@ export async function getInventoryAnalytics(organizationId: string, salesDays = 
 
 export async function createInventoryItem(input: {
   organizationId: string;
+  productId?: string | null;
   name: string;
   description?: string | null;
   size?: string | null;
+  color?: string | null;
+  variantLabel?: string | null;
+  sku?: string | null;
   barcode?: string | null;
   unit?: string;
   quantity?: number;
   reorderLevel?: number;
   costRupees?: number | null;
   sellRupees?: number | null;
+  supplierName?: string | null;
+  batchNo?: string | null;
   autoBarcode?: boolean;
   category?: string | null;
   subCategory?: string | null;
   expiryDate?: Date | null;
+  attributes?: Record<string, string>;
 }) {
   await requireModule(input.organizationId, "shop_inventory");
+  await ensureCatalogSchema();
 
   const name = input.name.trim();
   if (name.length < 1) throw new Error("Item name is required");
@@ -774,9 +949,13 @@ export async function createInventoryItem(input: {
   const item = await prisma.inventoryItem.create({
     data: {
       organizationId: input.organizationId,
+      productId: input.productId ?? null,
       name,
       description: input.description?.trim() || null,
       size: input.size?.trim() || null,
+      color: input.color?.trim() || null,
+      variantLabel: input.variantLabel?.trim() || null,
+      sku: input.sku?.trim() || null,
       barcode,
       unit: input.unit?.trim() || "pcs",
       quantity: input.quantity ?? 0,
@@ -789,6 +968,9 @@ export async function createInventoryItem(input: {
         input.sellRupees != null && input.sellRupees > 0
           ? rupeesToPaise(input.sellRupees)
           : null,
+      supplierName: input.supplierName?.trim() || null,
+      batchNo: input.batchNo?.trim() || null,
+      attributes: (input.attributes ?? {}) as Prisma.InputJsonValue,
       sectorMeta: (
         input.category || input.subCategory
           ? mergeInventorySectorMeta({}, {
@@ -812,17 +994,24 @@ export async function updateInventoryItem(input: {
   name?: string;
   description?: string | null;
   size?: string | null;
+  color?: string | null;
+  variantLabel?: string | null;
+  sku?: string | null;
   barcode?: string | null;
   quantity?: number;
   reorderLevel?: number;
   costRupees?: number | null;
   sellRupees?: number | null;
+  supplierName?: string | null;
+  batchNo?: string | null;
   generateBarcode?: boolean;
   category?: string | null;
   subCategory?: string | null;
   expiryDate?: Date | null;
+  attributes?: Record<string, string>;
 }) {
   await requireModule(input.organizationId, "shop_inventory");
+  await ensureCatalogSchema();
 
   const existing = await prisma.inventoryItem.findFirst({
     where: { id: input.itemId, organizationId: input.organizationId },
@@ -833,12 +1022,18 @@ export async function updateInventoryItem(input: {
     name?: string;
     description?: string | null;
     size?: string | null;
+    color?: string | null;
+    variantLabel?: string | null;
+    sku?: string | null;
     barcode?: string | null;
     quantity?: number;
     reorderLevel?: number;
     costPaise?: bigint | null;
     sellPaise?: bigint | null;
+    supplierName?: string | null;
+    batchNo?: string | null;
     sectorMeta?: Prisma.InputJsonValue;
+    attributes?: Prisma.InputJsonValue;
     expiryDate?: Date | null;
   } = {};
 
@@ -849,6 +1044,24 @@ export async function updateInventoryItem(input: {
   }
   if (input.size !== undefined) {
     data.size = input.size?.trim() || null;
+  }
+  if (input.color !== undefined) {
+    data.color = input.color?.trim() || null;
+  }
+  if (input.variantLabel !== undefined) {
+    data.variantLabel = input.variantLabel?.trim() || null;
+  }
+  if (input.sku !== undefined) {
+    data.sku = input.sku?.trim() || null;
+  }
+  if (input.supplierName !== undefined) {
+    data.supplierName = input.supplierName?.trim() || null;
+  }
+  if (input.batchNo !== undefined) {
+    data.batchNo = input.batchNo?.trim() || null;
+  }
+  if (input.attributes !== undefined) {
+    data.attributes = input.attributes as Prisma.InputJsonValue;
   }
   if (input.description !== undefined) {
     data.description = input.description?.trim() || null;
@@ -936,8 +1149,27 @@ export async function deleteInventoryItem(input: {
   });
   if (!existing) throw new Error("Inventory item not found");
 
-  await prisma.inventoryItem.delete({
-    where: { id: input.itemId },
+  await prisma.$transaction(async (tx) => {
+    await tx.inventoryItem.delete({ where: { id: input.itemId } });
+
+    // Removing the last variant retires the parent product too, so the product
+    // list never shows an empty shell.
+    if (existing.productId) {
+      const remaining = await tx.inventoryItem.count({
+        where: { productId: existing.productId },
+      });
+      if (remaining === 0) {
+        await tx.shopProduct.update({
+          where: { id: existing.productId },
+          data: { deletedAt: new Date() },
+        });
+      } else if (remaining === 1) {
+        await tx.shopProduct.update({
+          where: { id: existing.productId },
+          data: { hasVariants: false },
+        });
+      }
+    }
   });
 
   await createAuditLog({
