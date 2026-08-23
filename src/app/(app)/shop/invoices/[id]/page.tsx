@@ -29,7 +29,16 @@ type SaleDetail = ShopInvoiceData & {
   paymentStatus?: string;
   organization: { name: string };
   createdBy: { name: string };
-  itemsJson: { name: string; qty: number; priceRupees: number }[];
+  itemsJson: {
+    name: string;
+    qty: number;
+    priceRupees: number;
+    size?: string | null;
+    color?: string | null;
+    variantLabel?: string | null;
+    sku?: string | null;
+    barcode?: string | null;
+  }[];
 };
 
 export default function ShopInvoicePage() {

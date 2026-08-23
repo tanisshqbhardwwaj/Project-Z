@@ -70,7 +70,16 @@ export function buildDraftInvoice(input: {
   customerGstin: string;
   salesBoyName: string;
   paymentMethod: string;
-  cart: Array<{ name: string; qty: number; priceRupees: number }>;
+  cart: Array<{
+    name: string;
+    qty: number;
+    priceRupees: number;
+    size?: string | null;
+    color?: string | null;
+    variantLabel?: string | null;
+    sku?: string | null;
+    barcode?: string | null;
+  }>;
   billNumber?: string | null;
   pricing: InvoicePricingResult;
   manualDiscountRupees?: number;
@@ -123,10 +132,15 @@ export function buildDraftInvoice(input: {
     customerGstin: input.customerGstin.trim() || null,
     salesBoyName: input.salesBoyName.trim() || null,
     paymentMethod: input.paymentMethod,
-    items: input.cart.map(({ name, qty, priceRupees }) => ({
-      name,
-      qty,
-      priceRupees,
+    items: input.cart.map((line) => ({
+      name: line.name,
+      qty: line.qty,
+      priceRupees: line.priceRupees,
+      size: line.size ?? null,
+      color: line.color ?? null,
+      variantLabel: line.variantLabel ?? null,
+      sku: line.sku ?? null,
+      barcode: line.barcode ?? null,
     })),
     totalPaise: String(pricing.totalPaise),
     gstPaise: String(pricing.gstPaise),

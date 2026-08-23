@@ -5,6 +5,7 @@ import type { ResolvedInvoiceTemplate } from "@/lib/org/shop-settings";
 import { DEFAULT_INVOICE_SETTINGS } from "@/lib/org/shop-settings";
 import type { StoredInvoicePricing } from "@/lib/shop/invoice-pricing";
 import { formatInvoiceRupees } from "@/lib/shop/invoice-pricing";
+import { variantSubtitle } from "@/lib/shop/variant-display";
 
 export type CashTenderInfo = {
   receivedRupees: number;
@@ -15,6 +16,12 @@ export type InvoiceLine = {
   name: string;
   qty: number;
   priceRupees: number;
+  /** Variant attributes, printed under the name so the size is on the bill. */
+  size?: string | null;
+  color?: string | null;
+  variantLabel?: string | null;
+  sku?: string | null;
+  barcode?: string | null;
 };
 
 export type ShopInvoiceData = {
@@ -255,7 +262,14 @@ export function ShopInvoicePrint({
               key={`${line.name}-${idx}`}
               className="invoice-line-row border-b border-neutral-100"
             >
-              <td className="break-words py-1.5 pr-1 align-top">{line.name}</td>
+              <td className="break-words py-1.5 pr-1 align-top">
+                {line.name}
+                {variantSubtitle(line) ? (
+                  <span className="block text-[0.92em] text-neutral-600">
+                    {variantSubtitle(line)}
+                  </span>
+                ) : null}
+              </td>
               <td className="py-1.5 text-right tabular-nums align-top">{line.qty}</td>
               <td className="py-1.5 text-right tabular-nums align-top">
                 ₹{line.priceRupees.toFixed(2)}

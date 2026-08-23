@@ -14,7 +14,9 @@ import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { variantAttributeChips } from "@/lib/shop/variant-display";
 
 type ProductScan = {
   type: "product";
@@ -22,10 +24,19 @@ type ProductScan = {
     id: string;
     name: string;
     barcode: string | null;
+    sku: string | null;
     quantity: number;
+    unit: string;
     sellPaise: string | null;
     size: string | null;
+    color: string | null;
+    variantLabel: string | null;
+    /** Resolved by the API — "Premium T-Shirt — Black — Size M". */
+    displayName?: string;
+    variantSubtitle?: string;
+    product?: { id: string; name: string; brand: string | null } | null;
     sectorMeta?: unknown;
+    attributes?: unknown;
   };
 };
 
@@ -154,9 +165,37 @@ export default function ShopScanPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p className="text-lg font-semibold">{product.name}</p>
-            {product.size ? (
-              <p className="text-muted-foreground">Size: {product.size}</p>
+            <p className="text-lg font-semibold">
+              {product.product?.name ?? product.name}
+            </p>
+            {variantAttributeChips({
+              productName: product.product?.name ?? product.name,
+              size: product.size,
+              color: product.color,
+              variantLabel: product.variantLabel,
+              brand: product.product?.brand ?? null,
+              sku: product.sku,
+              attributes: product.attributes,
+            }).length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {variantAttributeChips({
+                  productName: product.product?.name ?? product.name,
+                  size: product.size,
+                  color: product.color,
+                  variantLabel: product.variantLabel,
+                  brand: product.product?.brand ?? null,
+                  sku: product.sku,
+                  attributes: product.attributes,
+                }).map((chip) => (
+                  <Badge
+                    key={`${chip.label}-${chip.value}`}
+                    variant="secondary"
+                    className="rounded-full text-[11px]"
+                  >
+                    {chip.label}: {chip.value}
+                  </Badge>
+                ))}
+              </div>
             ) : null}
             {(() => {
               const cat = parseInventoryCategory(product.sectorMeta);

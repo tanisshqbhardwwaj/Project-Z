@@ -14,6 +14,8 @@ const createSaleSchema = z.object({
   customerName: z.string().optional().nullable(),
   customerPhone: z.string().optional().nullable(),
   customerGstin: z.string().optional().nullable(),
+  /** Links the bill to a staff record so sales commission can be computed. */
+  staffId: z.string().uuid().optional().nullable(),
   salesBoyName: z.string().optional().nullable(),
   billNumber: z.string().optional().nullable(),
   issueInvoice: z.boolean().optional(),
@@ -34,7 +36,13 @@ const createSaleSchema = z.object({
         qty: z.number().positive(),
         priceRupees: z.number().min(0),
         inventoryItemId: z.string().uuid().optional(),
+        productId: z.string().uuid().optional(),
         barcode: z.string().optional(),
+        sku: z.string().max(64).optional(),
+        size: z.string().max(40).optional(),
+        color: z.string().max(40).optional(),
+        variantLabel: z.string().max(80).optional(),
+        unit: z.string().max(20).optional(),
       })
     )
     .min(1),
@@ -79,6 +87,7 @@ export async function POST(request: Request) {
       customerName: data.customerName,
       customerPhone: data.customerPhone,
       customerGstin: data.customerGstin,
+      staffId: data.staffId,
       salesBoyName: data.salesBoyName,
       billNumber: data.billNumber,
       issueInvoice: data.issueInvoice,
