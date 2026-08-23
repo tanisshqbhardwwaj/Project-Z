@@ -1,35 +1,105 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { useAuthStore } from "@/stores/auth-store";
 import { PageLoader } from "@/components/ui/page-loader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { formatINR } from "@/lib/finance/money";
+import { cn } from "@/lib/utils";
+import { ArrowRight, Repeat, RotateCcw, Search } from "lucide-react";
 
 type ReturnRow = {
   id: string;
   returnNumber: string;
-  type: string;
+  type: "RETURN" | "EXCHANGE";
+  returnValuePaise: string;
+  exchangeValuePaise: string;
+  additionalPaidPaise: string;
   refundAmountPaise: string;
   refundMethod: string;
   reason: string;
+  notes: string | null;
+  customerName: string | null;
+  staffName: string | null;
   createdAt: string;
-  shopSale: { id: string; billNumber: string | null; customerName: string | null };
-  lines: { productName: string; returnQty: number }[];
+  shopSale: {
+    id: string;
+    billNumber: string | null;
+    customerName: string | null;
+    customerPhone: string | null;
+  };
+  lines: {
+    id: string;
+    productName: string;
+    size: string | null;
+    variantLabel: string | null;
+    returnQty: number;
+    isExchangeIn: boolean;
+  }[];
   createdBy: { name: string };
+  staff: { id: string; name: string; roleTitle: string } | null;
 };
+
+type Filter = "all" | "RETURN" | "EXCHANGE";
+
+function lineLabel(line: ReturnRow["lines"][number]): string {
+  const qualifier = line.variantLabel ?? (line.size ? `Size ${line.size}` : null);
+  const name = qualifier ? `${line.productName} — ${qualifier}` : line.productName;
+  return `${name} × ${line.returnQty}`;
+}
 
 export default function ShopReturnsPage() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
+
   const { data, isLoading, error } = useQuery({
     queryKey: orgId ? queryKeys.modules.shop.returns(orgId) : ["disabled"],
     queryFn: () => apiFetch<ReturnRow[]>("/api/v1/shop/returns"),
     enabled: !!orgId,
   });
+
+  const rows = data ?? [];
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (filter !== "all" && row.type !== filter) return false;
+      if (!query) return true;
+      const haystack = [
+        row.returnNumber,
+        row.shopSale.billNumber ?? "",
+        row.customerName ?? row.shopSale.customerName ?? "",
+        row.staffName ?? row.staff?.name ?? "",
+        ...row.lines.map((l) => `${l.productName} ${l.size ?? ""}`),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [rows, filter, search]);
+
+  const totals = useMemo(() => {
+    let refunded = BigInt(0);
+    let collected = BigInt(0);
+    for (const row of rows) {
+      refunded += BigInt(row.refundAmountPaise);
+      collected += BigInt(row.additionalPaidPaise);
+    }
+    return {
+      refunded: refunded.toString(),
+      collected: collected.toString(),
+      returns: rows.filter((r) => r.type === "RETURN").length,
+      exchanges: rows.filter((r) => r.type === "EXCHANGE").length,
+    };
+  }, [rows]);
 
   if (isLoading) return <PageLoader label="Loading returns..." />;
   if (error) {
@@ -41,62 +111,176 @@ export default function ShopReturnsPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl space-y-5 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Return history</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Returns & exchanges</h1>
           <p className="text-sm text-muted-foreground">
-            Returns and exchanges processed from invoices
+            Every return and exchange is its own receipt. Original bills stay
+            untouched.
           </p>
         </div>
         <Link href="/shop/invoices">
           <Button variant="outline" className="rounded-xl">
-            Invoices
+            Open invoices
           </Button>
         </Link>
       </div>
 
-      <div className="space-y-3">
-        {(data ?? []).length === 0 ? (
-          <Card className="rounded-2xl">
-            <CardContent className="py-10 text-center text-muted-foreground">
-              No returns yet. Open an invoice and use Return / Exchange.
+      <div className="grid gap-3 sm:grid-cols-4">
+        {[
+          { label: "Returns", value: String(totals.returns) },
+          { label: "Exchanges", value: String(totals.exchanges) },
+          { label: "Refunded", value: formatINR(totals.refunded) },
+          { label: "Collected on exchange", value: formatINR(totals.collected) },
+        ].map((stat) => (
+          <Card key={stat.label} className="rounded-2xl border-0 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">{stat.label}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{stat.value}</p>
             </CardContent>
           </Card>
-        ) : (
-          (data ?? []).map((row) => (
-            <Card key={row.id} className="rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                  <span>{row.returnNumber}</span>
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {row.type} · {row.shopSale.billNumber ?? "Invoice"}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p>
-                  Customer: {row.shopSale.customerName ?? "Walk-in"} · Refund{" "}
-                  {formatINR(row.refundAmountPaise)} via {row.refundMethod}
-                </p>
-                <p className="text-muted-foreground">
-                  {row.lines.map((l) => `${l.productName} × ${l.returnQty}`).join(", ")}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {row.reason.replace(/_/g, " ")} · {new Date(row.createdAt).toLocaleString()} ·{" "}
-                  {row.createdBy.name}
-                </p>
-                <Link
-                  href={`/shop/invoices/${row.shopSale.id}`}
-                  className="text-xs text-primary hover:underline"
-                >
-                  View invoice
-                </Link>
-              </CardContent>
-            </Card>
-          ))
-        )}
+        ))}
       </div>
+
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search receipt, bill, customer, staff, product or size…"
+            className="h-10 rounded-xl pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ["all", `All (${rows.length})`],
+              ["RETURN", `Returns (${totals.returns})`],
+              ["EXCHANGE", `Exchanges (${totals.exchanges})`],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background hover:bg-muted"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card className="rounded-2xl">
+          <CardContent className="py-12 text-center">
+            <RotateCcw className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+            <p className="font-medium">
+              {rows.length === 0
+                ? "No returns or exchanges yet"
+                : "Nothing matches that search"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {rows.length === 0
+                ? "Open an invoice and use Return / Exchange to start one."
+                : "Try a different search or filter."}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((row) => {
+            const returned = row.lines.filter((l) => !l.isExchangeIn);
+            const replacements = row.lines.filter((l) => l.isExchangeIn);
+            const refund = BigInt(row.refundAmountPaise);
+            const extra = BigInt(row.additionalPaidPaise);
+            return (
+              <Card key={row.id} className="rounded-2xl border-0 shadow-sm">
+                <CardContent className="space-y-2.5 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/shop/returns/${row.id}`}
+                      className="text-base font-semibold text-primary hover:underline"
+                    >
+                      {row.returnNumber}
+                    </Link>
+                    <Badge
+                      variant={row.type === "EXCHANGE" ? "default" : "secondary"}
+                      className="rounded-full text-[10px]"
+                    >
+                      {row.type === "EXCHANGE" ? (
+                        <>
+                          <Repeat className="mr-1 h-3 w-3" />
+                          Exchange
+                        </>
+                      ) : (
+                        "Return"
+                      )}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(row.createdAt).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Link
+                      href={`/shop/invoices/${row.shopSale.id}`}
+                      className="text-muted-foreground underline-offset-2 hover:underline"
+                    >
+                      Bill {row.shopSale.billNumber ?? "—"}
+                    </Link>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>{returned.map(lineLabel).join(", ") || "—"}</span>
+                    {replacements.length > 0 ? (
+                      <>
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="font-medium text-primary">
+                          {replacements.map(lineLabel).join(", ")}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className="text-muted-foreground">
+                      {row.customerName ?? row.shopSale.customerName ?? "Walk-in"} ·{" "}
+                      {row.reason.replace(/_/g, " ").toLowerCase()} ·{" "}
+                      {row.staff?.name ?? row.staffName ?? row.createdBy.name}
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2.5 py-1 text-xs font-medium",
+                        extra > BigInt(0)
+                          ? "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                          : refund > BigInt(0)
+                            ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                            : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {extra > BigInt(0)
+                        ? `Customer paid ${formatINR(row.additionalPaidPaise)}`
+                        : refund > BigInt(0)
+                          ? `Refunded ${formatINR(row.refundAmountPaise)} · ${
+                              row.refundMethod === "CREDIT"
+                                ? "store credit"
+                                : row.refundMethod.toLowerCase()
+                            }`
+                          : "Even exchange"}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

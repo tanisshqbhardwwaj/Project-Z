@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Wallet } from "lucide-react";
+import { Search, Wallet } from "lucide-react";
+import { RecurringExpensePanel } from "@/components/shop/recurring-expense-panel";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
@@ -33,6 +35,8 @@ type ExpenseRow = {
 };
 type ExpenseList = { items: ExpenseRow[]; total: number };
 
+type TabKey = "daily" | "recurring" | "history" | "add";
+
 export default function ShopExpensesPage() {
   const { activeBusinessType, activeOrganizationId, enabledModules, role } = useAuthStore();
   const orgId = activeOrganizationId;
@@ -42,7 +46,10 @@ export default function ShopExpensesPage() {
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const qc = useQueryClient();
 
-  const [tab, setTab] = useState<"daily" | "history" | "add">("daily");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<TabKey>(
+    searchParams.get("tab") === "recurring" ? "recurring" : "daily"
+  );
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [titleInput, setTitleInput] = useState("");
@@ -173,19 +180,34 @@ export default function ShopExpensesPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(["daily", "history", ...(canManage ? ["add"] as const : [])] as const).map((t) => (
+        {(
+          [
+            ["daily", "Today"],
+            ["recurring", "Recurring"],
+            ["history", "History"],
+            ...(canManage ? ([["add", "Add expense"]] as const) : []),
+          ] as ReadonlyArray<readonly [TabKey, string]>
+        ).map(([key, label]) => (
           <Button
-            key={t}
-            variant={tab === t ? "default" : "outline"}
-            className="rounded-xl capitalize"
-            onClick={() => setTab(t)}
+            key={key}
+            variant={tab === key ? "default" : "outline"}
+            className="rounded-xl"
+            onClick={() => setTab(key)}
           >
-            {t === "add" ? "Add expense" : t}
+            {label}
           </Button>
         ))}
       </div>
 
       <FormFeedback warning={warning} error={error} />
+
+      {tab === "recurring" && (
+        <RecurringExpensePanel
+          orgId={orgId}
+          categories={categoriesQuery.data ?? []}
+          canManage={canManage}
+        />
+      )}
 
       {tab === "add" && canManage && (
         <Card className="rounded-2xl border-0 shadow-md">

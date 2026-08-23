@@ -123,7 +123,11 @@ export default function ShopInvoicePage() {
           </div>
         ) : null}
         <div className="print-hidden">
-          <InvoiceReturnPanel saleId={data.id} billNumber={data.billNumber} />
+          <InvoiceReturnPanel
+            saleId={data.id}
+            billNumber={data.billNumber}
+            customerName={data.customerName}
+          />
         </div>
         <div className="flex justify-center">
           <InvoicePreviewRoot
