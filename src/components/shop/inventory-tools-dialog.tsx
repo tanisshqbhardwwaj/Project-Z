@@ -272,7 +272,7 @@ export function InventoryToolsDialog({
     if (withBarcode.length === 0) {
       return showWarning("No items have barcodes yet");
     }
-    downloadBarcodeExportCsv(withBarcode, shopSector);
+    downloadBarcodeExportCsv(withBarcode, businessTypes);
     setLastResult(`Exported ${withBarcode.length} barcode(s) to CSV.`);
   }
 

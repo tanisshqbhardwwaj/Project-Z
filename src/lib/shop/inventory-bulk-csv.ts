@@ -155,14 +155,14 @@ export function templateHeadersForSectors(
   businessTypes: readonly string[] = ["GENERAL"]
 ): string[] {
   const fields = inventoryFieldsForSectors(businessTypes);
-  const headers = [...BASE_HEADERS];
+  const headers: string[] = [...BASE_HEADERS];
   if (usesSizeColorMatrix(businessTypes)) {
     const variantIdx = headers.indexOf("variant");
     if (variantIdx >= 0) headers[variantIdx] = "size";
   }
   for (const field of fields) {
     const header = EXTRA_HEADER_FIELDS[field];
-    if (header && !headers.includes(header as (typeof BASE_HEADERS)[number])) {
+    if (header && !headers.includes(header)) {
       headers.push(header);
     }
   }

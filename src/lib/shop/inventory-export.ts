@@ -5,8 +5,8 @@ import {
   inventorySubcategoryLabel,
   parseInventoryCategory,
   parseInventorySubcategory,
+  type SectorsInput,
 } from "@/lib/shop/inventory-categories";
-import type { ShopSector } from "@/lib/org/shop-sector";
 
 function csvCell(value: string | number | null | undefined): string {
   const raw = value == null ? "" : String(value);
@@ -18,7 +18,7 @@ function csvCell(value: string | number | null | undefined): string {
 
 export function buildBarcodeExportCsv(
   items: InventoryStockItem[],
-  shopSector: ShopSector | null
+  shopSector: SectorsInput
 ): string {
   const header = [
     "name",
@@ -61,7 +61,7 @@ export function buildBarcodeExportCsv(
 
 export function downloadBarcodeExportCsv(
   items: InventoryStockItem[],
-  shopSector: ShopSector | null,
+  shopSector: SectorsInput,
   filename = "inventory-barcodes.csv"
 ) {
   const csv = buildBarcodeExportCsv(items, shopSector);
