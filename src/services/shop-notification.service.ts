@@ -180,6 +180,30 @@ export async function syncShopInventoryAlertNotifications(organizationId: string
   }
 }
 
+/**
+ * Runs every shop alert sync the notification bell depends on. Kept here so
+ * callers do not need to know which modules produce alerts, and so an expense
+ * failure never hides inventory alerts.
+ */
+export async function syncShopAlertNotifications(organizationId: string) {
+  const { enabledModules } = await getOrgModuleContext(organizationId);
+
+  if (enabledModules.shop_inventory) {
+    await syncShopInventoryAlertNotifications(organizationId).catch((err) => {
+      console.error("[shop] inventory alert sync failed", err);
+    });
+  }
+
+  if (enabledModules.shop_expenses) {
+    const { syncRecurringExpenseReminders } = await import(
+      "./shop-recurring-expense.service"
+    );
+    await syncRecurringExpenseReminders(organizationId).catch((err) => {
+      console.error("[shop] recurring expense reminder sync failed", err);
+    });
+  }
+}
+
 export function scheduleShopInventoryAlertSync(organizationId: string) {
   debouncedSync(organizationId);
 }

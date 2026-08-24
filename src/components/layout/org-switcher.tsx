@@ -14,6 +14,7 @@ import { setActiveOrganizationId } from "@/lib/api/client";
 import type { BusinessType } from "@/lib/org/business-type";
 import { getBusinessTypeConfig } from "@/lib/org/business-type";
 import type { ShopSector } from "@/lib/org/shop-sector";
+import type { OrgSettingsJson } from "@/lib/org/modules";
 import type { EnabledModulesMap } from "@/hooks/use-enabled-modules";
 
 type OrgItem = {
@@ -25,7 +26,12 @@ type OrgItem = {
   enableStaff?: boolean;
   timezone?: string;
   enabledModules?: EnabledModulesMap;
-  linkedStaff?: { id: string; name: string } | null;
+  orgSettings?: OrgSettingsJson | null;
+  linkedStaff?: {
+    id: string;
+    name: string;
+    access?: import("@/lib/staff/access").StaffAccess;
+  } | null;
 };
 
 export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
@@ -79,7 +85,9 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
       org.enabledModules ?? {},
       org.timezone ?? "Asia/Kolkata",
       org.linkedStaff?.id ?? null,
-      org.linkedStaff?.name ?? null
+      org.linkedStaff?.name ?? null,
+      org.orgSettings ?? null,
+      org.linkedStaff?.access ?? null
     );
     queryClient.invalidateQueries({ queryKey: ["org", org.id] });
     setOpen(false);

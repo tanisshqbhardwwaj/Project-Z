@@ -5,6 +5,8 @@ import { handleApi, apiSuccess } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { modulesPayloadForClient } from "@/lib/org/require-module";
+import { parseStaffAccess } from "@/lib/staff/access";
+import { readStaffAccessJsonMap } from "@/lib/staff/access-storage";
 
 export async function GET() {
   return handleApi(async () => {
@@ -46,6 +48,9 @@ export async function GET() {
       select: { id: true, name: true, organizationId: true },
     });
     const staffByOrg = new Map(staffLinks.map((s) => [s.organizationId, s]));
+    const accessByStaffId = await readStaffAccessJsonMap(
+      staffLinks.map((s) => s.id)
+    );
 
     return apiSuccess({
       organizations: serializeBigInt(
@@ -73,7 +78,11 @@ export async function GET() {
             isPrimary,
             canDelete,
             linkedStaff: linkedStaff
-              ? { id: linkedStaff.id, name: linkedStaff.name }
+              ? {
+                  id: linkedStaff.id,
+                  name: linkedStaff.name,
+                  access: accessByStaffId.get(linkedStaff.id) ?? parseStaffAccess(null),
+                }
               : null,
           };
         })

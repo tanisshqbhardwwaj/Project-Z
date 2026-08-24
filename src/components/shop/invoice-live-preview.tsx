@@ -11,6 +11,7 @@ import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import type { DiscountBasis } from "@/lib/org/shop-settings";
 import {
   computeInvoicePricing,
+  resolveInvoiceLineAllocations,
   type InvoicePricingResult,
   type StoredInvoicePricing,
 } from "@/lib/shop/invoice-pricing";
@@ -70,11 +71,23 @@ export function buildDraftInvoice(input: {
   customerGstin: string;
   salesBoyName: string;
   paymentMethod: string;
-  cart: Array<{ name: string; qty: number; priceRupees: number }>;
+  cart: Array<{
+    name: string;
+    qty: number;
+    priceRupees: number;
+    size?: string | null;
+    color?: string | null;
+    variantLabel?: string | null;
+    sku?: string | null;
+    barcode?: string | null;
+  }>;
   billNumber?: string | null;
   pricing: InvoicePricingResult;
   manualDiscountRupees?: number;
+  manualDiscountMode?: "percent" | "rupees";
+  manualDiscountPercent?: number;
   offerDiscountRupees?: number;
+  offerLineDiscountRupees?: number[];
   appliedOffers?: { offerId: string; name: string; discountRupees: number }[];
   /** @deprecated Prefer passing `pricing` from the billing form. */
   discountRupees?: number;
@@ -97,7 +110,10 @@ export function buildDraftInvoice(input: {
   const stored: StoredInvoicePricing = {
     subtotalRupees: pricing.subtotalRupees,
     discountRupees: pricing.discountRupees,
-    discountPercent: pricing.discountPercent,
+    discountPercent:
+      input.manualDiscountMode === "percent"
+        ? input.manualDiscountPercent ?? pricing.discountPercent
+        : pricing.discountPercent,
     discountBasis: pricing.discountBasis,
     taxableRupees: pricing.taxableRupees,
     gstRupees: pricing.gstRupees,
@@ -107,13 +123,32 @@ export function buildDraftInvoice(input: {
     taxRatePercent: pricing.taxRatePercent,
     roundOffRupees: pricing.roundOffRupees,
     ...(input.manualDiscountRupees != null && input.manualDiscountRupees > 0
-      ? { manualDiscountRupees: input.manualDiscountRupees }
+      ? {
+          manualDiscountRupees: input.manualDiscountRupees,
+          ...(input.manualDiscountMode ? { manualDiscountMode: input.manualDiscountMode } : {}),
+          ...(input.manualDiscountPercent != null && input.manualDiscountPercent > 0
+            ? { manualDiscountPercent: input.manualDiscountPercent }
+            : {}),
+        }
       : {}),
     ...(input.offerDiscountRupees != null && input.offerDiscountRupees > 0
       ? { offerDiscountRupees: input.offerDiscountRupees }
       : {}),
     ...(input.appliedOffers?.length ? { appliedOffers: input.appliedOffers } : {}),
   };
+
+  const lineDiscountRupees = resolveInvoiceLineAllocations(input.cart, {
+    showLineHints:
+      (input.offerDiscountRupees ?? 0) > 0 || input.manualDiscountMode === "percent",
+    totalDiscountRupees: pricing.discountRupees,
+    manualDiscountRupees: input.manualDiscountRupees,
+    manualDiscountMode: input.manualDiscountMode,
+    offerLineDiscountRupees: input.offerLineDiscountRupees,
+  })?.map((line) => line.lineDiscountRupees);
+
+  if (lineDiscountRupees?.length) {
+    stored.lineDiscountRupees = lineDiscountRupees;
+  }
 
   return {
     orgName: input.orgName,
@@ -123,10 +158,15 @@ export function buildDraftInvoice(input: {
     customerGstin: input.customerGstin.trim() || null,
     salesBoyName: input.salesBoyName.trim() || null,
     paymentMethod: input.paymentMethod,
-    items: input.cart.map(({ name, qty, priceRupees }) => ({
-      name,
-      qty,
-      priceRupees,
+    items: input.cart.map((line) => ({
+      name: line.name,
+      qty: line.qty,
+      priceRupees: line.priceRupees,
+      size: line.size ?? null,
+      color: line.color ?? null,
+      variantLabel: line.variantLabel ?? null,
+      sku: line.sku ?? null,
+      barcode: line.barcode ?? null,
     })),
     totalPaise: String(pricing.totalPaise),
     gstPaise: String(pricing.gstPaise),

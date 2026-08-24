@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Wallet } from "lucide-react";
+import { Search, Wallet } from "lucide-react";
+import { RecurringExpensePanel } from "@/components/shop/recurring-expense-panel";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
@@ -18,6 +20,7 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { formatINR } from "@/lib/finance/money";
 import { hasPermission } from "@/lib/permissions/rbac";
+import { cn } from "@/lib/utils";
 import type { OrgRole } from "@prisma/client";
 
 type ExpenseCategory = { id: string; name: string };
@@ -33,6 +36,9 @@ type ExpenseRow = {
 };
 type ExpenseList = { items: ExpenseRow[]; total: number };
 
+type TabKey = "daily" | "history" | "add";
+type ExpenseKind = "one-time" | "recurring";
+
 export default function ShopExpensesPage() {
   const { activeBusinessType, activeOrganizationId, enabledModules, role } = useAuthStore();
   const orgId = activeOrganizationId;
@@ -42,13 +48,20 @@ export default function ShopExpensesPage() {
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const qc = useQueryClient();
 
-  const [tab, setTab] = useState<"daily" | "history" | "add">("daily");
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [tab, setTab] = useState<TabKey>(
+    initialTab === "add" || initialTab === "recurring" ? "add" : initialTab === "history" ? "history" : "daily"
+  );
+  const [expenseKind, setExpenseKind] = useState<ExpenseKind>(
+    initialTab === "recurring" ? "recurring" : "one-time"
+  );
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [titleInput, setTitleInput] = useState("");
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
-  const [expenseType, setExpenseType] = useState<"DAILY" | "MONTHLY" | "ONE_TIME">("DAILY");
+  const [expenseType, setExpenseType] = useState<"DAILY" | "ONE_TIME">("DAILY");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
 
@@ -73,7 +86,7 @@ export default function ShopExpensesPage() {
   const expensesQuery = useQuery({
     queryKey: orgId ? [...queryKeys.modules.shop.expenses(orgId), tab, search, categoryId] : ["disabled"],
     queryFn: () => apiFetch<ExpenseList>(`/api/v1/shop/expenses${queryString}`),
-    enabled: !!orgId && enabled,
+    enabled: !!orgId && enabled && (tab === "daily" || tab === "history"),
   });
 
   const profitQuery = useQuery({
@@ -110,7 +123,7 @@ export default function ShopExpensesPage() {
     return <p className="text-muted-foreground">Turn on {title} in Manage Organization → Features.</p>;
   }
 
-  if (categoriesQuery.isLoading || expensesQuery.isLoading) {
+  if (categoriesQuery.isLoading || (expensesQuery.isLoading && tab !== "add")) {
     return <PageLoader label="Loading expenses..." />;
   }
 
@@ -142,7 +155,7 @@ export default function ShopExpensesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
-          <p className="text-sm text-muted-foreground">Daily and monthly store expenses</p>
+          <p className="text-sm text-muted-foreground">Daily store expenses and recurring bills</p>
         </div>
         <Link href="/shop/expenses/report">
           <Button variant="outline" className="rounded-xl">Profit & expense report</Button>
@@ -173,73 +186,121 @@ export default function ShopExpensesPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(["daily", "history", ...(canManage ? ["add"] as const : [])] as const).map((t) => (
+        {(
+          [
+            ["daily", "Today"],
+            ["history", "History"],
+            ...(canManage ? ([["add", "Add expense"]] as const) : []),
+          ] as ReadonlyArray<readonly [TabKey, string]>
+        ).map(([key, label]) => (
           <Button
-            key={t}
-            variant={tab === t ? "default" : "outline"}
-            className="rounded-xl capitalize"
-            onClick={() => setTab(t)}
+            key={key}
+            variant={tab === key ? "default" : "outline"}
+            className="rounded-xl"
+            onClick={() => setTab(key)}
           >
-            {t === "add" ? "Add expense" : t}
+            {label}
           </Button>
         ))}
       </div>
 
       <FormFeedback warning={warning} error={error} />
 
+      {(tab === "daily" || tab === "history") && (
+        <RecurringExpensePanel
+          orgId={orgId}
+          categories={categoriesQuery.data ?? []}
+          canManage={canManage}
+          variant="summary"
+        />
+      )}
+
       {tab === "add" && canManage && (
         <Card className="rounded-2xl border-0 shadow-md">
-          <CardHeader><CardTitle className="text-lg">New expense</CardTitle></CardHeader>
-          <CardContent>
-            <form onSubmit={submitExpense} className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <select value={selectedCategoryId} onChange={(e) => setSelectedCategoryId(e.target.value)} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
-                    <option value="">Select…</option>
-                    {(categoriesQuery.data ?? []).map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>New category</Label>
-                  <div className="flex gap-2">
-                    <Input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="h-11 rounded-xl" />
-                    <Button type="button" variant="outline" className="rounded-xl" onClick={() => newCategoryName.trim() && createCategoryMutation.mutate({ name: newCategoryName.trim() })}>
-                      Add
-                    </Button>
+          <CardHeader>
+            <CardTitle className="text-lg">New expense</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["one-time", "One-time"],
+                  ["recurring", "Recurring (monthly)"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setExpenseKind(key)}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                    expenseKind === key
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border hover:bg-muted"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {expenseKind === "recurring" ? (
+              <RecurringExpensePanel
+                orgId={orgId}
+                categories={categoriesQuery.data ?? []}
+                canManage={canManage}
+                variant="inline-form"
+              />
+            ) : (
+              <form onSubmit={submitExpense} className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <select value={selectedCategoryId} onChange={(e) => setSelectedCategoryId(e.target.value)} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
+                      <option value="">Select…</option>
+                      {(categoriesQuery.data ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>New category</Label>
+                    <div className="flex gap-2">
+                      <Input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="h-11 rounded-xl" />
+                      <Button type="button" variant="outline" className="rounded-xl" onClick={() => newCategoryName.trim() && createCategoryMutation.mutate({ name: newCategoryName.trim() })}>
+                        Add
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Title</Label>
-                  <Input value={titleInput} onChange={(e) => setTitleInput(e.target.value)} className="h-11 rounded-xl" required />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input value={titleInput} onChange={(e) => setTitleInput(e.target.value)} className="h-11 rounded-xl" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Amount ₹</Label>
+                    <Input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-11 rounded-xl" required />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Amount ₹</Label>
-                  <Input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-11 rounded-xl" required />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Date</Label>
+                    <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="h-11 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <select value={expenseType} onChange={(e) => setExpenseType(e.target.value as typeof expenseType)} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
+                      <option value="DAILY">Daily</option>
+                      <option value="ONE_TIME">One-time</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="h-11 rounded-xl" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <select value={expenseType} onChange={(e) => setExpenseType(e.target.value as typeof expenseType)} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
-                    <option value="DAILY">Daily</option>
-                    <option value="MONTHLY">Monthly / recurring</option>
-                    <option value="ONE_TIME">One-time</option>
-                  </select>
-                </div>
-              </div>
-              <Button type="submit" className="h-12 w-full rounded-xl" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Saving…" : "Save expense"}
-              </Button>
-            </form>
+                <Button type="submit" className="h-12 w-full rounded-xl" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Saving…" : "Save expense"}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       )}

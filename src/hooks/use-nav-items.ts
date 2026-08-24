@@ -9,14 +9,17 @@ import {
   User,
   CreditCard,
   Shield,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 import type { OrgRole } from "@prisma/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBusinessType } from "@/hooks/use-business-type";
 import { useModuleNav } from "@/hooks/use-module-nav";
-import { canAccessProjectsNav } from "@/lib/permissions/rbac";
+import { useCashierMode } from "@/hooks/use-cashier-mode";
+import { canAccessProjectsNav, hasPermission } from "@/lib/permissions/rbac";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
+import { CASHIER_HOME_ICON } from "@/lib/staff/cashier-mode";
 
 export type NavItem = {
   href: string;
@@ -39,6 +42,7 @@ export function useNavGroups(): NavGroups {
   const enabledModules = useAuthStore((s) => s.enabledModules);
   const isPlatformAdmin = useAuthStore((s) => s.isPlatformAdmin);
   const moduleNav = useModuleNav();
+  const { active: cashierMode, navItems: cashierNav } = useCashierMode();
   const isShopkeeper = activeBusinessType === "SHOPKEEPER";
   const showProjects =
     role && !isShopkeeper ? canAccessProjectsNav(role) : false;
@@ -46,6 +50,24 @@ export function useNavGroups(): NavGroups {
     (role && canAccessProjectsNav(role)) || isShopkeeper;
 
   return useMemo(() => {
+    if (cashierMode) {
+      const modules: NavItem[] = [
+        {
+          href: "/cashier",
+          icon: CASHIER_HOME_ICON,
+          label: "Cashier home",
+          key: "cashier_home",
+        },
+        ...cashierNav.map((item) => ({
+          href: item.href,
+          icon: item.icon,
+          label: item.label,
+          key: item.key,
+        })),
+      ];
+      return { core: [], modules, tools: [], showProjects: false };
+    }
+
     const core: NavItem[] = [];
 
     if (showDashboard) {
@@ -66,12 +88,29 @@ export function useNavGroups(): NavGroups {
       });
     }
 
-    const modules: NavItem[] = moduleNav.map((m) => ({
-      href: m.href,
-      icon: m.icon,
-      label: m.label,
-      key: String(m.key),
-    }));
+    const modules: NavItem[] = [];
+    for (const m of moduleNav) {
+      modules.push({
+        href: m.href,
+        icon: m.icon,
+        label: m.label,
+        key: String(m.key),
+      });
+      if (
+        m.key === "shop_sales" &&
+        isShopkeeper &&
+        isModuleEnabled(enabledModules, "shop_sales") &&
+        role &&
+        hasPermission(role, "shop.sales")
+      ) {
+        modules.push({
+          href: "/shop/offers",
+          icon: Tag,
+          label: "Offers",
+          key: "shop_offers",
+        });
+      }
+    }
 
     const tools: NavItem[] = [];
 
@@ -118,6 +157,8 @@ export function useNavGroups(): NavGroups {
 
     return { core, modules, tools, showProjects };
   }, [
+    cashierMode,
+    cashierNav,
     showDashboard,
     showProjects,
     biz.workItemPlural,

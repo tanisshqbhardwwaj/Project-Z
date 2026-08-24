@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, setActiveOrganizationId } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { AppLogo } from "@/components/brand/app-logo";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,8 @@ export default function OnboardingContent() {
   const { bootstrap, status, initialized, logout } = useAuthStore();
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
-  const [shopSector, setShopSector] = useState<ShopSector>("GENERAL");
+  const [businessTypes, setBusinessTypes] = useState<ShopSector[]>(["CLOTHING"]);
+  const [customBusinessType, setCustomBusinessType] = useState("");
   const [enableStaff, setEnableStaff] = useState(false);
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const [loading, setLoading] = useState(false);
@@ -65,24 +66,49 @@ export default function OnboardingContent() {
       return;
     }
 
-    if (businessType === "SHOPKEEPER" && !shopSector) {
-      showWarning("Please select your shop sector");
+    if (businessType === "SHOPKEEPER" && businessTypes.length === 0) {
+      showWarning("Select at least one business type");
+      return;
+    }
+    if (
+      businessType === "SHOPKEEPER" &&
+      businessTypes.includes("OTHER") &&
+      !customBusinessType.trim()
+    ) {
+      showWarning("Tell us what your custom business type is");
       return;
     }
 
     setLoading(true);
 
     try {
-      await apiFetch("/api/v1/organizations", {
+      // The org is created with the primary type, then the full multi-select is
+      // saved so category choices cover every type from the first screen.
+      const created = await apiFetch<{ id: string }>("/api/v1/organizations", {
         method: "POST",
         body: JSON.stringify({
           name,
           businessType,
           ...(businessType === "SHOPKEEPER"
-            ? { shopSector, enableStaff }
+            ? { shopSector: businessTypes[0], enableStaff }
             : {}),
         }),
       });
+      if (businessType === "SHOPKEEPER" && businessTypes.length > 0) {
+        setActiveOrganizationId(created.id);
+        await apiFetch("/api/v1/organizations", {
+          method: "PATCH",
+          body: JSON.stringify({
+            shopBusinessTypes: businessTypes,
+            shopCustomBusinessType: businessTypes.includes("OTHER")
+              ? customBusinessType.trim()
+              : null,
+          }),
+        }).catch(() => {
+          // Non-fatal: the org already exists with its primary type and the
+          // owner can finish the selection in Manage Organization.
+        });
+      }
       await bootstrap();
       router.push(
         businessType === "SHOPKEEPER" && enableStaff ? "/staff" : "/dashboard"
@@ -174,16 +200,28 @@ export default function OnboardingContent() {
 
             {businessType === "SHOPKEEPER" && (
               <div className="space-y-2">
-                <Label>Shop sector</Label>
+                <Label>My business is</Label>
+                <p className="text-xs text-muted-foreground">
+                  Pick every type you sell. You can change this later.
+                </p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {SHOP_SECTORS.map((sector) => {
                     const config = SHOP_SECTOR_CONFIG[sector];
-                    const active = shopSector === sector;
+                    const active = businessTypes.includes(sector);
                     return (
                       <button
                         key={sector}
                         type="button"
-                        onClick={() => setShopSector(sector)}
+                        aria-pressed={active}
+                        onClick={() =>
+                          setBusinessTypes((prev) =>
+                            prev.includes(sector)
+                              ? prev.filter((s) => s !== sector).length > 0
+                                ? prev.filter((s) => s !== sector)
+                                : prev
+                              : [...prev, sector]
+                          )
+                        }
                         className={cn(
                           "rounded-xl border p-3 text-left transition-colors",
                           active
@@ -191,14 +229,38 @@ export default function OnboardingContent() {
                             : "border-border hover:bg-accent/50"
                         )}
                       >
-                        <p className="text-sm font-semibold">{config.label}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">
+                            {config.label}
+                          </span>
+                          {active ? (
+                            <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                              {businessTypes[0] === sector ? "Primary" : "✓"}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
                           {config.description}
-                        </p>
+                        </span>
                       </button>
                     );
                   })}
                 </div>
+                {businessTypes.includes("OTHER") ? (
+                  <div className="space-y-1.5 pt-1">
+                    <Label htmlFor="onboarding-custom-type">
+                      What is your business?
+                    </Label>
+                    <Input
+                      id="onboarding-custom-type"
+                      value={customBusinessType}
+                      onChange={(e) => setCustomBusinessType(e.target.value)}
+                      className="h-12 rounded-xl"
+                      placeholder="e.g. Mobile Repair & Accessories"
+                      maxLength={120}
+                    />
+                  </div>
+                ) : null}
               </div>
             )}
 

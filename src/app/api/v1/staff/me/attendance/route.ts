@@ -1,8 +1,6 @@
-import { z } from "zod";
 import {
   getAuthContext,
   handleApi,
-  requirePermission,
   apiSuccess,
   ApiError,
 } from "@/lib/api/context";
@@ -11,11 +9,12 @@ import { listAttendanceRange } from "@/services/attendance-payroll.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { yearMonthQuerySchema } from "@/lib/validation/staff";
 import { eachDayKeyInMonth, utcDateToDayKey } from "@/lib/date/org-day";
+import { requireOwnAttendance } from "@/lib/staff/shop-access";
 
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "attendance.view_own");
+    await requireOwnAttendance(ctx);
 
     const staff = await getLinkedStaffMember(ctx.organizationId, ctx.userId);
     if (!staff) {

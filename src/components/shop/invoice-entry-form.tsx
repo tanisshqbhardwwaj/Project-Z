@@ -7,6 +7,7 @@ import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
@@ -31,10 +32,14 @@ import {
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import {
   computeInvoicePricing,
+  formatInvoiceMoney,
+  formatLineDiscountHint,
+  resolveInvoiceLineAllocations,
+  shouldShowLineDiscountHints,
 } from "@/lib/shop/invoice-pricing";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { Banknote, CreditCard, PauseCircle, Plus, Printer, Receipt, ScanLine, Smartphone, Tag, Trash2 } from "lucide-react";
+import { Banknote, CreditCard, PauseCircle, Plus, Printer, Receipt, ScanLine, Smartphone, Tag } from "lucide-react";
 import Link from "next/link";
 import { OfferPickerDialog } from "@/components/shop/offer-picker-dialog";
 import {
@@ -47,6 +52,17 @@ import {
   loadInvoiceDraft,
   saveInvoiceDraft,
 } from "@/lib/shop/invoice-draft-storage";
+import {
+  VariantSearchPicker,
+  VariantSelect,
+  variantOptionText,
+} from "@/components/shop/variant-picker";
+import { variantSubtitle } from "@/lib/shop/variant-display";
+
+/** Size/colour qualifier for a cart row, empty for products without variants. */
+function saleLineVariantSubtitle(line: SaleLine): string {
+  return variantSubtitle(line);
+}
 
 function FormSection({
   title,
@@ -99,9 +115,15 @@ type InventoryItem = {
   id: string;
   name: string;
   barcode: string | null;
+  sku: string | null;
+  size: string | null;
+  color: string | null;
+  variantLabel: string | null;
   quantity: number;
   sellPaise: string | null;
   unit: string;
+  description?: string | null;
+  product?: { id: string; name: string; brand: string | null } | null;
 };
 
 type StaffOption = { id: string; name: string; roleTitle: string };
@@ -146,12 +168,14 @@ export function InvoiceEntryForm({
   const [customerGstin, setCustomerGstin] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [salesBoyName, setSalesBoyName] = useState("");
+  const [selectedStaffId, setSelectedStaffId] = useState("");
   const [cart, setCart] = useState<SaleLine[]>([]);
   const [itemName, setItemName] = useState("");
   const [qty, setQty] = useState("1");
   const [price, setPrice] = useState("");
   const [scanInput, setScanInput] = useState("");
   const [selectedInventoryId, setSelectedInventoryId] = useState("");
+  const [showStockSearch, setShowStockSearch] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
   const [paidRupees, setPaidRupees] = useState("");
   const [cashReceivedRupees, setCashReceivedRupees] = useState("");
@@ -440,6 +464,7 @@ export function InvoiceEntryForm({
         selectedOfferId: string | null;
         requiresSelection: boolean;
         offerDiscountRupees: number;
+        lineDiscountRupees?: number[];
         offerDetails: { offerId: string; name: string; discountRupees: number }[];
       }>("/api/v1/shop/offers/preview", {
         method: "POST",
@@ -548,6 +573,7 @@ export function InvoiceEntryForm({
           taxRatePercent: Number(taxRatePercent) || 0,
           taxIncluded,
           discountBasis: invoiceTemplate.discountBasis,
+          useDecimalPlaces: invoiceTemplate.useDecimalPlaces,
         }),
       };
     },
@@ -559,12 +585,31 @@ export function InvoiceEntryForm({
       taxRatePercent,
       taxIncluded,
       invoiceTemplate.discountBasis,
+      invoiceTemplate.useDecimalPlaces,
       offerDiscountRupees,
     ]
   );
 
-  const cartTotal = pricing.totalRupees;
+  const lineDiscountMode = shouldShowLineDiscountHints(null, discountMode, offerDiscountRupees);
   const manualDiscountRupees = pricing.manualDiscountRupees;
+  const cartLineAllocations = useMemo(() => {
+    return resolveInvoiceLineAllocations(cart, {
+      showLineHints: lineDiscountMode,
+      totalDiscountRupees: pricing.discountRupees,
+      manualDiscountRupees,
+      manualDiscountMode: discountMode,
+      offerLineDiscountRupees: offerPreviewQuery.data?.lineDiscountRupees,
+    });
+  }, [
+    cart,
+    lineDiscountMode,
+    pricing.discountRupees,
+    manualDiscountRupees,
+    discountMode,
+    offerPreviewQuery.data?.lineDiscountRupees,
+  ]);
+
+  const cartTotal = pricing.totalRupees;
 
   useEffect(() => {
     onDraftChange(
@@ -581,6 +626,10 @@ export function InvoiceEntryForm({
         manualDiscountRupees,
         offerDiscountRupees,
         appliedOffers: offerPreviewQuery.data?.offerDetails,
+        offerLineDiscountRupees: offerPreviewQuery.data?.lineDiscountRupees,
+        manualDiscountMode: discountMode,
+        manualDiscountPercent:
+          discountMode === "percent" ? Number(discountPercent) || 0 : undefined,
       })
     );
   }, [
@@ -597,6 +646,9 @@ export function InvoiceEntryForm({
     manualDiscountRupees,
     offerDiscountRupees,
     offerPreviewQuery.data?.offerDetails,
+    offerPreviewQuery.data?.lineDiscountRupees,
+    discountMode,
+    discountPercent,
   ]);
 
   function checkStock(
@@ -622,18 +674,32 @@ export function InvoiceEntryForm({
     return true;
   }
 
+  /** Copies the variant attributes onto the cart line, dropping empty ones. */
+  function variantFieldsOf(item: InventoryItem) {
+    return {
+      productId: item.product?.id ?? undefined,
+      barcode: item.barcode ?? undefined,
+      sku: item.sku ?? undefined,
+      size: item.size ?? undefined,
+      color: item.color ?? undefined,
+      variantLabel: item.variantLabel ?? undefined,
+      unit: item.unit ?? undefined,
+    };
+  }
+
   function addInventoryToCart(item: InventoryItem, qtyNum: number) {
-    if (!checkStock(item.id, qtyNum, item.name)) return;
+    const label = variantOptionText(item);
+    if (!checkStock(item.id, qtyNum, label)) return;
     const priceRupees = item.sellPaise
       ? paiseToRupees(BigInt(item.sellPaise))
       : 0;
     setCart((prev) =>
       mergeLineIntoCart(prev, {
-        name: item.name,
+        name: item.product?.name ?? item.name,
         qty: qtyNum,
         priceRupees,
         inventoryItemId: item.id,
-        barcode: item.barcode ?? undefined,
+        ...variantFieldsOf(item),
       })
     );
   }
@@ -642,7 +708,7 @@ export function InvoiceEntryForm({
     setSelectedInventoryId(itemId);
     const item = (inventoryQuery.data ?? []).find((i) => i.id === itemId);
     if (!item) return;
-    setItemName(item.name);
+    setItemName(variantOptionText(item));
     if (item.sellPaise) {
       setPrice(String(paiseToRupees(BigInt(item.sellPaise))));
     }
@@ -662,12 +728,16 @@ export function InvoiceEntryForm({
     if (selectedInventoryId && !checkStock(selectedInventoryId, qtyNum, itemName.trim())) {
       return;
     }
+    const picked = selectedInventoryId
+      ? (inventoryQuery.data ?? []).find((i) => i.id === selectedInventoryId)
+      : undefined;
     setCart((prev) =>
       mergeLineIntoCart(prev, {
-        name: itemName.trim(),
+        name: picked?.product?.name ?? picked?.name ?? itemName.trim(),
         qty: qtyNum,
         priceRupees: priceNum,
         inventoryItemId: selectedInventoryId || undefined,
+        ...(picked ? variantFieldsOf(picked) : {}),
       })
     );
     setItemName("");
@@ -686,14 +756,15 @@ export function InvoiceEntryForm({
       const priceRupees = item.sellPaise
         ? paiseToRupees(BigInt(item.sellPaise))
         : 0;
+      // A barcode maps to one variant, so this adds exactly the scanned size.
       setCart((prev) => {
-        if (!checkStock(item.id, 1, item.name, prev)) return prev;
+        if (!checkStock(item.id, 1, variantOptionText(item), prev)) return prev;
         return mergeLineIntoCart(prev, {
-          name: item.name,
+          name: item.product?.name ?? item.name,
           qty: 1,
           priceRupees,
           inventoryItemId: item.id,
-          barcode: item.barcode ?? undefined,
+          ...variantFieldsOf(item),
         });
       });
       clear();
@@ -811,6 +882,7 @@ export function InvoiceEntryForm({
         customerName: customerName.trim() || null,
         customerPhone: customerPhone.trim() || null,
         customerGstin: customerGstin.trim() || null,
+        staffId: selectedStaffId || null,
         salesBoyName: salesBoyName.trim() || null,
         issueInvoice: true,
         ...(discountMode === "percent"
@@ -822,12 +894,20 @@ export function InvoiceEntryForm({
         selectedOfferId: offerSelectionSettled ? selectedOfferId : undefined,
         skipOffer: offerSelectionSettled && selectedOfferId === null,
         ...(paidRupees.trim() ? { paidRupees: Number(paidRupees) } : {}),
-        items: cart.map(({ name, qty: q, priceRupees, inventoryItemId, barcode }) => ({
-          name,
-          qty: q,
-          priceRupees,
-          ...(inventoryItemId ? { inventoryItemId } : {}),
-          ...(barcode ? { barcode } : {}),
+        // Variant attributes go with each line so the stored invoice, receipt
+        // and any later return all identify the exact size that was sold.
+        items: cart.map((line) => ({
+          name: line.name,
+          qty: line.qty,
+          priceRupees: line.priceRupees,
+          ...(line.inventoryItemId ? { inventoryItemId: line.inventoryItemId } : {}),
+          ...(line.productId ? { productId: line.productId } : {}),
+          ...(line.barcode ? { barcode: line.barcode } : {}),
+          ...(line.sku ? { sku: line.sku } : {}),
+          ...(line.size ? { size: line.size } : {}),
+          ...(line.color ? { color: line.color } : {}),
+          ...(line.variantLabel ? { variantLabel: line.variantLabel } : {}),
+          ...(line.unit ? { unit: line.unit } : {}),
         })),
       });
     } catch (err) {
@@ -918,27 +998,40 @@ export function InvoiceEntryForm({
               <div className="flex flex-col gap-2 sm:flex-row">
                 {staffEnabled && (staffQuery.data ?? []).length > 0 ? (
                   <select
-                    value=""
+                    value={selectedStaffId}
                     onChange={(e) => {
-                      if (e.target.value) setSalesBoyName(e.target.value);
+                      const staffId = e.target.value;
+                      setSelectedStaffId(staffId);
+                      const staff = (staffQuery.data ?? []).find(
+                        (s) => s.id === staffId
+                      );
+                      setSalesBoyName(staff?.name ?? "");
                     }}
-                    className="h-10 w-full shrink-0 rounded-lg border bg-background px-2 text-sm sm:w-[140px]"
+                    className="h-10 w-full shrink-0 rounded-lg border bg-background px-2 text-sm sm:w-[170px]"
                   >
                     <option value="">Staff…</option>
                     {(staffQuery.data ?? []).map((s) => (
-                      <option key={s.id} value={s.name}>
-                        {s.name}
+                      <option key={s.id} value={s.id}>
+                        {s.name} — {s.roleTitle}
                       </option>
                     ))}
                   </select>
                 ) : null}
                 <Input
                   value={salesBoyName}
-                  onChange={(e) => setSalesBoyName(e.target.value)}
+                  onChange={(e) => {
+                    setSalesBoyName(e.target.value);
+                    setSelectedStaffId("");
+                  }}
                   className="h-10 rounded-lg"
                   placeholder="Name (optional)"
                 />
               </div>
+              {staffEnabled ? (
+                <p className="text-xs text-muted-foreground">
+                  Picking from the list links this bill to their sales commission.
+                </p>
+              ) : null}
             </div>
           </FormSection>
 
@@ -966,20 +1059,40 @@ export function InvoiceEntryForm({
             )}
 
             {inventoryEnabled && (inventoryQuery.data ?? []).length > 0 && (
-              <select
-                value={selectedInventoryId}
-                onChange={(e) => pickInventoryItem(e.target.value)}
-                className="h-10 w-full rounded-lg border bg-background px-3 text-sm"
-              >
-                <option value="">Pick from stock…</option>
-                {(inventoryQuery.data ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                    {item.sellPaise ? ` — ${formatINR(item.sellPaise)}` : ""}{" "}
-                    ({formatStockLabel(item.quantity, item.unit)})
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {showStockSearch
+                      ? "Search by name, size, SKU or barcode"
+                      : "Every size is listed separately"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowStockSearch((v) => !v)}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    {showStockSearch ? "Use dropdown" : "Search stock"}
+                  </button>
+                </div>
+                {showStockSearch ? (
+                  <VariantSearchPicker
+                    options={inventoryQuery.data ?? []}
+                    onSelect={(option) => {
+                      const item = (inventoryQuery.data ?? []).find(
+                        (i) => i.id === option.id
+                      );
+                      if (item) addInventoryToCart(item, Number(qty) || 1);
+                    }}
+                    emptyLabel="No product matches that search"
+                  />
+                ) : (
+                  <VariantSelect
+                    options={inventoryQuery.data ?? []}
+                    value={selectedInventoryId}
+                    onChange={pickInventoryItem}
+                  />
+                )}
+              </div>
             )}
 
             <div className="grid grid-cols-12 gap-2">
@@ -1039,29 +1152,51 @@ export function InvoiceEntryForm({
                     </tr>
                   </thead>
                   <tbody>
-                    {cart.map((line) => (
+                    {cart.map((line, idx) => {
+                      const allocated = cartLineAllocations?.[idx];
+                      const hasLineDiscount =
+                        allocated != null && allocated.lineDiscountRupees > 0.004;
+                      const unitRate = line.priceRupees;
+                      const amount = hasLineDiscount
+                        ? allocated.discountedLineRupees
+                        : lineTotal(line);
+                      const hint = hasLineDiscount
+                        ? formatLineDiscountHint(allocated, invoiceTemplate)
+                        : null;
+                      const fmt = (n: number) => formatInvoiceMoney(n, invoiceTemplate);
+                      return (
                       <tr key={line.id} className="border-b last:border-0">
-                        <td className="max-w-[8rem] px-3 py-2 break-words sm:max-w-none">{line.name}</td>
+                        <td className="max-w-[8rem] px-3 py-2 break-words sm:max-w-none">
+                          <span className="block">{line.name}</span>
+                          {saleLineVariantSubtitle(line) ? (
+                            <span className="mt-0.5 block text-xs font-medium text-primary">
+                              {saleLineVariantSubtitle(line)}
+                            </span>
+                          ) : null}
+                          {hint ? (
+                            <span className="mt-0.5 block text-xs text-emerald-700">{hint}</span>
+                          ) : null}
+                          {line.barcode ? (
+                            <code className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
+                              {line.barcode}
+                            </code>
+                          ) : null}
+                        </td>
                         <td className="px-3 py-2 tabular-nums">{line.qty}</td>
-                        <td className="px-3 py-2 tabular-nums">
-                          ₹{line.priceRupees.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          ₹{lineTotal(line).toFixed(2)}
-                        </td>
+                        <td className="px-3 py-2 tabular-nums">{fmt(unitRate)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{fmt(amount)}</td>
                         <td className="px-2 py-2">
-                          <button
-                            type="button"
+                          <DeleteIconButton
+                            variant="ghost"
                             onClick={() =>
                               setCart((prev) => prev.filter((l) => l.id !== line.id))
                             }
-                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                            aria-label={`Remove ${line.name}`}
+                          />
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1270,7 +1405,9 @@ export function InvoiceEntryForm({
                     <div className="flex justify-between text-emerald-700">
                       <span>
                         Discount
-                        {pricing.discountPercent > 0 ? ` (${pricing.discountPercent}%)` : ""}
+                        {discountMode === "percent" && Number(discountPercent) > 0
+                          ? ` (${discountPercent}%)`
+                          : ""}
                       </span>
                       <span className="tabular-nums">− ₹{pricing.discountRupees.toFixed(2)}</span>
                     </div>
@@ -1312,15 +1449,19 @@ export function InvoiceEntryForm({
               <div className="flex justify-between text-emerald-700">
                 <span>
                   Discount
-                  {pricing.discountPercent > 0 ? ` (${pricing.discountPercent}%)` : ""}
+                  {discountMode === "percent" && Number(discountPercent) > 0
+                    ? ` (${discountPercent}%)`
+                    : ""}
                 </span>
                 <span className="tabular-nums">− ₹{pricing.discountRupees.toFixed(2)}</span>
               </div>
             ) : null}
-            {pricing.roundOffRupees < 0 ? (
+            {invoiceTemplate.useDecimalPlaces && pricing.roundOffRupees < -0.004 ? (
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Round off</span>
-                <span className="tabular-nums">− ₹{Math.abs(pricing.roundOffRupees).toFixed(2)}</span>
+                <span className="tabular-nums">
+                  − {formatInvoiceMoney(Math.abs(pricing.roundOffRupees), invoiceTemplate)}
+                </span>
               </div>
             ) : null}
             <div className="flex justify-between border-t pt-2 text-base font-bold">

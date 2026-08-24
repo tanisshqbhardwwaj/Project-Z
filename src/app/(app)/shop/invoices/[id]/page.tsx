@@ -29,7 +29,16 @@ type SaleDetail = ShopInvoiceData & {
   paymentStatus?: string;
   organization: { name: string };
   createdBy: { name: string };
-  itemsJson: { name: string; qty: number; priceRupees: number }[];
+  itemsJson: {
+    name: string;
+    qty: number;
+    priceRupees: number;
+    size?: string | null;
+    color?: string | null;
+    variantLabel?: string | null;
+    sku?: string | null;
+    barcode?: string | null;
+  }[];
 };
 
 export default function ShopInvoicePage() {
@@ -114,7 +123,11 @@ export default function ShopInvoicePage() {
           </div>
         ) : null}
         <div className="print-hidden">
-          <InvoiceReturnPanel saleId={data.id} billNumber={data.billNumber} />
+          <InvoiceReturnPanel
+            saleId={data.id}
+            billNumber={data.billNumber}
+            customerName={data.customerName}
+          />
         </div>
         <div className="flex justify-center">
           <InvoicePreviewRoot

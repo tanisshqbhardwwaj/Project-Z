@@ -37,8 +37,16 @@ export function getThemeSnapshot(): ResolvedTheme {
   return getResolvedTheme();
 }
 
+export function getThemePreferenceSnapshot(): Theme {
+  return getStoredTheme();
+}
+
 export function getThemeServerSnapshot(): ResolvedTheme {
   return "light";
+}
+
+export function getThemePreferenceServerSnapshot(): Theme {
+  return "system";
 }
 
 export function getSystemTheme(): ResolvedTheme {
@@ -85,6 +93,14 @@ export function getResolvedTheme(): ResolvedTheme {
 export function toggleTheme(): ResolvedTheme {
   const next = getResolvedTheme() === "dark" ? "light" : "dark";
   return applyTheme(next);
+}
+
+export function cycleThemePreference(): Theme {
+  const order: Theme[] = ["light", "dark", "system"];
+  const current = getStoredTheme();
+  const next = order[(order.indexOf(current) + 1) % order.length]!;
+  applyTheme(next);
+  return next;
 }
 
 export function initThemeListener(onChange?: (theme: ResolvedTheme) => void): () => void {

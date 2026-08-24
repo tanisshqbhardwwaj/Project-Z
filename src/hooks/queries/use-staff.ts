@@ -7,17 +7,41 @@ import { useAuthStore } from "@/stores/auth-store";
 import { orgTodayKey } from "@/lib/date/org-day";
 import type { AttendanceStatus } from "@prisma/client";
 
+export type StaffCommissionType =
+  | "NONE"
+  | "PERCENT"
+  | "FIXED_PER_SALE"
+  | "FIXED_PER_ITEM"
+  | "FIXED_MONTHLY";
+
 export type StaffMember = {
   id: string;
   userId: string | null;
   name: string;
   phone: string | null;
+  email: string | null;
+  roleKey: string | null;
   roleTitle: string;
   wagePaise: string | null;
   wagePeriod: string | null;
+  paymentFrequency: string | null;
   overtimeRatePaise: string | null;
+  commissionType: StaffCommissionType;
+  commissionPercent: number | null;
+  commissionAmountPaise: string | null;
+  accessJson?: unknown;
+  cashierCode?: string | null;
   status: "ACTIVE" | "LEFT";
   joinedAt: string | null;
+  notes: string | null;
+  /** Present when the list is fetched with `withPerformance=1`. */
+  performance?: {
+    invoiceCount: number;
+    grossSalesPaise: string;
+    returnedValuePaise: string;
+    eligibleSalesPaise: string;
+    commissionPaise: string;
+  } | null;
 };
 
 export type AttendanceRow = {
@@ -38,6 +62,9 @@ export type PayrollRow = {
   paidLeaveDays: number;
   workingDays: number;
   overtimeHours: number;
+  basePaise: string;
+  commissionPaise: string;
+  commissionSalesPaise: string;
   calculatedPaise: string;
   adjustmentPaise: string;
   finalAmountPaise: string;
@@ -50,10 +77,33 @@ export type PayrollRow = {
     roleTitle: string;
     wagePaise: string | null;
     wagePeriod: string | null;
+    commissionType?: StaffCommissionType;
+    commissionPercent?: number | null;
+    commissionAmountPaise?: string | null;
   };
   lines?: { id: string; type: string; label: string; amountPaise: string }[];
   openAdvances?: StaffAdvanceRow[];
   advanceDeductionPaise?: string;
+  /** Server-computed net-pay breakdown; the UI never re-derives these. */
+  breakdown?: {
+    basePaise: string;
+    commissionPaise: string;
+    commissionSalesPaise: string;
+    earningsPaise: string;
+    deductionsPaise: string;
+    advanceDeductionPaise: string;
+    calculatedPaise: string;
+    adjustmentPaise: string;
+    netPaise: string;
+  };
+  commission?: {
+    invoiceCount: number;
+    grossSalesPaise: string;
+    returnedValuePaise: string;
+    eligibleSalesPaise: string;
+    commissionPaise: string;
+    returnAdjustmentPaise: string;
+  } | null;
 };
 
 export type StaffAdvanceRow = {
@@ -95,14 +145,24 @@ function useOrgId() {
   return useAuthStore((s) => s.activeOrganizationId);
 }
 
-export function useStaffList(status?: "ACTIVE" | "LEFT") {
+export function useStaffList(
+  status?: "ACTIVE" | "LEFT",
+  options?: { withPerformance?: boolean; year?: number; month?: number }
+) {
   const orgId = useOrgId();
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (options?.withPerformance) {
+    params.set("withPerformance", "1");
+    if (options.year) params.set("year", String(options.year));
+    if (options.month) params.set("month", String(options.month));
+  }
+  const query = params.toString();
   return useQuery({
-    queryKey: orgId ? queryKeys.staff.list(orgId, status) : ["disabled"],
-    queryFn: () =>
-      apiFetch<StaffMember[]>(
-        `/api/v1/staff${status ? `?status=${status}` : ""}`
-      ),
+    queryKey: orgId
+      ? [...queryKeys.staff.list(orgId, status), query]
+      : ["disabled"],
+    queryFn: () => apiFetch<StaffMember[]>(`/api/v1/staff${query ? `?${query}` : ""}`),
     enabled: !!orgId,
   });
 }

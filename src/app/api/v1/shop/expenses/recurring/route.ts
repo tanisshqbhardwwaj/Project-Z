@@ -9,18 +9,24 @@ import {
 } from "@/lib/api/context";
 import { canViewShopExpenses, canManageShopExpenses } from "@/lib/permissions/rbac";
 import { serializeBigInt } from "@/lib/db/prisma";
+import { PAYMENT_METHODS } from "@/lib/validation/shop-return";
 import {
   createRecurringExpense,
+  getRecurringExpenseOverview,
   listRecurringExpenses,
-} from "@/services/shop-expense.service";
+  syncRecurringExpenseReminders,
+} from "@/services/shop-recurring-expense.service";
 
 const createSchema = z.object({
   categoryId: z.string().uuid(),
-  name: z.string().min(2),
+  name: z.string().min(2).max(120),
   monthlyAmountRupees: z.number().positive(),
-  dueDay: z.number().min(1).max(28).optional(),
+  dueDay: z.number().int().min(1).max(31).optional(),
   startDate: z.string(),
   endDate: z.string().optional().nullable(),
+  reminderDaysBefore: z.number().int().min(0).max(30).optional(),
+  paymentMethod: z.enum(PAYMENT_METHODS).optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
 });
 
 export async function GET(request: Request) {
@@ -29,8 +35,18 @@ export async function GET(request: Request) {
     if (!canViewShopExpenses(ctx.role)) {
       requirePermission(ctx, "shop.expense.view");
     }
-    const items = await listRecurringExpenses(ctx.organizationId);
-    return apiSuccess(serializeBigInt(items));
+    const { searchParams } = new URL(request.url);
+
+    // `view=rules` keeps the original flat-list response for any older caller.
+    if (searchParams.get("view") === "rules") {
+      const items = await listRecurringExpenses(ctx.organizationId, {
+        includeInactive: searchParams.get("includeInactive") === "1",
+      });
+      return apiSuccess(serializeBigInt(items));
+    }
+
+    const overview = await getRecurringExpenseOverview(ctx.organizationId);
+    return apiSuccess(serializeBigInt(overview));
   });
 }
 
@@ -48,7 +64,11 @@ export async function POST(request: Request) {
       dueDay: data.dueDay,
       startDate: new Date(data.startDate),
       endDate: data.endDate ? new Date(data.endDate) : null,
+      reminderDaysBefore: data.reminderDaysBefore,
+      paymentMethod: data.paymentMethod ?? null,
+      notes: data.notes,
     });
+    await syncRecurringExpenseReminders(ctx.organizationId);
     return NextResponse.json({ data: serializeBigInt(item) }, { status: 201 });
   });
 }

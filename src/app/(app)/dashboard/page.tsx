@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
 import { useFetch } from "@/hooks/use-fetch";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCashierMode } from "@/hooks/use-cashier-mode";
 import { canAccessProjectsNav, hasPermission } from "@/lib/permissions/rbac";
 import type { OrgRole } from "@prisma/client";
 import { PageLoader } from "@/components/ui/page-loader";
@@ -30,21 +31,27 @@ export default function DashboardPage() {
   const role = useAuthStore((s) => s.role) as OrgRole | null;
   const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
   const biz = useBusinessType();
+  const { active: cashierMode, homePath } = useCashierMode();
   const isShopkeeper = activeBusinessType === "SHOPKEEPER";
 
   useEffect(() => {
-    if (!role || canAccessProjectsNav(role)) return;
+    if (!role) return;
+    if (cashierMode) {
+      router.replace(homePath);
+      return;
+    }
+    if (canAccessProjectsNav(role)) return;
     if (hasPermission(role, "shop.sales")) router.replace("/shop/invoices/new");
     else if (hasPermission(role, "attendance.view_own")) router.replace("/staff/me");
-  }, [role, router]);
+  }, [role, router, cashierMode, homePath]);
 
   const { data, loading, error } = useFetch(
     role && canAccessProjectsNav(role) && !isShopkeeper ? "dashboard" : null,
     () => apiFetch<DashboardData>("/api/v1/dashboard")
   );
 
-  if (role && !canAccessProjectsNav(role)) {
-    return <PageLoader label="Opening new invoice..." />;
+  if (role && (cashierMode || !canAccessProjectsNav(role))) {
+    return <PageLoader label="Opening workspace..." />;
   }
 
   if (isShopkeeper) {
