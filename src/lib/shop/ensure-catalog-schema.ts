@@ -196,6 +196,11 @@ export async function ensureCatalogSchema() {
   await addColumn("StaffMember", "commissionType", "TEXT NOT NULL DEFAULT 'NONE'");
   await addColumn("StaffMember", "commissionPercent", "REAL");
   await addColumn("StaffMember", "commissionAmountPaise", "INTEGER");
+  await addColumn("StaffMember", "accessJson", "TEXT NOT NULL DEFAULT '{}'");
+  await addColumn("StaffMember", "cashierCode", "TEXT");
+  await prisma.$executeRawUnsafe(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "StaffMember_organizationId_cashierCode_key" ON "StaffMember"("organizationId", "cashierCode")`
+  );
 
   await addColumn("ShopSale", "staffId", "TEXT");
   await prisma.$executeRawUnsafe(

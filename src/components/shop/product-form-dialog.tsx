@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +22,14 @@ import {
 import { formatINR } from "@/lib/finance/money";
 import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory";
 import { attributeLabel } from "@/lib/shop/variant-display";
+import {
+  defaultVariantAxisForSectors,
+  sizePresetsForSectors,
+  usesSizeColorMatrix,
+  variantAxisLabel,
+} from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { AlertTriangle, Plus, Sparkles, X } from "lucide-react";
 
 export type CategoryOption = {
   key: string;
@@ -54,15 +61,6 @@ type VariantRow = {
   costRupees: string;
 };
 
-/** Size presets per business type — a starting point, always editable. */
-const SIZE_PRESETS: Array<{ label: string; sizes: string[] }> = [
-  { label: "Apparel S–XXL", sizes: ["S", "M", "L", "XL", "XXL"] },
-  { label: "Apparel XS–3XL", sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"] },
-  { label: "Waist 28–40", sizes: ["28", "30", "32", "34", "36", "38", "40"] },
-  { label: "Shoes 6–11", sizes: ["6", "7", "8", "9", "10", "11"] },
-  { label: "Kids 2–12y", sizes: ["2y", "4y", "6y", "8y", "10y", "12y"] },
-];
-
 function newRow(size = ""): VariantRow {
   return {
     rowId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -90,6 +88,7 @@ export function ProductFormDialog({
   categories,
   attributeFields,
   variantsByDefault,
+  businessTypes = ["GENERAL"],
   onCreated,
   onViewExisting,
 }: {
@@ -100,6 +99,8 @@ export function ProductFormDialog({
   /** Attributes the selected business types care about (material, model, …). */
   attributeFields: string[];
   variantsByDefault: boolean;
+  /** Selected shop business types — drives variant labels and presets. */
+  businessTypes?: string[];
   onCreated: (productName: string, variantCount: number) => void;
   onViewExisting?: (productId: string | null, name: string) => void;
 }) {
@@ -117,7 +118,14 @@ export function ProductFormDialog({
   const [notes, setNotes] = useState("");
   const [attributes, setAttributes] = useState<Record<string, string>>({});
   const [hasVariants, setHasVariants] = useState(variantsByDefault);
-  const [variantAxis, setVariantAxis] = useState("size");
+  const defaultAxis = defaultVariantAxisForSectors(businessTypes);
+  const [variantAxis, setVariantAxis] = useState(defaultAxis);
+  const showColorColumn = usesSizeColorMatrix(businessTypes);
+  const sizePresets = useMemo(
+    () => sizePresetsForSectors(businessTypes),
+    [businessTypes]
+  );
+  const axisColumnLabel = variantAxisLabel(variantAxis);
   const [rows, setRows] = useState<VariantRow[]>([newRow()]);
   const [defaultSell, setDefaultSell] = useState("");
   const [defaultCost, setDefaultCost] = useState("");
@@ -153,7 +161,7 @@ export function ProductFormDialog({
     setNotes("");
     setAttributes({});
     setHasVariants(variantsByDefault);
-    setVariantAxis("size");
+    setVariantAxis(defaultVariantAxisForSectors(businessTypes));
     setRows([newRow()]);
     setDefaultSell("");
     setDefaultCost("");
@@ -415,10 +423,10 @@ export function ProductFormDialog({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-medium">
-                  Does this product have multiple sizes or variants?
+                  Does this product have multiple variants?
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  One product, one row in the list — each size gets its own
+                  One product, one row in the list — each variant gets its own
                   barcode and stock.
                 </p>
               </div>
@@ -439,13 +447,14 @@ export function ProductFormDialog({
                       value={variantAxis}
                       onChange={(e) => setVariantAxis(e.target.value)}
                       className="h-10 rounded-xl"
-                      placeholder="size"
+                      placeholder={defaultAxis}
                     />
                   </div>
+                  {sizePresets.length > 0 ? (
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Quick add sizes</Label>
+                    <Label className="text-xs">Quick add {axisColumnLabel.toLowerCase()}s</Label>
                     <div className="flex flex-wrap gap-1.5">
-                      {SIZE_PRESETS.map((preset) => (
+                      {sizePresets.map((preset) => (
                         <button
                           key={preset.label}
                           type="button"
@@ -471,14 +480,17 @@ export function ProductFormDialog({
                       ))}
                     </div>
                   </div>
+                  ) : null}
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[36rem] text-sm">
                     <thead>
                       <tr className="border-b text-left text-xs text-muted-foreground">
-                        <th className="pb-2 pr-2 font-medium">Size</th>
-                        <th className="pb-2 pr-2 font-medium">Colour</th>
+                        <th className="pb-2 pr-2 font-medium">{axisColumnLabel}</th>
+                        {showColorColumn ? (
+                          <th className="pb-2 pr-2 font-medium">Colour</th>
+                        ) : null}
                         <th className="pb-2 pr-2 font-medium">Stock</th>
                         <th className="pb-2 pr-2 font-medium">Sell ₹</th>
                         <th className="pb-2 pr-2 font-medium">Barcode</th>
@@ -504,6 +516,7 @@ export function ProductFormDialog({
                               placeholder="M"
                             />
                           </td>
+                          {showColorColumn ? (
                           <td className="py-1.5 pr-2">
                             <Input
                               value={row.color}
@@ -520,6 +533,7 @@ export function ProductFormDialog({
                               placeholder="optional"
                             />
                           </td>
+                          ) : null}
                           <td className="py-1.5 pr-2">
                             <Input
                               type="number"
@@ -573,8 +587,8 @@ export function ProductFormDialog({
                             />
                           </td>
                           <td className="py-1.5">
-                            <button
-                              type="button"
+                            <DeleteIconButton
+                              variant="ghost"
                               onClick={() =>
                                 setRows((prev) =>
                                   prev.length === 1
@@ -582,11 +596,8 @@ export function ProductFormDialog({
                                     : prev.filter((r) => r.rowId !== row.rowId)
                                 )
                               }
-                              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                               aria-label="Remove variant"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            />
                           </td>
                         </tr>
                       ))}
@@ -603,7 +614,7 @@ export function ProductFormDialog({
                     onClick={() => setRows((prev) => [...prev, newRow()])}
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
-                    Add size
+                    Add {axisColumnLabel.toLowerCase()}
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     {filledRowCount} variant{filledRowCount === 1 ? "" : "s"} ·{" "}

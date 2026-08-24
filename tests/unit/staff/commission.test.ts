@@ -23,6 +23,12 @@ const perItem = (rupees: number): CommissionConfig => ({
   commissionAmountPaise: BigInt(Math.round(rupees * 100)),
 });
 
+const perMonth = (rupees: number): CommissionConfig => ({
+  commissionType: "FIXED_MONTHLY",
+  commissionPercent: null,
+  commissionAmountPaise: BigInt(Math.round(rupees * 100)),
+});
+
 const noCommission: CommissionConfig = {
   commissionType: "NONE",
   commissionPercent: null,
@@ -175,6 +181,7 @@ describe("describeCommission", () => {
     expect(describeCommission(percent(2))).toBe("2% of eligible sales");
     expect(describeCommission(perSale(25))).toBe("₹25 per sale");
     expect(describeCommission(perItem(10))).toBe("₹10 per item");
+    expect(describeCommission(perMonth(500))).toBe("₹500 per month");
   });
 
   it("flags an unfinished configuration", () => {

@@ -10,8 +10,14 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShopInvoicePrint } from "@/components/shop/shop-invoice-print";
+import { InvoicePreviewRoot } from "@/components/shop/invoice-preview-root";
 import { formatINR } from "@/lib/finance/money";
 import { cn } from "@/lib/utils";
+import { returnReceiptToShopInvoice } from "@/lib/shop/return-invoice-mapper";
+import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
+import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
+import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import { ArrowRight, Printer, Repeat, RotateCcw } from "lucide-react";
 
 type ReturnLine = {
@@ -111,6 +117,9 @@ function LineList({
 export default function ReturnReceiptPage() {
   const { id } = useParams<{ id: string }>();
   const orgId = useAuthStore((s) => s.activeOrganizationId);
+  const template = useShopInvoiceTemplate();
+  const layout = resolvePaperLayout(template.paperSize, template.printMarginMm);
+  const { printInvoice, PrintLayer } = useShopInvoicePrint();
 
   const { data, isLoading, error } = useQuery({
     queryKey: orgId
@@ -141,9 +150,12 @@ export default function ReturnReceiptPage() {
   const isExchange = data.type === "EXCHANGE";
   const refund = BigInt(data.refundAmountPaise);
   const extra = BigInt(data.additionalPaidPaise);
+  const printInvoiceData = returnReceiptToShopInvoice(data);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 pb-8">
+    <>
+      <PrintLayer />
+      <div className="mx-auto max-w-2xl space-y-4 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <Link href="/shop/returns">
           <Button variant="outline" className="rounded-xl">
@@ -153,14 +165,28 @@ export default function ReturnReceiptPage() {
         <Button
           variant="outline"
           className="rounded-xl"
-          onClick={() => window.print()}
+          onClick={() => void printInvoice()}
         >
           <Printer className="mr-2 h-4 w-4" />
-          Print receipt
+          Print {isExchange ? "exchange invoice" : "credit note"}
         </Button>
       </div>
 
-      <Card className="rounded-2xl border-0 shadow-md">
+      <div className="print:hidden flex justify-center">
+        <InvoicePreviewRoot
+          paperSize={template.paperSize}
+          printMarginMm={template.printMarginMm}
+        >
+          <ShopInvoicePrint
+            invoice={printInvoiceData}
+            template={template}
+            compact={layout.compact}
+            barcodeHeight={layout.barcodeHeight}
+          />
+        </InvoicePreviewRoot>
+      </div>
+
+      <Card className="rounded-2xl border-0 shadow-md print:hidden">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
@@ -340,6 +366,7 @@ export default function ReturnReceiptPage() {
           ) : null}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

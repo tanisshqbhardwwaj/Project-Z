@@ -11,6 +11,7 @@ import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import type { DiscountBasis } from "@/lib/org/shop-settings";
 import {
   computeInvoicePricing,
+  resolveInvoiceLineAllocations,
   type InvoicePricingResult,
   type StoredInvoicePricing,
 } from "@/lib/shop/invoice-pricing";
@@ -83,7 +84,10 @@ export function buildDraftInvoice(input: {
   billNumber?: string | null;
   pricing: InvoicePricingResult;
   manualDiscountRupees?: number;
+  manualDiscountMode?: "percent" | "rupees";
+  manualDiscountPercent?: number;
   offerDiscountRupees?: number;
+  offerLineDiscountRupees?: number[];
   appliedOffers?: { offerId: string; name: string; discountRupees: number }[];
   /** @deprecated Prefer passing `pricing` from the billing form. */
   discountRupees?: number;
@@ -106,7 +110,10 @@ export function buildDraftInvoice(input: {
   const stored: StoredInvoicePricing = {
     subtotalRupees: pricing.subtotalRupees,
     discountRupees: pricing.discountRupees,
-    discountPercent: pricing.discountPercent,
+    discountPercent:
+      input.manualDiscountMode === "percent"
+        ? input.manualDiscountPercent ?? pricing.discountPercent
+        : pricing.discountPercent,
     discountBasis: pricing.discountBasis,
     taxableRupees: pricing.taxableRupees,
     gstRupees: pricing.gstRupees,
@@ -116,13 +123,32 @@ export function buildDraftInvoice(input: {
     taxRatePercent: pricing.taxRatePercent,
     roundOffRupees: pricing.roundOffRupees,
     ...(input.manualDiscountRupees != null && input.manualDiscountRupees > 0
-      ? { manualDiscountRupees: input.manualDiscountRupees }
+      ? {
+          manualDiscountRupees: input.manualDiscountRupees,
+          ...(input.manualDiscountMode ? { manualDiscountMode: input.manualDiscountMode } : {}),
+          ...(input.manualDiscountPercent != null && input.manualDiscountPercent > 0
+            ? { manualDiscountPercent: input.manualDiscountPercent }
+            : {}),
+        }
       : {}),
     ...(input.offerDiscountRupees != null && input.offerDiscountRupees > 0
       ? { offerDiscountRupees: input.offerDiscountRupees }
       : {}),
     ...(input.appliedOffers?.length ? { appliedOffers: input.appliedOffers } : {}),
   };
+
+  const lineDiscountRupees = resolveInvoiceLineAllocations(input.cart, {
+    showLineHints:
+      (input.offerDiscountRupees ?? 0) > 0 || input.manualDiscountMode === "percent",
+    totalDiscountRupees: pricing.discountRupees,
+    manualDiscountRupees: input.manualDiscountRupees,
+    manualDiscountMode: input.manualDiscountMode,
+    offerLineDiscountRupees: input.offerLineDiscountRupees,
+  })?.map((line) => line.lineDiscountRupees);
+
+  if (lineDiscountRupees?.length) {
+    stored.lineDiscountRupees = lineDiscountRupees;
+  }
 
   return {
     orgName: input.orgName,

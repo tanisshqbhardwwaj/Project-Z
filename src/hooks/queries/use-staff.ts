@@ -11,7 +11,8 @@ export type StaffCommissionType =
   | "NONE"
   | "PERCENT"
   | "FIXED_PER_SALE"
-  | "FIXED_PER_ITEM";
+  | "FIXED_PER_ITEM"
+  | "FIXED_MONTHLY";
 
 export type StaffMember = {
   id: string;
@@ -28,6 +29,8 @@ export type StaffMember = {
   commissionType: StaffCommissionType;
   commissionPercent: number | null;
   commissionAmountPaise: string | null;
+  accessJson?: unknown;
+  cashierCode?: string | null;
   status: "ACTIVE" | "LEFT";
   joinedAt: string | null;
   notes: string | null;

@@ -14,6 +14,8 @@ import {
   receiveStock,
 } from "@/services/shop.service";
 import { csvRowsToImport, parseCsvText } from "@/lib/shop/inventory-bulk-csv";
+import { prisma } from "@/lib/db/prisma";
+import { resolveShopBusinessTypes } from "@/lib/org/shop-settings";
 
 const bulkImportSchema = z.object({
   action: z.literal("bulk-import"),
@@ -80,10 +82,17 @@ export async function POST(request: Request) {
         );
       }
 
+      const org = await prisma.organization.findUniqueOrThrow({
+        where: { id: ctx.organizationId },
+        select: { shopSector: true, settings: true },
+      });
+      const businessTypes = resolveShopBusinessTypes(org.settings, org.shopSector);
+
       const result = await bulkImportInventoryItems({
         organizationId: ctx.organizationId,
         userId: ctx.userId,
         items,
+        businessTypes,
       });
 
       return apiSuccess({

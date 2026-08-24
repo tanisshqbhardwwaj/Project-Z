@@ -35,6 +35,8 @@ export type OfferPreviewResult = {
   requiresSelection: boolean;
   offerDiscountRupees: number;
   offerDetails: { offerId: string; name: string; discountRupees: number }[];
+  /** Per cart line — discount from the selected offer only. */
+  lineDiscountRupees?: number[];
 };
 
 function parseJsonStringArray(raw: unknown): string[] {
@@ -105,96 +107,135 @@ function bogoFreeUnits(qty: number, buyQuantity: number, getQuantity: number) {
   return sets * getQuantity;
 }
 
-/** Discount for exactly ONE offer on this cart (no stacking with other offers). */
-export function evaluateSingleOffer(offer: ActiveOffer, items: OfferCartLine[]): number {
-  if (items.length === 0) return 0;
-  if (!isBogo(offer.discountType) && offer.discountValue <= 0) return 0;
+function proportionalLineDiscounts(
+  items: OfferCartLine[],
+  totalDiscountRupees: number
+): number[] {
+  const discount = round2(Math.max(0, totalDiscountRupees));
+  const lineSubs = items.map((line) => round2(line.qty * line.priceRupees));
+  const subtotal = round2(lineSubs.reduce((s, n) => s + n, 0));
+  if (discount <= 0 || subtotal <= 0) return items.map(() => 0);
+
+  let allocated = 0;
+  return lineSubs.map((lineSub, index) => {
+    const isLast = index === lineSubs.length - 1;
+    const share = isLast
+      ? round2(Math.min(lineSub, discount - allocated))
+      : round2(Math.min(lineSub, (lineSub / subtotal) * discount));
+    allocated = round2(allocated + share);
+    return share;
+  });
+}
+
+/** Per-line discount for one offer — zero on lines the offer does not touch. */
+export function evaluateSingleOfferLineDiscounts(
+  offer: ActiveOffer,
+  items: OfferCartLine[]
+): number[] {
+  const result = items.map(() => 0);
+  if (items.length === 0) return result;
+  if (!isBogo(offer.discountType) && offer.discountValue <= 0) return result;
 
   const subtotal = cartSubtotal(items);
   const subtotalPaise = Math.round(subtotal * 100);
-
   const percent = Math.min(offer.discountValue, 100);
 
   switch (offer.discountType) {
     case "PERCENT":
-      return round2((subtotal * percent) / 100);
+      for (let i = 0; i < items.length; i++) {
+        const lineSub = items[i]!.qty * items[i]!.priceRupees;
+        result[i] = round2((lineSub * percent) / 100);
+      }
+      return result;
     case "FIXED_AMOUNT":
-      return round2(Math.min(subtotal, offer.discountValue));
+      return proportionalLineDiscounts(items, Math.min(subtotal, offer.discountValue));
     case "CART_MIN_FLAT":
       if (
         offer.minPurchasePaise != null &&
         subtotalPaise >= Number(offer.minPurchasePaise)
       ) {
-        return round2(Math.min(subtotal, offer.discountValue));
+        return proportionalLineDiscounts(
+          items,
+          Math.min(subtotal, offer.discountValue)
+        );
       }
-      return 0;
+      return result;
     case "PRODUCT_PERCENT":
     case "PRODUCT_FIXED": {
-      let total = 0;
-      for (const line of items) {
+      for (let i = 0; i < items.length; i++) {
+        const line = items[i]!;
         if (!line.inventoryItemId || !offer.productIds.includes(line.inventoryItemId)) {
           continue;
         }
         if (offer.minQuantity && line.qty < offer.minQuantity) continue;
         const lineSub = line.qty * line.priceRupees;
-        total +=
+        result[i] =
           offer.discountType === "PRODUCT_PERCENT"
-            ? (lineSub * percent) / 100
-            : Math.min(lineSub, offer.discountValue * line.qty);
+            ? round2((lineSub * percent) / 100)
+            : round2(Math.min(lineSub, offer.discountValue * line.qty));
       }
-      return round2(total);
+      return result;
     }
     case "CATEGORY_PERCENT":
     case "CATEGORY_FIXED": {
-      let total = 0;
-      for (const line of items) {
+      for (let i = 0; i < items.length; i++) {
+        const line = items[i]!;
         if (!line.categoryKey || !offer.categoryKeys.includes(line.categoryKey)) {
           continue;
         }
         if (offer.minQuantity && line.qty < offer.minQuantity) continue;
         const lineSub = line.qty * line.priceRupees;
-        total +=
+        result[i] =
           offer.discountType === "CATEGORY_PERCENT"
-            ? (lineSub * percent) / 100
-            : Math.min(lineSub, offer.discountValue * line.qty);
+            ? round2((lineSub * percent) / 100)
+            : round2(Math.min(lineSub, offer.discountValue * line.qty));
       }
-      return round2(total);
+      return result;
     }
     case "BUY_X_GET_X": {
-      if (!offer.buyQuantity || !offer.getQuantity) return 0;
-      let total = 0;
-      for (const line of items) {
+      if (!offer.buyQuantity || !offer.getQuantity) return result;
+      for (let i = 0; i < items.length; i++) {
+        const line = items[i]!;
         if (!line.inventoryItemId || !offer.productIds.includes(line.inventoryItemId)) {
           continue;
         }
         const freeQty = bogoFreeUnits(line.qty, offer.buyQuantity, offer.getQuantity);
-        total += freeQty * line.priceRupees;
+        result[i] = round2(freeQty * line.priceRupees);
       }
-      return round2(total);
+      return result;
     }
     case "BUY_X_GET_Y": {
-      if (!offer.buyQuantity || !offer.getQuantity) return 0;
-      const matching = items.filter(
-        (l) => l.inventoryItemId && offer.productIds.includes(l.inventoryItemId)
-      );
-      const totalQty = matching.reduce((s, l) => s + l.qty, 0);
+      if (!offer.buyQuantity || !offer.getQuantity) return result;
+      const indexed = items
+        .map((line, index) => ({ line, index }))
+        .filter(
+          ({ line }) =>
+            line.inventoryItemId && offer.productIds.includes(line.inventoryItemId)
+        );
+      const totalQty = indexed.reduce((s, { line }) => s + line.qty, 0);
       let freeUnits = bogoFreeUnits(totalQty, offer.buyQuantity, offer.getQuantity);
-      if (freeUnits <= 0) return 0;
+      if (freeUnits <= 0) return result;
 
-      // Cheapest matching units are the free ones, as most POS systems do.
-      const cheapestFirst = [...matching].sort((a, b) => a.priceRupees - b.priceRupees);
-      let total = 0;
-      for (const line of cheapestFirst) {
+      const cheapestFirst = [...indexed].sort(
+        (a, b) => a.line.priceRupees - b.line.priceRupees
+      );
+      for (const { line, index } of cheapestFirst) {
         if (freeUnits <= 0) break;
         const take = Math.min(freeUnits, line.qty);
-        total += take * line.priceRupees;
+        result[index] = round2(result[index]! + take * line.priceRupees);
         freeUnits -= take;
       }
-      return round2(total);
+      return result;
     }
     default:
-      return 0;
+      return result;
   }
+}
+
+/** Discount for exactly ONE offer on this cart (no stacking with other offers). */
+export function evaluateSingleOffer(offer: ActiveOffer, items: OfferCartLine[]): number {
+  const lines = evaluateSingleOfferLineDiscounts(offer, items);
+  return round2(lines.reduce((s, n) => s + n, 0));
 }
 
 /** All offers that apply to this cart, sorted best savings first. */
@@ -278,13 +319,18 @@ export function resolveOfferPreview(
   }
 
   const selected = applicableOffers.find((o) => o.offerId === resolvedId)!;
-  const discountRupees = round2(Math.min(selected.discountRupees, subtotal));
+  const selectedOffer = offers.find((o) => o.id === resolvedId)!;
+  const lineDiscountRupees = evaluateSingleOfferLineDiscounts(selectedOffer, items);
+  const discountRupees = round2(
+    Math.min(lineDiscountRupees.reduce((s, n) => s + n, 0), subtotal)
+  );
 
   return {
     applicableOffers,
     selectedOfferId: resolvedId,
     requiresSelection: false,
     offerDiscountRupees: discountRupees,
+    lineDiscountRupees,
     offerDetails: [
       {
         offerId: selected.offerId,

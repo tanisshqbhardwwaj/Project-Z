@@ -31,12 +31,16 @@ export type ShopInvoiceSettings = {
   printMarginMm?: number;
   /** Suggested copy count (browser dialog may still ask). Default 1. */
   defaultCopies?: number;
+  /** When false, show whole rupees only and skip bill round-off. Default true. */
+  useDecimalPlaces?: boolean;
 };
 
 export type ShopOrgSettings = {
   brandName?: string;
   logoUrl?: string | null;
   nextBillSeq?: number;
+  /** Bill sequence counter keyed by fiscal year label, e.g. { "26-27": 18 }. */
+  billSeqByFy?: Record<string, number>;
   /**
    * Every business type this shop sells in. The `Organization.shopSector` column
    * stays the primary type for back-compat; this list drives category choices
@@ -85,6 +89,7 @@ export type ResolvedInvoiceTemplate = {
   paperSize: InvoicePaperSize;
   printMarginMm: number;
   defaultCopies: number;
+  useDecimalPlaces: boolean;
 };
 
 export const DEFAULT_INVOICE_SETTINGS: Required<
@@ -106,6 +111,7 @@ export const DEFAULT_INVOICE_SETTINGS: Required<
     | "paperSize"
     | "printMarginMm"
     | "defaultCopies"
+    | "useDecimalPlaces"
   >
 > = {
   headerTitle: "Tax Invoice / Retail Bill",
@@ -124,6 +130,7 @@ export const DEFAULT_INVOICE_SETTINGS: Required<
   paperSize: "80mm",
   printMarginMm: 0,
   defaultCopies: 1,
+  useDecimalPlaces: true,
 };
 
 const INVOICE_PAPER_SIZES: InvoicePaperSize[] = ["58mm", "80mm", "A4"];
@@ -196,6 +203,8 @@ export function parseShopInvoiceSettings(settings: unknown): ShopInvoiceSettings
       i.defaultCopies <= 5
         ? Math.round(i.defaultCopies)
         : undefined,
+    useDecimalPlaces:
+      typeof i.useDecimalPlaces === "boolean" ? i.useDecimalPlaces : undefined,
   };
 }
 
@@ -302,6 +311,8 @@ export function resolveShopInvoiceTemplate(
         invoice.paperSize ?? DEFAULT_INVOICE_SETTINGS.paperSize
       ),
     defaultCopies: invoice.defaultCopies ?? DEFAULT_INVOICE_SETTINGS.defaultCopies,
+    useDecimalPlaces:
+      invoice.useDecimalPlaces ?? DEFAULT_INVOICE_SETTINGS.useDecimalPlaces,
   };
 }
 

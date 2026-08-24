@@ -177,6 +177,7 @@ enum StaffCommissionType {
   PERCENT
   FIXED_PER_SALE
   FIXED_PER_ITEM
+  FIXED_MONTHLY
 }
 
 enum RecurringOccurrenceStatus {
@@ -608,6 +609,8 @@ model StaffMember {
   phone              String?
   email              String?
   roleKey            String?
+  /** Short code embedded in bill numbers, e.g. 4 → INV-4-26-27-00018 */
+  cashierCode        String?
   roleTitle          String
   wagePaise          BigInt?
   wagePeriod         String?
@@ -616,6 +619,8 @@ model StaffMember {
   commissionType     StaffCommissionType @default(NONE)
   commissionPercent  Float?
   commissionAmountPaise BigInt?
+  /** Owner-set login capabilities for linked cashiers (JSON). */
+  accessJson         Json                @default("{}")
   status             StaffStatus @default(ACTIVE)
   joinedAt           DateTime?
   leftAt             DateTime?
@@ -635,6 +640,7 @@ model StaffMember {
   returns      ShopSaleReturn[]  @relation("ShopReturnStaff")
 
   @@unique([organizationId, userId])
+  @@unique([organizationId, cashierCode])
   @@index([organizationId, status])
   @@index([userId])
 }

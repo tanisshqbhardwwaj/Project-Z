@@ -176,6 +176,21 @@ export async function acceptInvite(token: string, userId: string) {
     });
   });
 
+  const staffByEmail = await prisma.staffMember.findFirst({
+    where: {
+      organizationId: invite.organizationId,
+      email: invite.email.toLowerCase(),
+      userId: null,
+      status: "ACTIVE",
+    },
+  });
+  if (staffByEmail) {
+    await prisma.staffMember.update({
+      where: { id: staffByEmail.id },
+      data: { userId },
+    });
+  }
+
   return { member, organization: invite.organization };
 }
 

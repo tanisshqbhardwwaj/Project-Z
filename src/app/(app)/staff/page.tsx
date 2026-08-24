@@ -22,6 +22,7 @@ import {
   type StaffProfileValues,
 } from "@/components/staff/staff-profile-dialog";
 import { Pencil, Search, UserPlus, UsersRound } from "lucide-react";
+import { parseStaffAccess } from "@/lib/staff/access";
 import {
   Dialog,
   DialogContent,
@@ -382,12 +383,14 @@ export default function StaffHubPage() {
   function openStaffProfile(staff: StaffMember) {
     clear();
     setProfileTarget(staff);
+    const access = parseStaffAccess(staff.accessJson);
     setProfileInitial({
       name: staff.name,
       phone: staff.phone ?? "",
       email: staff.email ?? "",
       roleKey: staff.roleKey ?? "CUSTOM",
       roleTitle: staff.roleTitle,
+      cashierCode: staff.cashierCode ?? "",
       wageRupees: staff.wagePaise
         ? String(paiseToRupees(BigInt(staff.wagePaise)))
         : "",
@@ -409,6 +412,7 @@ export default function StaffHubPage() {
         : new Date().toISOString().slice(0, 10),
       status: staff.status,
       notes: staff.notes ?? "",
+      ...access,
     });
     setProfileOpen(true);
   }
@@ -421,6 +425,7 @@ export default function StaffHubPage() {
       email: values.email.trim() || null,
       roleKey: values.roleKey,
       roleTitle: values.roleTitle.trim(),
+      cashierCode: values.cashierCode.trim() || null,
       wageRupees: values.wageRupees ? Number(values.wageRupees) : null,
       wagePeriod: values.wagePeriod,
       paymentFrequency: values.paymentFrequency,
@@ -434,11 +439,20 @@ export default function StaffHubPage() {
           : null,
       commissionAmountRupees:
         values.commissionType === "FIXED_PER_SALE" ||
-        values.commissionType === "FIXED_PER_ITEM"
+        values.commissionType === "FIXED_PER_ITEM" ||
+        values.commissionType === "FIXED_MONTHLY"
           ? Number(values.commissionAmountRupees)
           : null,
       joinedAt: values.joinedAt || null,
       notes: values.notes.trim() || null,
+      access: values.email.trim()
+        ? {
+            canBill: values.canBill,
+            canProcessReturns: values.canProcessReturns,
+            canViewOwnAttendance: values.canViewOwnAttendance,
+            canViewOwnSales: values.canViewOwnSales,
+          }
+        : undefined,
     };
 
     try {
@@ -1396,6 +1410,7 @@ export default function StaffHubPage() {
         }
         errorMessage={error}
         onSubmit={saveStaffProfile}
+        showAccessToggles={Boolean(canManageStaff)}
       />
 
       {canPayroll && (

@@ -2,17 +2,23 @@ import { NextResponse } from "next/server";
 import {
   getAuthContext,
   handleApi,
-  requirePermission,
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { processReturnSchema } from "@/lib/validation/shop-return";
 import { listSaleReturns, processReturn } from "@/services/shop-return.service";
+import {
+  ownSalesStaffScope,
+  requireShopReturns,
+} from "@/lib/staff/shop-access";
 
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "shop.sales");
+    const staffScope = await ownSalesStaffScope(ctx).catch(() => null);
+    if (staffScope === null) {
+      await requireShopReturns(ctx);
+    }
     const { searchParams } = new URL(request.url);
     const shopSaleId = searchParams.get("shopSaleId") ?? undefined;
     const type = searchParams.get("type");
@@ -22,6 +28,7 @@ export async function GET(request: Request) {
       type: type === "RETURN" || type === "EXCHANGE" ? type : undefined,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
+      staffId: staffScope ?? undefined,
     });
     return apiSuccess(serializeBigInt(rows));
   });
@@ -30,7 +37,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "shop.sales");
+    await requireShopReturns(ctx);
     const data = processReturnSchema.parse(await request.json());
     const row = await processReturn({
       organizationId: ctx.organizationId,

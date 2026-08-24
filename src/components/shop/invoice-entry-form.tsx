@@ -7,6 +7,7 @@ import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
@@ -31,10 +32,14 @@ import {
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import {
   computeInvoicePricing,
+  formatInvoiceMoney,
+  formatLineDiscountHint,
+  resolveInvoiceLineAllocations,
+  shouldShowLineDiscountHints,
 } from "@/lib/shop/invoice-pricing";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { Banknote, CreditCard, PauseCircle, Plus, Printer, Receipt, ScanLine, Smartphone, Tag, Trash2 } from "lucide-react";
+import { Banknote, CreditCard, PauseCircle, Plus, Printer, Receipt, ScanLine, Smartphone, Tag } from "lucide-react";
 import Link from "next/link";
 import { OfferPickerDialog } from "@/components/shop/offer-picker-dialog";
 import {
@@ -459,6 +464,7 @@ export function InvoiceEntryForm({
         selectedOfferId: string | null;
         requiresSelection: boolean;
         offerDiscountRupees: number;
+        lineDiscountRupees?: number[];
         offerDetails: { offerId: string; name: string; discountRupees: number }[];
       }>("/api/v1/shop/offers/preview", {
         method: "POST",
@@ -567,6 +573,7 @@ export function InvoiceEntryForm({
           taxRatePercent: Number(taxRatePercent) || 0,
           taxIncluded,
           discountBasis: invoiceTemplate.discountBasis,
+          useDecimalPlaces: invoiceTemplate.useDecimalPlaces,
         }),
       };
     },
@@ -578,12 +585,31 @@ export function InvoiceEntryForm({
       taxRatePercent,
       taxIncluded,
       invoiceTemplate.discountBasis,
+      invoiceTemplate.useDecimalPlaces,
       offerDiscountRupees,
     ]
   );
 
-  const cartTotal = pricing.totalRupees;
+  const lineDiscountMode = shouldShowLineDiscountHints(null, discountMode, offerDiscountRupees);
   const manualDiscountRupees = pricing.manualDiscountRupees;
+  const cartLineAllocations = useMemo(() => {
+    return resolveInvoiceLineAllocations(cart, {
+      showLineHints: lineDiscountMode,
+      totalDiscountRupees: pricing.discountRupees,
+      manualDiscountRupees,
+      manualDiscountMode: discountMode,
+      offerLineDiscountRupees: offerPreviewQuery.data?.lineDiscountRupees,
+    });
+  }, [
+    cart,
+    lineDiscountMode,
+    pricing.discountRupees,
+    manualDiscountRupees,
+    discountMode,
+    offerPreviewQuery.data?.lineDiscountRupees,
+  ]);
+
+  const cartTotal = pricing.totalRupees;
 
   useEffect(() => {
     onDraftChange(
@@ -600,6 +626,10 @@ export function InvoiceEntryForm({
         manualDiscountRupees,
         offerDiscountRupees,
         appliedOffers: offerPreviewQuery.data?.offerDetails,
+        offerLineDiscountRupees: offerPreviewQuery.data?.lineDiscountRupees,
+        manualDiscountMode: discountMode,
+        manualDiscountPercent:
+          discountMode === "percent" ? Number(discountPercent) || 0 : undefined,
       })
     );
   }, [
@@ -616,6 +646,9 @@ export function InvoiceEntryForm({
     manualDiscountRupees,
     offerDiscountRupees,
     offerPreviewQuery.data?.offerDetails,
+    offerPreviewQuery.data?.lineDiscountRupees,
+    discountMode,
+    discountPercent,
   ]);
 
   function checkStock(
@@ -1119,7 +1152,19 @@ export function InvoiceEntryForm({
                     </tr>
                   </thead>
                   <tbody>
-                    {cart.map((line) => (
+                    {cart.map((line, idx) => {
+                      const allocated = cartLineAllocations?.[idx];
+                      const hasLineDiscount =
+                        allocated != null && allocated.lineDiscountRupees > 0.004;
+                      const unitRate = line.priceRupees;
+                      const amount = hasLineDiscount
+                        ? allocated.discountedLineRupees
+                        : lineTotal(line);
+                      const hint = hasLineDiscount
+                        ? formatLineDiscountHint(allocated, invoiceTemplate)
+                        : null;
+                      const fmt = (n: number) => formatInvoiceMoney(n, invoiceTemplate);
+                      return (
                       <tr key={line.id} className="border-b last:border-0">
                         <td className="max-w-[8rem] px-3 py-2 break-words sm:max-w-none">
                           <span className="block">{line.name}</span>
@@ -1128,6 +1173,9 @@ export function InvoiceEntryForm({
                               {saleLineVariantSubtitle(line)}
                             </span>
                           ) : null}
+                          {hint ? (
+                            <span className="mt-0.5 block text-xs text-emerald-700">{hint}</span>
+                          ) : null}
                           {line.barcode ? (
                             <code className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
                               {line.barcode}
@@ -1135,25 +1183,20 @@ export function InvoiceEntryForm({
                           ) : null}
                         </td>
                         <td className="px-3 py-2 tabular-nums">{line.qty}</td>
-                        <td className="px-3 py-2 tabular-nums">
-                          ₹{line.priceRupees.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          ₹{lineTotal(line).toFixed(2)}
-                        </td>
+                        <td className="px-3 py-2 tabular-nums">{fmt(unitRate)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{fmt(amount)}</td>
                         <td className="px-2 py-2">
-                          <button
-                            type="button"
+                          <DeleteIconButton
+                            variant="ghost"
                             onClick={() =>
                               setCart((prev) => prev.filter((l) => l.id !== line.id))
                             }
-                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                            aria-label={`Remove ${line.name}`}
+                          />
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1362,7 +1405,9 @@ export function InvoiceEntryForm({
                     <div className="flex justify-between text-emerald-700">
                       <span>
                         Discount
-                        {pricing.discountPercent > 0 ? ` (${pricing.discountPercent}%)` : ""}
+                        {discountMode === "percent" && Number(discountPercent) > 0
+                          ? ` (${discountPercent}%)`
+                          : ""}
                       </span>
                       <span className="tabular-nums">− ₹{pricing.discountRupees.toFixed(2)}</span>
                     </div>
@@ -1404,15 +1449,19 @@ export function InvoiceEntryForm({
               <div className="flex justify-between text-emerald-700">
                 <span>
                   Discount
-                  {pricing.discountPercent > 0 ? ` (${pricing.discountPercent}%)` : ""}
+                  {discountMode === "percent" && Number(discountPercent) > 0
+                    ? ` (${discountPercent}%)`
+                    : ""}
                 </span>
                 <span className="tabular-nums">− ₹{pricing.discountRupees.toFixed(2)}</span>
               </div>
             ) : null}
-            {pricing.roundOffRupees < 0 ? (
+            {invoiceTemplate.useDecimalPlaces && pricing.roundOffRupees < -0.004 ? (
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Round off</span>
-                <span className="tabular-nums">− ₹{Math.abs(pricing.roundOffRupees).toFixed(2)}</span>
+                <span className="tabular-nums">
+                  − {formatInvoiceMoney(Math.abs(pricing.roundOffRupees), invoiceTemplate)}
+                </span>
               </div>
             ) : null}
             <div className="flex justify-between border-t pt-2 text-base font-bold">

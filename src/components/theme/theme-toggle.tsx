@@ -1,33 +1,50 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Moon, Sun } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Laptop, Moon, Sun } from "lucide-react";
 import {
+  cycleThemePreference,
+  getThemePreferenceServerSnapshot,
+  getThemePreferenceSnapshot,
   getThemeServerSnapshot,
   getThemeSnapshot,
   subscribeTheme,
-  toggleTheme,
 } from "@/lib/theme/theme";
+import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
-  const theme = useSyncExternalStore(
+const PREFERENCE_LABEL = {
+  light: "Light",
+  dark: "Dark",
+  system: "System",
+} as const;
+
+export function ThemeToggle({ className }: { className?: string }) {
+  const preference = useSyncExternalStore(
+    subscribeTheme,
+    getThemePreferenceSnapshot,
+    getThemePreferenceServerSnapshot
+  );
+  const resolved = useSyncExternalStore(
     subscribeTheme,
     getThemeSnapshot,
     getThemeServerSnapshot
   );
 
-  const isDark = theme === "dark";
+  const Icon =
+    preference === "system" ? Laptop : resolved === "dark" ? Moon : Sun;
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="shrink-0"
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      onClick={() => toggleTheme()}
+    <button
+      type="button"
+      aria-label={`Appearance: ${PREFERENCE_LABEL[preference]}. Click to switch`}
+      title={`Appearance: ${PREFERENCE_LABEL[preference]}`}
+      onClick={() => cycleThemePreference()}
+      className={cn(
+        "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground sm:h-11 sm:w-11",
+        className
+      )}
     >
-      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-    </Button>
+      <Icon className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
+    </button>
   );
 }

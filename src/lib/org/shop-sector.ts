@@ -306,3 +306,87 @@ export function variantsExpectedForSectors(
 ): boolean {
   return sectors.some((s) => getShopSectorConfig(s).variantsByDefault === true);
 }
+
+/** Whether any selected type uses the apparel size/colour matrix. */
+export function usesSizeColorMatrix(
+  sectors: readonly (ShopSector | string)[]
+): boolean {
+  return sectors.some((s) =>
+    getShopSectorConfig(s).capabilities.includes("size_color_matrix")
+  );
+}
+
+/** Default variant axis label for new products (e.g. size, pack, model). */
+export function defaultVariantAxisForSectors(
+  sectors: readonly (ShopSector | string)[]
+): string {
+  if (usesSizeColorMatrix(sectors)) return "size";
+  if (sectors.some((s) => getShopSectorConfig(s).capabilities.includes("weight_units")))
+    return "pack";
+  if (sectors.some((s) => getShopSectorConfig(s).capabilities.includes("serial_tracking")))
+    return "model";
+  return "variant";
+}
+
+/** Human-readable label for a variant axis key. */
+export function variantAxisLabel(axis: string | null | undefined): string {
+  const key = (axis ?? "variant").trim().toLowerCase();
+  const labels: Record<string, string> = {
+    size: "Size",
+    color: "Colour",
+    colour: "Colour",
+    pack: "Pack",
+    variant: "Variant",
+    model: "Model",
+    weight: "Weight",
+    volume: "Volume",
+  };
+  return labels[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+export type SizePreset = { label: string; sizes: string[] };
+
+/** Quick-add presets tailored to the shop's business types. */
+export function sizePresetsForSectors(
+  sectors: readonly (ShopSector | string)[]
+): SizePreset[] {
+  if (usesSizeColorMatrix(sectors)) {
+    return [
+      { label: "Apparel S–XXL", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { label: "Apparel XS–3XL", sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"] },
+      { label: "Waist 28–40", sizes: ["28", "30", "32", "34", "36", "38", "40"] },
+      { label: "Shoes 6–11", sizes: ["6", "7", "8", "9", "10", "11"] },
+      { label: "Kids 2–12y", sizes: ["2y", "4y", "6y", "8y", "10y", "12y"] },
+    ];
+  }
+  if (sectors.some((s) => s === "GROCERY" || s === "PHARMACY")) {
+    return [
+      { label: "Weight packs", sizes: ["250g", "500g", "1kg", "2kg", "5kg"] },
+      { label: "Volume", sizes: ["100ml", "250ml", "500ml", "1L"] },
+    ];
+  }
+  if (sectors.some((s) => s === "HARDWARE" || s === "FURNITURE")) {
+    return [
+      { label: "Dimensions", sizes: ["Small", "Medium", "Large"] },
+      { label: "Length ft", sizes: ["4ft", "6ft", "8ft", "10ft"] },
+    ];
+  }
+  if (sectors.some((s) => s === "ELECTRONICS")) {
+    return [
+      { label: "Storage", sizes: ["64GB", "128GB", "256GB", "512GB"] },
+      { label: "Screen", sizes: ['5.5"', '6.1"', '6.7"'] },
+    ];
+  }
+  return [{ label: "Common options", sizes: ["Small", "Medium", "Large", "Standard"] }];
+}
+
+/** Union of capability flags across selected business types. */
+export function capabilitiesForSectors(
+  sectors: readonly (ShopSector | string)[]
+): string[] {
+  const caps = new Set<string>();
+  for (const sector of sectors) {
+    for (const c of getShopSectorConfig(sector).capabilities) caps.add(c);
+  }
+  return [...caps];
+}

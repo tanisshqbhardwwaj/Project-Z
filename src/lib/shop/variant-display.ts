@@ -1,12 +1,8 @@
 /**
  * Single source of truth for how an inventory variant is written out.
- *
- * Rule: never identify a variant by the parent product name alone. Every product
- * selector, receipt line, report row and search index in the app funnels through
- * these helpers so a shop selling "T-Shirt — Black" in S/M/L can always tell the
- * three apart. Products that have no variant attributes render as just the name,
- * with no empty "Size: —" noise.
  */
+
+import { variantAxisLabel } from "@/lib/org/shop-sector";
 
 export type VariantDescriptor = {
   /** Variant row name (usually the same as the parent product name). */
@@ -21,6 +17,8 @@ export type VariantDescriptor = {
   sku?: string | null;
   barcode?: string | null;
   unit?: string | null;
+  /** What the variants vary by — e.g. size, pack, model. */
+  variantAxis?: string | null;
   /** Extra business-type attributes (material, model, weight, …). */
   attributes?: unknown;
 };
@@ -82,6 +80,13 @@ export function variantProductName(v: VariantDescriptor): string {
   return clean(v.productName) ?? clean(v.name) ?? "Item";
 }
 
+function formatSizePart(size: string, variantAxis?: string | null): string {
+  const axis = (variantAxis ?? "size").trim().toLowerCase();
+  if (axis === "size") return `Size ${size}`;
+  const label = attributeLabel(axis);
+  return `${label} ${size}`;
+}
+
 /**
  * Variant-distinguishing parts, in display order. Empty when the product has no
  * variant attributes at all.
@@ -96,7 +101,7 @@ export function variantParts(v: VariantDescriptor): string[] {
   if (label) {
     parts.push(label);
   } else if (size) {
-    parts.push(`Size ${size}`);
+    parts.push(formatSizePart(size, v.variantAxis));
   }
 
   return parts;
@@ -160,7 +165,13 @@ export function variantAttributeChips(v: VariantDescriptor): VariantAttribute[] 
   const brand = clean(v.brand);
   const sku = clean(v.sku);
   if (brand) chips.push({ label: "Brand", value: brand });
-  if (size) chips.push({ label: "Size", value: size });
+  if (size) {
+    const axis = (v.variantAxis ?? "size").trim().toLowerCase();
+    chips.push({
+      label: axis === "size" ? "Size" : variantAxisLabel(axis),
+      value: size,
+    });
+  }
   if (color) chips.push({ label: "Colour", value: color });
   if (sku) chips.push({ label: "SKU", value: sku });
   chips.push(...readAttributes(v.attributes));

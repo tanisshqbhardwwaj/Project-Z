@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
@@ -32,7 +33,6 @@ import {
   Check,
   RotateCcw,
   Repeat,
-  Trash2,
 } from "lucide-react";
 
 type ReturnableLine = {
@@ -585,18 +585,15 @@ export function ReturnExchangeWizard({
                             }
                             className="h-9 w-24 rounded-lg"
                           />
-                          <button
-                            type="button"
+                          <DeleteIconButton
+                            variant="ghost"
                             onClick={() =>
                               setReplacements((prev) =>
                                 prev.filter((r) => r.rowId !== line.rowId)
                               )
                             }
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`Remove ${line.displayName}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          />
                         </div>
                       </li>
                     ))}

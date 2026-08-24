@@ -52,6 +52,12 @@ const COMMISSION_TYPES = [
     hint: "Flat amount per item sold",
     icon: ShoppingBag,
   },
+  {
+    key: "FIXED_MONTHLY",
+    label: "Fixed monthly",
+    hint: "Flat amount every payroll month",
+    icon: Receipt,
+  },
 ] as const;
 
 export type CommissionType = (typeof COMMISSION_TYPES)[number]["key"];
@@ -62,6 +68,7 @@ export type StaffProfileValues = {
   email: string;
   roleKey: string;
   roleTitle: string;
+  cashierCode: string;
   wageRupees: string;
   wagePeriod: "DAILY" | "MONTHLY";
   paymentFrequency: "DAILY" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
@@ -72,6 +79,10 @@ export type StaffProfileValues = {
   joinedAt: string;
   status: "ACTIVE" | "LEFT";
   notes: string;
+  canBill: boolean;
+  canProcessReturns: boolean;
+  canViewOwnAttendance: boolean;
+  canViewOwnSales: boolean;
 };
 
 export function emptyStaffProfile(): StaffProfileValues {
@@ -81,6 +92,7 @@ export function emptyStaffProfile(): StaffProfileValues {
     email: "",
     roleKey: "SALES_STAFF",
     roleTitle: "Sales Staff",
+    cashierCode: "",
     wageRupees: "",
     wagePeriod: "MONTHLY",
     paymentFrequency: "MONTHLY",
@@ -91,6 +103,10 @@ export function emptyStaffProfile(): StaffProfileValues {
     joinedAt: new Date().toISOString().slice(0, 10),
     status: "ACTIVE",
     notes: "",
+    canBill: false,
+    canProcessReturns: false,
+    canViewOwnAttendance: false,
+    canViewOwnSales: false,
   };
 }
 
@@ -107,6 +123,7 @@ export function StaffProfileDialog({
   submitting,
   errorMessage,
   onSubmit,
+  showAccessToggles = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -115,6 +132,8 @@ export function StaffProfileDialog({
   submitting: boolean;
   errorMessage?: string | null;
   onSubmit: (values: StaffProfileValues) => Promise<void> | void;
+  /** Owner-only: login permissions when an email is set. */
+  showAccessToggles?: boolean;
 }) {
   // The parent remounts this dialog per person via a `key`, so seeding state
   // once from `initial` is enough — no effect needed to re-sync.
@@ -159,7 +178,8 @@ export function StaffProfileDialog({
     }
     if (
       values.commissionType === "FIXED_PER_SALE" ||
-      values.commissionType === "FIXED_PER_ITEM"
+      values.commissionType === "FIXED_PER_ITEM" ||
+      values.commissionType === "FIXED_MONTHLY"
     ) {
       const amount = Number(values.commissionAmountRupees);
       if (!Number.isFinite(amount) || amount <= 0) {
@@ -255,6 +275,21 @@ export function StaffProfileDialog({
                   placeholder="e.g. Floor Supervisor"
                   required
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cashier code</Label>
+                <Input
+                  value={values.cashierCode}
+                  onChange={(e) =>
+                    set("cashierCode", e.target.value.toUpperCase())
+                  }
+                  className="h-11 rounded-xl font-mono uppercase"
+                  placeholder="e.g. 4"
+                  maxLength={10}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used in bill numbers: INV-{values.cashierCode || "4"}-26-27-00018
+                </p>
               </div>
             </div>
           </section>
@@ -372,12 +407,17 @@ export function StaffProfileDialog({
             ) : null}
 
             {values.commissionType === "FIXED_PER_SALE" ||
-            values.commissionType === "FIXED_PER_ITEM" ? (
+            values.commissionType === "FIXED_PER_ITEM" ||
+            values.commissionType === "FIXED_MONTHLY" ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>
-                    Amount ₹ per{" "}
-                    {values.commissionType === "FIXED_PER_SALE" ? "sale" : "item"}
+                    Amount ₹{" "}
+                    {values.commissionType === "FIXED_PER_SALE"
+                      ? "per sale"
+                      : values.commissionType === "FIXED_PER_ITEM"
+                        ? "per item"
+                        : "per month"}
                   </Label>
                   <Input
                     type="number"
@@ -386,7 +426,7 @@ export function StaffProfileDialog({
                     value={values.commissionAmountRupees}
                     onChange={(e) => set("commissionAmountRupees", e.target.value)}
                     className="h-11 rounded-xl"
-                    placeholder="25"
+                    placeholder={values.commissionType === "FIXED_MONTHLY" ? "500" : "25"}
                   />
                 </div>
               </div>
@@ -400,6 +440,66 @@ export function StaffProfileDialog({
               </p>
             ) : null}
           </section>
+
+          {showAccessToggles && values.email.trim() ? (
+            <section className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Login access
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Saving sends a login invite to this email. All permissions start off — turn on only what this person needs.
+              </p>
+              <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canBill}
+                    onChange={(e) => set("canBill", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can bill</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Create invoices and use POS
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canProcessReturns}
+                    onChange={(e) => set("canProcessReturns", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can process returns and exchanges</span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canViewOwnAttendance}
+                    onChange={(e) => set("canViewOwnAttendance", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can see own daily attendance</span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canViewOwnSales}
+                    onChange={(e) => set("canViewOwnSales", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can see own personal sales</span>
+                  </span>
+                </label>
+              </div>
+            </section>
+          ) : null}
 
           <section className="space-y-3">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -470,6 +570,8 @@ export function describeCommissionType(
       return amount ? `${amount} per sale` : "Fixed per sale";
     case "FIXED_PER_ITEM":
       return amount ? `${amount} per item` : "Fixed per item";
+    case "FIXED_MONTHLY":
+      return amount ? `${amount} per month` : "Fixed monthly";
     default:
       return "No commission";
   }

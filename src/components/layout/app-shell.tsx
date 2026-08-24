@@ -14,6 +14,8 @@ import { useNavGroups, type NavItem } from "@/hooks/use-nav-items";
 import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
 import { useCommandPaletteStore } from "@/stores/command-palette-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { CashierModeBanner } from "@/components/layout/cashier-mode-banner";
+import { useCashierMode } from "@/hooks/use-cashier-mode";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
@@ -26,8 +28,8 @@ function isNavActive(pathname: string, href: string) {
   if (href === "/settings/profile") {
     return pathname.startsWith("/settings") && !pathname.startsWith("/settings/billing");
   }
-  if (href === "/dashboard") {
-    return pathname === "/dashboard" || pathname === "/";
+  if (href === "/dashboard" || href === "/cashier") {
+    return pathname === href || (href === "/dashboard" && pathname === "/");
   }
   return pathname.startsWith(href);
 }
@@ -84,6 +86,7 @@ function SidebarSection({
 export function AppSidebar() {
   const pathname = usePathname();
   const groups = useNavGroups();
+  const { active: cashierMode } = useCashierMode();
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
 
   return (
@@ -95,16 +98,31 @@ export function AppSidebar() {
     >
       <div
         className={cn(
-          "flex shrink-0 items-center border-b px-4",
+          "flex shrink-0 items-center justify-center border-b px-4",
           APP_SHELL_HEADER_HEIGHT
         )}
       >
-        <AppLogo variant="compact" />
+        <AppLogo href="/dashboard" variant="mark" />
       </div>
       <nav className="flex-1 overflow-y-auto p-3 pb-6">
-        <SidebarSection label="Core" items={groups.core} pathname={pathname} />
-        <SidebarSection label="Modules" items={groups.modules} pathname={pathname} />
-        <SidebarSection label="Tools" items={groups.tools} pathname={pathname} unreadNotifications={unreadCount} />
+        {cashierMode ? (
+          <SidebarSection
+            label="Cashier"
+            items={groups.modules}
+            pathname={pathname}
+          />
+        ) : (
+          <>
+            <SidebarSection label="Core" items={groups.core} pathname={pathname} />
+            <SidebarSection label="Modules" items={groups.modules} pathname={pathname} />
+            <SidebarSection
+              label="Tools"
+              items={groups.tools}
+              pathname={pathname}
+              unreadNotifications={unreadCount}
+            />
+          </>
+        )}
       </nav>
     </aside>
   );
@@ -113,12 +131,20 @@ export function AppSidebar() {
 function mobileNavLabel(key: string, label: string) {
   const short: Record<string, string> = {
     dashboard: "Home",
+    cashier_home: "Home",
+    cashier_bill: "Bill",
+    cashier_scan: "Scan",
+    cashier_returns: "Return",
+    cashier_my_bills: "Bills",
+    cashier_attendance: "Me",
+    cashier_profile: "Profile",
     shop_sales: "Bills",
+    shop_offers: "Offers",
     shop_inventory: "Stock",
     shop_purchases: "Buy",
     shop_expenses: "Costs",
     shop_udhaar: "Credit",
-    shop_activity: "Log",
+    shop_activity: "Trail",
     staff: "Staff",
     staff_me: "Me",
   };
@@ -280,9 +306,12 @@ export function MobileNav() {
 
 export function AppHeader({ orgName }: { userName?: string; orgName?: string }) {
   const setPaletteOpen = useCommandPaletteStore((s) => s.setOpen);
+  const { active: cashierMode } = useCashierMode();
 
   return (
-    <header
+    <>
+      <CashierModeBanner />
+      <header
       className={cn(
         "sticky top-0 z-40 flex shrink-0 items-center justify-between gap-2 border-b bg-card/95 px-3 backdrop-blur-md md:gap-3 md:px-6",
         APP_SHELL_HEADER_HEIGHT
@@ -298,7 +327,10 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
         type="button"
         onClick={() => setPaletteOpen(true)}
         aria-label="Open search"
-        className="hidden h-10 w-56 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground md:flex lg:w-64"
+        className={cn(
+          "hidden h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground md:flex lg:w-64",
+          cashierMode ? "w-44 lg:w-48" : "w-56"
+        )}
       >
         <Search className="h-4 w-4 shrink-0 opacity-70" />
         <span className="min-w-0 flex-1 truncate text-left text-muted-foreground">
@@ -317,6 +349,7 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
       </Button>
       <ThemeToggle />
     </header>
+    </>
   );
 }
 

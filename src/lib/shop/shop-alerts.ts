@@ -6,4 +6,4 @@ export const SHOP_ALERT = {
 } as const;
 
 export const SHOP_INVENTORY_ALERT_HREF = "/shop/inventory";
-export const SHOP_RECURRING_EXPENSE_ALERT_HREF = "/shop/expenses?tab=recurring";
+export const SHOP_RECURRING_EXPENSE_ALERT_HREF = "/shop/expenses?tab=add";

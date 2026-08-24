@@ -52,6 +52,8 @@ This user has signed up for the new AWS experience. This experience lets you sig
 
 You CAN update this rule file to save a user's help_level.
 
+**Saved preference for this user:** help_level = HIGH
+
 Constraints for each level:
 
 **LOW:**

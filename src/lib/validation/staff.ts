@@ -47,6 +47,7 @@ export const staffCommissionTypeSchema = z.enum([
   "PERCENT",
   "FIXED_PER_SALE",
   "FIXED_PER_ITEM",
+  "FIXED_MONTHLY",
 ]);
 
 export const createStaffSchema = z
@@ -56,6 +57,12 @@ export const createStaffSchema = z
     email: z.string().email().max(160).optional().nullable().or(z.literal("")),
     roleKey: z.enum(STAFF_ROLE_KEYS).optional().nullable(),
     roleTitle: z.string().min(1).max(80),
+    cashierCode: z
+      .string()
+      .max(10)
+      .regex(/^[A-Za-z0-9]*$/, "Use letters and numbers only")
+      .optional()
+      .nullable(),
     wageRupees: z.number().nonnegative().optional().nullable(),
     wagePeriod: z.enum(["DAILY", "MONTHLY"]).optional().nullable(),
     paymentFrequency: z
@@ -68,6 +75,14 @@ export const createStaffSchema = z
     commissionAmountRupees: z.number().min(0).optional().nullable(),
     joinedAt: dayKeySchema.optional().nullable(),
     notes: z.string().max(500).optional().nullable(),
+    access: z
+      .object({
+        canBill: z.boolean().optional(),
+        canProcessReturns: z.boolean().optional(),
+        canViewOwnAttendance: z.boolean().optional(),
+        canViewOwnSales: z.boolean().optional(),
+      })
+      .optional(),
   })
   .superRefine((data, ctx) => {
     if (data.commissionType === "PERCENT" && !data.commissionPercent) {
@@ -79,7 +94,8 @@ export const createStaffSchema = z
     }
     if (
       (data.commissionType === "FIXED_PER_SALE" ||
-        data.commissionType === "FIXED_PER_ITEM") &&
+        data.commissionType === "FIXED_PER_ITEM" ||
+        data.commissionType === "FIXED_MONTHLY") &&
       !data.commissionAmountRupees
     ) {
       ctx.addIssue({
@@ -96,6 +112,12 @@ export const updateStaffSchema = z.object({
   email: z.string().email().max(160).optional().nullable().or(z.literal("")),
   roleKey: z.enum(STAFF_ROLE_KEYS).optional().nullable(),
   roleTitle: z.string().min(1).max(80).optional(),
+  cashierCode: z
+    .string()
+    .max(10)
+    .regex(/^[A-Za-z0-9]*$/, "Use letters and numbers only")
+    .optional()
+    .nullable(),
   wageRupees: z.number().nonnegative().optional().nullable(),
   wagePeriod: z.enum(["DAILY", "MONTHLY"]).optional().nullable(),
   paymentFrequency: z
@@ -110,6 +132,14 @@ export const updateStaffSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
   status: z.enum(["ACTIVE", "LEFT"]).optional(),
   userId: z.string().uuid().nullable().optional(),
+  access: z
+    .object({
+      canBill: z.boolean().optional(),
+      canProcessReturns: z.boolean().optional(),
+      canViewOwnAttendance: z.boolean().optional(),
+      canViewOwnSales: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export const generatePayrollSchema = yearMonthQuerySchema.extend({

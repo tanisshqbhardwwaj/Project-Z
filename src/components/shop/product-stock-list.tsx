@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { PageLoader } from "@/components/ui/page-loader";
 import { formatINR } from "@/lib/finance/money";
@@ -11,6 +12,7 @@ import {
   matchesVariantSearch,
   variantSearchHaystack,
 } from "@/lib/shop/variant-display";
+import { variantSubtitle } from "@/lib/shop/variant-display";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -22,7 +24,6 @@ import {
   Plus,
   Printer,
   Search,
-  Trash2,
 } from "lucide-react";
 
 export type ProductVariantRow = {
@@ -100,6 +101,7 @@ function FilterChip({
 function VariantRow({
   variant,
   productName,
+  variantAxis,
   onAdjustQty,
   onEditVariant,
   onPrintLabel,
@@ -108,6 +110,7 @@ function VariantRow({
 }: {
   variant: ProductVariantRow;
   productName: string;
+  variantAxis?: string | null;
   onAdjustQty: (variantId: string, nextQty: number) => void;
   onEditVariant: (variant: ProductVariantRow) => void;
   onPrintLabel: (variant: ProductVariantRow) => void;
@@ -116,9 +119,12 @@ function VariantRow({
 }) {
   const qualifier =
     variant.variantLabel ??
-    [variant.color, variant.size ? `Size ${variant.size}` : null]
-      .filter(Boolean)
-      .join(" · ");
+    variantSubtitle({
+      size: variant.size,
+      color: variant.color,
+      variantLabel: variant.variantLabel,
+      variantAxis,
+    });
 
   return (
     <tr className="border-t bg-muted/[0.04] text-sm">
@@ -213,16 +219,11 @@ function VariantRow({
               <Barcode className="h-3.5 w-3.5" />
             )}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 rounded-lg px-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          <DeleteIconButton
             onClick={() => onDeleteVariant(variant)}
             title={`Delete ${variant.displayName}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+            aria-label={`Delete ${variant.displayName}`}
+          />
         </div>
       </td>
     </tr>
@@ -572,16 +573,11 @@ export function ProductStockList({
                               </Button>
                             ) : null}
                             {product.id ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-8 w-8 rounded-lg px-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              <DeleteIconButton
                                 onClick={() => onDeleteProduct(product)}
                                 title={`Delete ${product.name}`}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                                aria-label={`Delete ${product.name}`}
+                              />
                             ) : null}
                           </div>
                         </td>
@@ -592,6 +588,7 @@ export function ProductStockList({
                               key={variant.id}
                               variant={variant}
                               productName={product.name}
+                              variantAxis={product.variantAxis}
                               isUpdating={isUpdating}
                               onAdjustQty={onAdjustQty}
                               onEditVariant={(v) => onEditVariant(product, v)}

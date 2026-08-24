@@ -187,7 +187,13 @@ const returnInclude = {
 export async function listSaleReturns(
   organizationId: string,
   shopSaleId?: string,
-  options?: { type?: ReturnTransactionType; from?: Date; to?: Date; limit?: number }
+  options?: {
+    type?: ReturnTransactionType;
+    from?: Date;
+    to?: Date;
+    limit?: number;
+    staffId?: string;
+  }
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopFeaturesSchema();
@@ -196,6 +202,7 @@ export async function listSaleReturns(
     where: {
       organizationId,
       ...(shopSaleId ? { shopSaleId } : {}),
+      ...(options?.staffId ? { staffId: options.staffId } : {}),
       ...(options?.type ? { type: options.type } : {}),
       ...(options?.from || options?.to
         ? {

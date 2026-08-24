@@ -32,6 +32,7 @@ import { getExpenseSummary } from "./shop-expense.service";
 import { getTotalOutstandingCredit } from "./shop-credit.service";
 import {
   computeInvoicePricing,
+  resolveInvoiceLineAllocations,
   type StoredInvoicePricing,
 } from "@/lib/shop/invoice-pricing";
 import { parseOrgSettings } from "@/lib/org/require-module";
@@ -231,6 +232,33 @@ export async function lookupSaleByBillScan(
   return match;
 }
 
+export async function findShopSaleByBillNumber(
+  organizationId: string,
+  billNumber: string
+) {
+  await requireModule(organizationId, "shop_sales");
+  await ensureShopSaleSchema();
+
+  const trimmed = billNumber.trim();
+  if (!trimmed) throw new Error("Bill number is required");
+
+  const sale = await prisma.shopSale.findFirst({
+    where: { organizationId, billNumber: trimmed },
+    select: {
+      id: true,
+      billNumber: true,
+      customerName: true,
+      staffId: true,
+      status: true,
+    },
+  });
+  if (!sale) throw new Error("No invoice found for this bill number");
+  if (sale.status !== "COMPLETED") {
+    throw new Error("This invoice cannot be returned");
+  }
+  return sale;
+}
+
 export type BarcodeScanResult =
   | { type: "product"; item: Awaited<ReturnType<typeof lookupInventoryByBarcode>> }
   | { type: "invoice"; sale: Awaited<ReturnType<typeof lookupSaleByBillScan>> };
@@ -253,12 +281,20 @@ export async function resolveBarcodeScan(
 
 export async function listShopSales(
   organizationId: string,
-  opts?: { q?: string; customerId?: string; limit?: number }
+  opts?: { q?: string; customerId?: string; limit?: number; staffId?: string }
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopSaleSchema();
+  const where = invoiceSearchWhere(
+    organizationId,
+    opts?.q ?? "",
+    opts?.customerId
+  );
+  if (opts?.staffId) {
+    where.staffId = opts.staffId;
+  }
   return prisma.shopSale.findMany({
-    where: invoiceSearchWhere(organizationId, opts?.q ?? "", opts?.customerId),
+    where,
     orderBy: { createdAt: "desc" },
     take: opts?.limit ?? 100,
   });
@@ -544,31 +580,76 @@ export async function getStaffSalesInvoices(
  */
 async function resolveSaleStaff(
   organizationId: string,
-  input: { staffId?: string | null; salesBoyName?: string | null }
-): Promise<{ staffId: string | null; staffName: string | null }> {
+  input: {
+    staffId?: string | null;
+    salesBoyName?: string | null;
+    createdById?: string;
+  }
+): Promise<{
+  staffId: string | null;
+  staffName: string | null;
+  cashierCode: string | null;
+}> {
   const typedName = input.salesBoyName?.trim() || null;
+  const staffSelect = {
+    id: true,
+    name: true,
+    cashierCode: true,
+  } as const;
 
   if (input.staffId) {
     const staff = await prisma.staffMember
       .findFirst({
         where: { id: input.staffId, organizationId },
-        select: { id: true, name: true },
+        select: staffSelect,
       })
       .catch(() => null);
-    if (staff) return { staffId: staff.id, staffName: staff.name };
+    if (staff) {
+      return {
+        staffId: staff.id,
+        staffName: staff.name,
+        cashierCode: staff.cashierCode,
+      };
+    }
+  }
+
+  if (input.createdById) {
+    const linked = await prisma.staffMember
+      .findFirst({
+        where: {
+          organizationId,
+          userId: input.createdById,
+          status: "ACTIVE",
+        },
+        select: staffSelect,
+      })
+      .catch(() => null);
+    if (linked) {
+      return {
+        staffId: linked.id,
+        staffName: linked.name,
+        cashierCode: linked.cashierCode,
+      };
+    }
   }
 
   if (typedName) {
     const match = await prisma.staffMember
       .findFirst({
         where: { organizationId, status: "ACTIVE", name: typedName },
-        select: { id: true, name: true },
+        select: staffSelect,
       })
       .catch(() => null);
-    if (match) return { staffId: match.id, staffName: match.name };
+    if (match) {
+      return {
+        staffId: match.id,
+        staffName: match.name,
+        cashierCode: match.cashierCode,
+      };
+    }
   }
 
-  return { staffId: null, staffName: typedName };
+  return { staffId: null, staffName: typedName, cashierCode: null };
 }
 
 export async function createShopSale(input: {
@@ -609,13 +690,18 @@ export async function createShopSale(input: {
   });
   const invoiceSettings = parseShopInvoiceSettings(org?.settings ?? {});
 
-  const { staffId, staffName } = await resolveSaleStaff(input.organizationId, {
-    staffId: input.staffId,
-    salesBoyName: input.salesBoyName,
-  });
+  const { staffId, staffName, cashierCode } = await resolveSaleStaff(
+    input.organizationId,
+    {
+      staffId: input.staffId,
+      salesBoyName: input.salesBoyName,
+      createdById: input.createdById,
+    }
+  );
 
   let appliedOffers: { offerId: string; name: string; discountRupees: number }[] = [];
   let offerDiscountRupees = 0;
+  let offerLineDiscountRupees: number[] | undefined;
   try {
     const { computeOfferDiscountForSale } = await import("./shop-offer.service");
     const offerResult = await computeOfferDiscountForSale(
@@ -624,19 +710,25 @@ export async function createShopSale(input: {
       { selectedOfferId: input.selectedOfferId ?? null, skipOffer: input.skipOffer }
     );
     offerDiscountRupees = offerResult.offerDiscountRupees;
+    offerLineDiscountRupees = offerResult.lineDiscountRupees;
     appliedOffers = offerResult.offerDetails;
   } catch {
     /* offers optional if schema not ready */
   }
 
   const subtotalRupees = input.items.reduce((s, l) => s + l.qty * l.priceRupees, 0);
+  const manualDiscountMode: "percent" | "rupees" =
+    (input.discountPercent ?? 0) > 0 ? "percent" : "rupees";
+  const manualDiscountPercent =
+    manualDiscountMode === "percent" ? (input.discountPercent ?? 0) : 0;
   let manualDiscountRupees = 0;
-  if ((input.discountPercent ?? 0) > 0) {
-    manualDiscountRupees = Math.round((subtotalRupees * (input.discountPercent ?? 0)) / 100 * 100) / 100;
+  if (manualDiscountMode === "percent") {
+    manualDiscountRupees = Math.round((subtotalRupees * manualDiscountPercent) / 100 * 100) / 100;
   } else {
     manualDiscountRupees = input.discountRupees ?? 0;
   }
   const totalDiscountRupees = manualDiscountRupees + offerDiscountRupees;
+  const useDecimalPlaces = invoiceSettings.useDecimalPlaces !== false;
 
   const pricing = computeInvoicePricing({
     items: input.items,
@@ -646,6 +738,7 @@ export async function createShopSale(input: {
     taxRatePercent: input.taxRatePercent,
     taxIncluded: input.taxIncluded,
     manualGstRupees: input.manualGstRupees ?? input.gstRupees,
+    useDecimalPlaces,
   });
 
   const totalPaise =
@@ -654,6 +747,17 @@ export async function createShopSale(input: {
       : pricing.totalPaise;
   if (totalPaise <= BigInt(0)) throw new Error("Sale total must be greater than zero");
 
+  const showLineHints = offerDiscountRupees > 0 || manualDiscountMode === "percent";
+  const savedLineDiscounts = showLineHints
+    ? resolveInvoiceLineAllocations(input.items, {
+        showLineHints: true,
+        totalDiscountRupees: totalDiscountRupees,
+        manualDiscountRupees,
+        manualDiscountMode,
+        offerLineDiscountRupees,
+      })?.map((line) => line.lineDiscountRupees)
+    : undefined;
+
   const pricingJson: StoredInvoicePricing & {
     offerDiscountRupees?: number;
     selectedOfferId?: string | null;
@@ -661,7 +765,7 @@ export async function createShopSale(input: {
   } = {
     subtotalRupees: pricing.subtotalRupees,
     discountRupees: pricing.discountRupees,
-    discountPercent: pricing.discountPercent,
+    discountPercent: manualDiscountMode === "percent" ? manualDiscountPercent : 0,
     discountBasis: pricing.discountBasis,
     taxableRupees: pricing.taxableRupees,
     gstRupees: pricing.gstRupees,
@@ -671,19 +775,27 @@ export async function createShopSale(input: {
     taxRatePercent: pricing.taxRatePercent,
     roundOffRupees: pricing.roundOffRupees,
     manualGstRupees: input.manualGstRupees ?? null,
+    ...(manualDiscountRupees > 0
+      ? {
+          manualDiscountRupees,
+          manualDiscountMode,
+          ...(manualDiscountMode === "percent"
+            ? { manualDiscountPercent }
+            : {}),
+        }
+      : {}),
     ...(appliedOffers.length
       ? {
           offerDiscountRupees,
-          manualDiscountRupees,
           selectedOfferId: appliedOffers[0]!.offerId,
           appliedOffers,
         }
       : {
-          ...(manualDiscountRupees > 0 ? { manualDiscountRupees } : {}),
           ...(input.selectedOfferId !== undefined
             ? { selectedOfferId: input.selectedOfferId }
             : {}),
         }),
+    ...(savedLineDiscounts?.length ? { lineDiscountRupees: savedLineDiscounts } : {}),
   };
 
   const customer = await upsertCustomerRaw(input.organizationId, {
@@ -772,7 +884,7 @@ export async function createShopSale(input: {
         salesBoyName: staffName,
         billNumber:
           input.billNumber?.trim() ||
-          (await nextShopBillNumber(tx, input.organizationId)),
+          (await nextShopBillNumber(tx, input.organizationId, cashierCode)),
         issueInvoice: input.issueInvoice !== false,
         totalPaise,
         gstPaise: pricing.gstPaise,
@@ -1184,56 +1296,65 @@ export async function deleteInventoryItem(input: {
   scheduleShopInventoryAlertSync(input.organizationId);
 }
 
-export type BulkImportItemInput = {
-  name: string;
-  category?: string | null;
-  subCategory?: string | null;
-  size?: string | null;
-  quantity?: number;
-  sellRupees?: number | null;
-  costRupees?: number | null;
-  barcode?: string | null;
-  description?: string | null;
-  reorderLevel?: number;
-  expiryDate?: string | null;
-};
+export type BulkImportItemInput = import("@/lib/shop/inventory-bulk-csv").BulkImportRow;
 
 export async function bulkImportInventoryItems(input: {
   organizationId: string;
   userId: string;
   items: BulkImportItemInput[];
+  businessTypes?: string[];
 }) {
   await requireModule(input.organizationId, "shop_inventory");
   if (input.items.length === 0) throw new Error("No rows to import");
   if (input.items.length > 500) throw new Error("Maximum 500 rows per import");
 
+  const { groupImportRowsIntoProducts } = await import("@/lib/shop/inventory-bulk-csv");
+  const { createShopProduct } = await import("./shop-product.service");
+
+  const groups = groupImportRowsIntoProducts(
+    input.items,
+    input.businessTypes ?? ["GENERAL"]
+  );
+
   const created: string[] = [];
   const errors: string[] = [];
 
-  for (let i = 0; i < input.items.length; i++) {
-    const row = input.items[i]!;
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i]!;
     try {
-      const expiryDate = row.expiryDate ? new Date(row.expiryDate) : null;
-      if (expiryDate && Number.isNaN(expiryDate.getTime())) {
-        throw new Error("Invalid expiry date");
-      }
-      const item = await createInventoryItem({
+      const product = await createShopProduct({
         organizationId: input.organizationId,
-        name: row.name,
-        description: row.description,
-        size: row.size,
-        barcode: row.barcode,
-        quantity: row.quantity ?? 0,
-        reorderLevel: row.reorderLevel ?? 0,
-        sellRupees: row.sellRupees,
-        costRupees: row.costRupees,
-        category: row.category,
-        subCategory: row.subCategory,
-        expiryDate,
+        userId: input.userId,
+        name: group.name,
+        description: group.description,
+        brand: group.brand,
+        categoryKey: group.category,
+        subCategoryKey: group.subCategory,
+        unit: group.unit,
+        hasVariants: group.hasVariants && group.variants.length > 0,
+        variantAxis: group.hasVariants ? group.variantAxis : null,
+        supplierName: group.supplier,
+        variants: group.variants.map((v) => ({
+          size: v.size ?? null,
+          color: v.color ?? null,
+          variantLabel: v.variantLabel ?? null,
+          sku: v.sku ?? null,
+          barcode: v.barcode ?? null,
+          quantity: v.quantity,
+          reorderLevel: v.reorderLevel,
+          sellRupees: v.sellRupees,
+          costRupees: v.costRupees,
+          expiryDate: v.expiryDate ? new Date(v.expiryDate) : null,
+          attributes: v.attributes,
+        })),
+        autoBarcode: true,
+        autoSku: true,
       });
-      created.push(item.id);
+      created.push(product.id);
     } catch (err) {
-      errors.push(`Row ${i + 1} (${row.name}): ${err instanceof Error ? err.message : "Failed"}`);
+      errors.push(
+        `Product ${group.name}: ${err instanceof Error ? err.message : "Failed"}`
+      );
     }
   }
 

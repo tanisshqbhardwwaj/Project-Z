@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       email: data.email || null,
       roleKey: data.roleKey,
       roleTitle: data.roleTitle,
+      cashierCode: data.cashierCode,
       wageRupees: data.wageRupees,
       wagePeriod: data.wagePeriod,
       paymentFrequency: data.paymentFrequency,
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
       commissionAmountRupees: data.commissionAmountRupees,
       joinedAt: data.joinedAt,
       notes: data.notes,
+      access: data.access,
     });
 
     return NextResponse.json({ data: serializeBigInt(staff) }, { status: 201 });

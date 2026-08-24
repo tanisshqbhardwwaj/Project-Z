@@ -103,7 +103,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "payroll.manage",
   ],
   VIEWER: ["project.view_assigned", "financial.view", "staff.view"],
-  CASHIER: ["shop.sales", "attendance.view_own"],
+  CASHIER: [],
 };
 
 export function canManageShopPurchases(role: OrgRole): boolean {

@@ -1,10 +1,45 @@
 import { prisma } from "@/lib/db/prisma";
+import { inviteMember } from "./organization.service";
 import { createAuditLog } from "./audit.service";
+import { staffAccessFromForm } from "@/lib/staff/access";
+import {
+  attachStaffAccessJson,
+  readStaffAccessJson,
+  writeStaffAccessJson,
+} from "@/lib/staff/access-storage";
 import type { StaffCommissionType, StaffStatus } from "@prisma/client";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { requireModule } from "@/lib/org/require-module";
 import { dayKeyToUtcDate } from "@/lib/date/org-day";
 import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
+import { normalizeCashierCode } from "@/lib/shop/bill-number";
+
+function resolveCashierCodeInput(raw?: string | null): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+  return normalizeCashierCode(trimmed);
+}
+
+async function assertUniqueCashierCode(
+  organizationId: string,
+  cashierCode: string | null,
+  excludeStaffId?: string
+) {
+  if (!cashierCode) return;
+  const existing = await prisma.staffMember.findFirst({
+    where: {
+      organizationId,
+      cashierCode,
+      ...(excludeStaffId ? { NOT: { id: excludeStaffId } } : {}),
+    },
+    select: { id: true, name: true },
+  });
+  if (existing) {
+    throw new Error(
+      `Cashier code "${cashierCode}" is already used by ${existing.name}`
+    );
+  }
+}
 
 export async function listStaffMembers(
   organizationId: string,
@@ -13,7 +48,7 @@ export async function listStaffMembers(
   await requireModule(organizationId, "staff");
   await ensureCatalogSchema();
   const search = options?.search?.trim();
-  return prisma.staffMember.findMany({
+  const rows = await prisma.staffMember.findMany({
     where: {
       organizationId,
       ...(options?.status && { status: options.status }),
@@ -24,12 +59,14 @@ export async function listStaffMembers(
               { phone: { contains: search } },
               { email: { contains: search } },
               { roleTitle: { contains: search } },
+              { cashierCode: { contains: search } },
             ],
           }
         : {}),
     },
     orderBy: [{ status: "asc" }, { name: "asc" }],
   });
+  return attachStaffAccessJson(rows);
 }
 
 /** Staff list plus this month's sales so the team screen shows real activity. */
@@ -119,7 +156,7 @@ function resolveCommission(input: StaffCommissionInput) {
       commissionAmountPaise: null,
     };
   }
-  if (type === "FIXED_PER_SALE" || type === "FIXED_PER_ITEM") {
+  if (type === "FIXED_PER_SALE" || type === "FIXED_PER_ITEM" || type === "FIXED_MONTHLY") {
     const amount = input.commissionAmountRupees ?? 0;
     if (amount <= 0) throw new Error("Enter a commission amount above zero");
     return {
@@ -135,6 +172,48 @@ function resolveCommission(input: StaffCommissionInput) {
   };
 }
 
+async function ensureStaffLoginInvite(input: {
+  organizationId: string;
+  staffId: string;
+  email: string;
+  invitedById: string;
+}) {
+  const email = input.email.trim().toLowerCase();
+  if (!email) return;
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (existingUser) {
+    await linkStaffToUser({
+      organizationId: input.organizationId,
+      staffId: input.staffId,
+      userId: existingUser.id,
+      actorUserId: input.invitedById,
+    });
+    return;
+  }
+
+  const pendingInvite = await prisma.organizationInvite.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      email,
+      acceptedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+  });
+  if (pendingInvite) return;
+
+  await inviteMember({
+    organizationId: input.organizationId,
+    email,
+    role: "CASHIER",
+    invitedById: input.invitedById,
+  });
+}
+
 export async function createStaffMember(input: {
   organizationId: string;
   createdById: string;
@@ -143,12 +222,14 @@ export async function createStaffMember(input: {
   email?: string | null;
   roleKey?: string | null;
   roleTitle: string;
+  cashierCode?: string | null;
   wageRupees?: number | null;
   wagePeriod?: "DAILY" | "MONTHLY" | null;
   paymentFrequency?: string | null;
   overtimeRateRupees?: number | null;
   joinedAt?: string | Date | null;
   notes?: string | null;
+  access?: Partial<import("@/lib/staff/access").StaffAccess>;
 } & StaffCommissionInput) {
   await requireModule(input.organizationId, "staff");
   await ensureCatalogSchema();
@@ -172,6 +253,8 @@ export async function createStaffMember(input: {
       ? rupeesToPaise(input.overtimeRateRupees)
       : null;
   const commission = resolveCommission(input);
+  const cashierCode = resolveCashierCodeInput(input.cashierCode);
+  await assertUniqueCashierCode(input.organizationId, cashierCode);
 
   const staff = await prisma.staffMember.create({
     data: {
@@ -182,6 +265,7 @@ export async function createStaffMember(input: {
       email: input.email?.trim() || null,
       roleKey: input.roleKey?.trim() || null,
       roleTitle,
+      cashierCode,
       wagePaise,
       wagePeriod: input.wagePeriod ?? null,
       paymentFrequency:
@@ -193,6 +277,8 @@ export async function createStaffMember(input: {
       status: "ACTIVE",
     },
   });
+
+  await writeStaffAccessJson(staff.id, input.access ?? {});
 
   await recordWageHistory({
     organizationId: input.organizationId,
@@ -213,7 +299,19 @@ export async function createStaffMember(input: {
     after: staff,
   });
 
-  return staff;
+  if (staff.email) {
+    await ensureStaffLoginInvite({
+      organizationId: input.organizationId,
+      staffId: staff.id,
+      email: staff.email,
+      invitedById: input.createdById,
+    });
+  }
+
+  return {
+    ...staff,
+    accessJson: staffAccessFromForm(input.access ?? {}),
+  };
 }
 
 export async function getLinkedStaffMember(organizationId: string, userId: string) {
@@ -300,6 +398,7 @@ export async function updateStaffMember(input: {
   email?: string | null;
   roleKey?: string | null;
   roleTitle?: string;
+  cashierCode?: string | null;
   wageRupees?: number | null;
   wagePeriod?: "DAILY" | "MONTHLY" | null;
   paymentFrequency?: string | null;
@@ -307,6 +406,7 @@ export async function updateStaffMember(input: {
   joinedAt?: string | Date | null;
   status?: StaffStatus;
   notes?: string | null;
+  access?: Partial<import("@/lib/staff/access").StaffAccess>;
 } & StaffCommissionInput) {
   await requireModule(input.organizationId, "staff");
   await ensureCatalogSchema();
@@ -322,6 +422,7 @@ export async function updateStaffMember(input: {
     email?: string | null;
     roleKey?: string | null;
     roleTitle?: string;
+    cashierCode?: string | null;
     wagePaise?: bigint | null;
     wagePeriod?: string | null;
     paymentFrequency?: string | null;
@@ -334,6 +435,9 @@ export async function updateStaffMember(input: {
     joinedAt?: Date;
     notes?: string | null;
   } = {};
+
+  const accessToWrite =
+    input.access !== undefined ? staffAccessFromForm(input.access) : undefined;
 
   if (input.name !== undefined) {
     const name = input.name.trim();
@@ -359,6 +463,15 @@ export async function updateStaffMember(input: {
     const roleTitle = input.roleTitle.trim();
     if (!roleTitle) throw new Error("Role is required");
     data.roleTitle = roleTitle;
+  }
+  if (input.cashierCode !== undefined) {
+    const cashierCode = resolveCashierCodeInput(input.cashierCode);
+    await assertUniqueCashierCode(
+      input.organizationId,
+      cashierCode,
+      input.staffId
+    );
+    data.cashierCode = cashierCode;
   }
   let wageChanged = false;
   if (input.wageRupees !== undefined) {
@@ -408,6 +521,10 @@ export async function updateStaffMember(input: {
     data,
   });
 
+  if (accessToWrite !== undefined) {
+    await writeStaffAccessJson(input.staffId, accessToWrite);
+  }
+
   if (wageChanged && updated.wagePaise && updated.wagePeriod) {
     await recordWageHistory({
       organizationId: input.organizationId,
@@ -430,5 +547,17 @@ export async function updateStaffMember(input: {
     after: updated,
   });
 
-  return updated;
+  if (updated.email && !updated.userId) {
+    await ensureStaffLoginInvite({
+      organizationId: input.organizationId,
+      staffId: updated.id,
+      email: updated.email,
+      invitedById: input.actorUserId,
+    });
+  }
+
+  const accessJson =
+    accessToWrite ?? (await readStaffAccessJson(updated.id));
+
+  return { ...updated, accessJson };
 }

@@ -28,7 +28,7 @@ import {
   type FullLabelHeaderMode,
 } from "@/lib/org/shop-settings";
 import { catalogCategoryLabel, catalogSubCategoryLabel } from "@/lib/shop/category-catalog";
-import { getShopSectorConfig, inventoryFieldsForSectors, variantsExpectedForSectors } from "@/lib/org/shop-sector";
+import { getShopSectorConfig, inventoryFieldsForSectors, variantsExpectedForSectors, variantAxisLabel, defaultVariantAxisForSectors } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -150,6 +150,9 @@ export default function ShopInventoryPage() {
   const sectorLabel = businessTypes
     .map((t) => getShopSectorConfig(t).label)
     .join(" · ");
+  const addVariantLabel = variantAxisLabel(
+    addSizeTarget?.variantAxis ?? defaultVariantAxisForSectors(businessTypes)
+  );
 
   const customLabelByKey = useMemo(() => {
     const map = new Map<string, string>();
@@ -533,6 +536,7 @@ export default function ShopInventoryPage() {
         categories={categories}
         attributeFields={attributeFields}
         variantsByDefault={variantsByDefault}
+        businessTypes={businessTypes}
         onCreated={(productName, variantCount) =>
           setFlash(
             `Saved "${productName}" with ${variantCount} variant${variantCount === 1 ? "" : "s"} — barcodes are ready to print.`
@@ -543,22 +547,22 @@ export default function ShopInventoryPage() {
         }}
       />
 
-      {/* Add sizes to an existing product */}
+      {/* Add variants to an existing product */}
       <Dialog
         open={!!addSizeTarget}
         onOpenChange={(open) => !open && setAddSizeTarget(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add sizes — {addSizeTarget?.name}</DialogTitle>
+            <DialogTitle>Add {addVariantLabel.toLowerCase()}s — {addSizeTarget?.name}</DialogTitle>
             <DialogDescription>
-              Each new size becomes its own variant with a fresh barcode. Existing
-              sizes are untouched.
+              Each new {addVariantLabel.toLowerCase()} becomes its own variant with a fresh barcode. Existing
+              variants are untouched.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Sizes (comma separated)</Label>
+              <Label>{addVariantLabel}s (comma separated)</Label>
               <Input
                 value={newSizes}
                 onChange={(e) => setNewSizes(e.target.value)}
@@ -577,7 +581,7 @@ export default function ShopInventoryPage() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Opening stock per size</Label>
+                <Label>Opening stock per {addVariantLabel.toLowerCase()}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -613,7 +617,7 @@ export default function ShopInventoryPage() {
               onClick={submitNewSizes}
               disabled={addVariantsMutation.isPending}
             >
-              {addVariantsMutation.isPending ? "Adding…" : "Add sizes"}
+              {addVariantsMutation.isPending ? "Adding…" : `Add ${addVariantLabel.toLowerCase()}s`}
             </Button>
           </div>
         </DialogContent>
@@ -894,7 +898,7 @@ export default function ShopInventoryPage() {
             </Button>
             <Button
               variant="destructive"
-              className="rounded-xl"
+              className="min-h-11 rounded-xl px-6 text-base"
               onClick={confirmDeleteVariant}
               disabled={deleteVariantMutation.isPending}
             >
@@ -927,7 +931,7 @@ export default function ShopInventoryPage() {
             </Button>
             <Button
               variant="destructive"
-              className="rounded-xl"
+              className="min-h-11 rounded-xl px-6 text-base"
               onClick={confirmDeleteProduct}
               disabled={deleteProductMutation.isPending}
             >
@@ -1030,7 +1034,7 @@ export default function ShopInventoryPage() {
         onOpenChange={setToolsOpen}
         orgId={orgId}
         items={itemsQuery.data ?? []}
-        shopSector={activeShopSector}
+        businessTypes={businessTypes}
       />
     </div>
   );

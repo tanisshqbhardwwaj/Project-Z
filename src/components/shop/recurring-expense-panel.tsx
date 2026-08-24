@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +31,6 @@ import {
   Plus,
   Repeat,
   SkipForward,
-  Trash2,
   Undo2,
 } from "lucide-react";
 
@@ -106,10 +106,13 @@ export function RecurringExpensePanel({
   orgId,
   categories,
   canManage,
+  variant = "full",
 }: {
   orgId: string | null;
   categories: ExpenseCategory[];
   canManage: boolean;
+  /** full = legacy dashboard; summary = due badges on Today/History; inline-form = create inside Add expense */
+  variant?: "full" | "summary" | "inline-form";
 }) {
   const qc = useQueryClient();
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
@@ -291,11 +294,7 @@ export function RecurringExpensePanel({
   const data = overviewQuery.data;
   if (!data) return null;
 
-  const lists: Record<Exclude<SubTab, "rules">, Occurrence[]> = {
-    upcoming: data.upcoming,
-    pending: data.pending,
-    paid: data.history,
-  };
+  const openItems = [...data.pending, ...data.upcoming];
 
   function OccurrenceCard({ occurrence }: { occurrence: Occurrence }) {
     const isOpen = occurrence.status === "UPCOMING" || occurrence.status === "PENDING";
@@ -393,6 +392,143 @@ export function RecurringExpensePanel({
       </div>
     );
   }
+
+  if (variant === "summary") {
+    if (openItems.length === 0 && data.totals.overdueCount === 0) return null;
+    return (
+      <Card className="rounded-2xl border-0 shadow-md">
+        <CardContent className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Repeat className="h-4 w-4" />
+              Recurring expenses
+            </p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {data.totals.overdueCount > 0 ? (
+                <Badge variant="destructive" className="rounded-full">
+                  {data.totals.overdueCount} overdue
+                </Badge>
+              ) : null}
+              {data.totals.dueTodayCount > 0 ? (
+                <Badge className="rounded-full bg-amber-500 hover:bg-amber-500">
+                  {data.totals.dueTodayCount} due today
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+          <FormFeedback warning={warning} error={error} />
+          <div className="space-y-2">
+            {openItems.slice(0, 5).map((occurrence) => (
+              <OccurrenceCard key={occurrence.id} occurrence={occurrence} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (variant === "inline-form") {
+    return (
+      <div className="space-y-4">
+        <FormFeedback warning={warning} error={error} />
+        <div className="space-y-3 rounded-2xl border p-4">
+          <p className="text-sm text-muted-foreground">
+            Set a monthly rule once — each month you mark it paid from Today or History.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-11 rounded-xl"
+              placeholder="Shop rent"
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Amount ₹ per month</Label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Category</Label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+              >
+                <option value="">Select…</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Due day of month</Label>
+              <Input
+                type="number"
+                min={1}
+                max={31}
+                value={dueDay}
+                onChange={(e) => setDueDay(e.target.value)}
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Remind days before</Label>
+              <Input
+                type="number"
+                min={0}
+                max={30}
+                value={reminderDays}
+                onChange={(e) => setReminderDays(e.target.value)}
+                className="h-11 rounded-xl"
+              />
+            </div>
+          </div>
+          <Button
+            className="h-11 w-full rounded-xl"
+            onClick={saveRule}
+            disabled={saveRuleMutation.isPending}
+          >
+            {saveRuleMutation.isPending ? "Saving…" : "Create recurring expense"}
+          </Button>
+        </div>
+        {data.rules.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Active rules</p>
+            {data.rules.map((rule) => (
+              <div
+                key={rule.id}
+                className="flex items-center justify-between rounded-xl border px-3 py-2 text-sm"
+              >
+                <span>{rule.name}</span>
+                <span className="font-medium tabular-nums">
+                  {formatINR(rule.monthlyAmountPaise)}/mo
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  const lists: Record<Exclude<SubTab, "rules">, Occurrence[]> = {
+    upcoming: data.upcoming,
+    pending: data.pending,
+    paid: data.history,
+  };
 
   return (
     <div className="space-y-4">
@@ -571,15 +707,11 @@ export function RecurringExpensePanel({
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 w-8 rounded-lg px-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    <DeleteIconButton
                       onClick={() => setDeleteTarget(rule)}
                       title={`Remove ${rule.name}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                      aria-label={`Remove ${rule.name}`}
+                    />
                   </div>
                 ) : null}
               </div>

@@ -280,6 +280,14 @@ export async function computeStaffCommission(input: {
 
   const returnAdjustment = fullCommissionPaise - commissionPaise;
 
+  if (
+    config.commissionType === "FIXED_MONTHLY" &&
+    config.commissionAmountPaise &&
+    config.commissionAmountPaise > BigInt(0)
+  ) {
+    commissionPaise += config.commissionAmountPaise;
+  }
+
   return {
     ...empty,
     invoiceCount: sales.length,
@@ -338,6 +346,10 @@ export function describeCommission(config: CommissionConfig): string {
       return config.commissionAmountPaise
         ? `₹${(Number(config.commissionAmountPaise) / 100).toLocaleString("en-IN")} per item`
         : "Fixed per item (not set)";
+    case "FIXED_MONTHLY":
+      return config.commissionAmountPaise
+        ? `₹${(Number(config.commissionAmountPaise) / 100).toLocaleString("en-IN")} per month`
+        : "Fixed monthly (not set)";
     default:
       return "No commission";
   }

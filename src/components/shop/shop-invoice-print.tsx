@@ -4,7 +4,13 @@ import { BarcodeSvg } from "@/components/shop/barcode-svg";
 import type { ResolvedInvoiceTemplate } from "@/lib/org/shop-settings";
 import { DEFAULT_INVOICE_SETTINGS } from "@/lib/org/shop-settings";
 import type { StoredInvoicePricing } from "@/lib/shop/invoice-pricing";
-import { formatInvoiceRupees } from "@/lib/shop/invoice-pricing";
+import {
+  allocateLineDiscounts,
+  formatInvoiceMoney,
+  formatLineDiscountHint,
+  resolveInvoiceLineAllocations,
+  shouldShowLineDiscountHints,
+} from "@/lib/shop/invoice-pricing";
 import { variantSubtitle } from "@/lib/shop/variant-display";
 
 export type CashTenderInfo = {
@@ -24,6 +30,11 @@ export type InvoiceLine = {
   barcode?: string | null;
 };
 
+export type ShopInvoiceDocumentKind =
+  | "TAX_INVOICE"
+  | "CREDIT_NOTE"
+  | "EXCHANGE_INVOICE";
+
 export type ShopInvoiceData = {
   orgName: string;
   billNumber: string | null;
@@ -39,6 +50,18 @@ export type ShopInvoiceData = {
   cashierName?: string | null;
   notes?: string | null;
   pricing?: StoredInvoicePricing | null;
+  documentKind?: ShopInvoiceDocumentKind;
+  originalBillNumber?: string | null;
+  replacementItems?: InvoiceLine[];
+  returnMeta?: {
+    returnValueRupees: number;
+    exchangeValueRupees?: number;
+    refundRupees: number;
+    additionalPaidRupees: number;
+    refundMethod: string;
+    reason?: string;
+    netLabel?: string;
+  };
 };
 
 function lineAmount(line: InvoiceLine) {
@@ -84,9 +107,15 @@ export function ShopInvoicePrint({
     discountBasis: "subtotal" as const,
     defaultStaffMonthlyTargetRupees: 0,
     staffMonthlyTargets: {},
+    paperSize: DEFAULT_INVOICE_SETTINGS.paperSize,
+    printMarginMm: DEFAULT_INVOICE_SETTINGS.printMarginMm,
+    defaultCopies: DEFAULT_INVOICE_SETTINGS.defaultCopies,
+    useDecimalPlaces: DEFAULT_INVOICE_SETTINGS.useDecimalPlaces,
   };
 
+  const fmt = (n: number) => formatInvoiceMoney(n, t);
   const p = invoice.pricing;
+  const lineDiscountMode = shouldShowLineDiscountHints(p);
   const subtotal =
     p?.subtotalRupees ??
     invoice.items.reduce((s, l) => s + lineAmount(l), 0);
@@ -101,6 +130,26 @@ export function ShopInvoicePrint({
   const manualDiscount = p?.manualDiscountRupees ?? 0;
   const offerDiscount = p?.offerDiscountRupees ?? 0;
   const showSplitDiscount = manualDiscount > 0 && offerDiscount > 0;
+  const documentKind = invoice.documentKind ?? "TAX_INVOICE";
+  const isReturnDoc =
+    documentKind === "CREDIT_NOTE" || documentKind === "EXCHANGE_INVOICE";
+  const documentTitle =
+    documentKind === "CREDIT_NOTE"
+      ? "Credit Note"
+      : documentKind === "EXCHANGE_INVOICE"
+        ? "Exchange Invoice"
+        : t.headerTitle;
+
+  const allocatedLines = !isReturnDoc
+    ? resolveInvoiceLineAllocations(invoice.items, {
+        showLineHints: lineDiscountMode,
+        totalDiscountRupees: discount,
+        storedLineDiscountRupees: p?.lineDiscountRupees,
+        manualDiscountRupees: manualDiscount,
+        manualDiscountMode: p?.manualDiscountMode,
+      })
+    : null;
+  const showRoundOff = t.useDecimalPlaces && roundOff < -0.004;
 
   const discountLines =
     discount > 0 ? (
@@ -109,14 +158,14 @@ export function ShopInvoicePrint({
           <>
             <div className="flex justify-between text-emerald-700">
               <span>Manual discount</span>
-              <span className="tabular-nums">− {formatInvoiceRupees(manualDiscount)}</span>
+              <span className="tabular-nums">− {fmt(manualDiscount)}</span>
             </div>
             <div className="flex justify-between text-emerald-700">
               <span>
                 Offer
                 {p?.appliedOffers?.[0]?.name ? ` (${p.appliedOffers[0].name})` : ""}
               </span>
-              <span className="tabular-nums">− {formatInvoiceRupees(offerDiscount)}</span>
+              <span className="tabular-nums">− {fmt(offerDiscount)}</span>
             </div>
           </>
         ) : (
@@ -128,7 +177,7 @@ export function ShopInvoicePrint({
                 ? ` · ${p.appliedOffers[0].name}`
                 : ""}
             </span>
-            <span className="tabular-nums">− {formatInvoiceRupees(discount)}</span>
+            <span className="tabular-nums">− {fmt(discount)}</span>
           </div>
         )}
       </>
@@ -139,7 +188,7 @@ export function ShopInvoicePrint({
       <>
         <div className="flex justify-between">
           <span>Taxable value</span>
-          <span className="tabular-nums">{formatInvoiceRupees(taxable)}</span>
+          <span className="tabular-nums">{fmt(taxable)}</span>
         </div>
         {p?.taxRatePercent ? (
           <>
@@ -148,20 +197,20 @@ export function ShopInvoicePrint({
                 CGST ({halfRate.toFixed(2)}%)
                 {p?.taxIncluded ? " incl." : ""}
               </span>
-              <span className="tabular-nums">{formatInvoiceRupees(cgst)}</span>
+              <span className="tabular-nums">{fmt(cgst)}</span>
             </div>
             <div className="flex justify-between">
               <span>
                 SGST ({halfRate.toFixed(2)}%)
                 {p?.taxIncluded ? " incl." : ""}
               </span>
-              <span className="tabular-nums">{formatInvoiceRupees(sgst)}</span>
+              <span className="tabular-nums">{fmt(sgst)}</span>
             </div>
           </>
         ) : (
           <div className="flex justify-between">
             <span>GST{p?.taxIncluded ? " incl." : ""}</span>
-            <span className="tabular-nums">{formatInvoiceRupees(gst)}</span>
+            <span className="tabular-nums">{fmt(gst)}</span>
           </div>
         )}
       </>
@@ -183,7 +232,7 @@ export function ShopInvoicePrint({
           />
         ) : null}
         <h1 className="text-lg font-bold uppercase tracking-wide">{t.displayName}</h1>
-        <p className="mt-1 text-xs text-neutral-600">{t.headerTitle}</p>
+        <p className="mt-1 text-xs text-neutral-600">{documentTitle}</p>
         {t.gstin ? (
           <p className="mt-1 font-mono text-[11px] text-neutral-600">GSTIN: {t.gstin}</p>
         ) : null}
@@ -196,7 +245,14 @@ export function ShopInvoicePrint({
           </p>
         ) : null}
         {invoice.billNumber ? (
-          <p className="mt-2 font-mono text-sm font-semibold">Bill #{invoice.billNumber}</p>
+          <p className="mt-2 font-mono text-sm font-semibold">
+            {isReturnDoc ? "Doc" : "Bill"} #{invoice.billNumber}
+          </p>
+        ) : null}
+        {invoice.originalBillNumber ? (
+          <p className="mt-1 text-[11px] text-neutral-600">
+            Against bill #{invoice.originalBillNumber}
+          </p>
         ) : null}
       </div>
 
@@ -257,63 +313,179 @@ export function ShopInvoicePrint({
           </tr>
         </thead>
         <tbody>
-          {invoice.items.map((line, idx) => (
-            <tr
-              key={`${line.name}-${idx}`}
-              className="invoice-line-row border-b border-neutral-100"
-            >
-              <td className="break-words py-1.5 pr-1 align-top">
-                {line.name}
-                {variantSubtitle(line) ? (
-                  <span className="block text-[0.92em] text-neutral-600">
-                    {variantSubtitle(line)}
-                  </span>
-                ) : null}
-              </td>
-              <td className="py-1.5 text-right tabular-nums align-top">{line.qty}</td>
-              <td className="py-1.5 text-right tabular-nums align-top">
-                ₹{line.priceRupees.toFixed(2)}
-              </td>
-              <td className="py-1.5 text-right tabular-nums align-top">
-                ₹{lineAmount(line).toFixed(2)}
-              </td>
-            </tr>
-          ))}
+          {(isReturnDoc ? invoice.items : invoice.items).map((line, idx) => {
+            const allocated = allocatedLines?.[idx];
+            const hasLineDiscount =
+              allocated != null && allocated.lineDiscountRupees > 0.004;
+            const unitRate = line.priceRupees;
+            const lineTotal = hasLineDiscount
+              ? allocated.discountedLineRupees
+              : lineAmount(line);
+            const hint = hasLineDiscount
+              ? formatLineDiscountHint(allocated, t)
+              : null;
+            return (
+              <tr
+                key={`${line.name}-${idx}`}
+                className="invoice-line-row border-b border-neutral-100"
+              >
+                <td className="break-words py-1.5 pr-1 align-top">
+                  {line.name}
+                  {variantSubtitle(line) ? (
+                    <span className="block text-[0.92em] text-neutral-600">
+                      {variantSubtitle(line)}
+                    </span>
+                  ) : null}
+                  {hint ? (
+                    <span className="block text-[0.92em] text-emerald-700">{hint}</span>
+                  ) : null}
+                </td>
+                <td className="py-1.5 text-right tabular-nums align-top">{line.qty}</td>
+                <td className="py-1.5 text-right tabular-nums align-top">{fmt(unitRate)}</td>
+                <td className="py-1.5 text-right tabular-nums align-top">{fmt(lineTotal)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
+      {documentKind === "EXCHANGE_INVOICE" &&
+      invoice.replacementItems &&
+      invoice.replacementItems.length > 0 ? (
+        <>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-neutral-600">
+            Replacement items
+          </p>
+          <table className="mt-2 w-full table-fixed border-collapse text-xs">
+            <colgroup>
+              <col className="w-[44%]" />
+              <col className="w-[12%]" />
+              <col className="w-[22%]" />
+              <col className="w-[22%]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-neutral-300">
+                <th className="py-1 text-left font-semibold">Item</th>
+                <th className="py-1 text-right font-semibold">Qty</th>
+                <th className="py-1 text-right font-semibold">Rate</th>
+                <th className="py-1 text-right font-semibold">Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.replacementItems.map((line, idx) => (
+                <tr
+                  key={`replacement-${line.name}-${idx}`}
+                  className="invoice-line-row border-b border-neutral-100"
+                >
+                  <td className="break-words py-1.5 pr-1 align-top">
+                    {line.name}
+                    {variantSubtitle(line) ? (
+                      <span className="block text-[0.92em] text-neutral-600">
+                        {variantSubtitle(line)}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums align-top">{line.qty}</td>
+                  <td className="py-1.5 text-right tabular-nums align-top">
+                    {fmt(line.priceRupees)}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums align-top">
+                    {fmt(lineAmount(line))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : null}
+
       <footer className="invoice-totals mt-4 space-y-1 border-t border-neutral-300 pt-3 text-xs">
+        {isReturnDoc && invoice.returnMeta ? (
+          <>
+            <div className="flex justify-between">
+              <span>Returned value</span>
+              <span className="tabular-nums">
+                {fmt(invoice.returnMeta.returnValueRupees)}
+              </span>
+            </div>
+            {invoice.returnMeta.exchangeValueRupees != null ? (
+              <div className="flex justify-between">
+                <span>Replacement value</span>
+                <span className="tabular-nums">
+                  {fmt(invoice.returnMeta.exchangeValueRupees)}
+                </span>
+              </div>
+            ) : null}
+            {invoice.returnMeta.refundRupees > 0 ? (
+              <div className="flex justify-between text-emerald-700">
+                <span>Refund / credit</span>
+                <span className="tabular-nums">
+                  {fmt(invoice.returnMeta.refundRupees)}
+                </span>
+              </div>
+            ) : null}
+            {invoice.returnMeta.additionalPaidRupees > 0 ? (
+              <div className="flex justify-between">
+                <span>Additional paid</span>
+                <span className="tabular-nums">
+                  {fmt(invoice.returnMeta.additionalPaidRupees)}
+                </span>
+              </div>
+            ) : null}
+            <div className="flex justify-between text-base font-bold">
+              <span>{invoice.returnMeta.netLabel ?? "Net amount"}</span>
+              <span className="tabular-nums">
+                {fmt(Number(invoice.totalPaise) / 100)}
+              </span>
+            </div>
+            <div className="flex justify-between text-[11px] text-neutral-600">
+              <span>Settlement</span>
+              <span>{invoice.paymentMethod}</span>
+            </div>
+            {invoice.returnMeta.reason ? (
+              <div className="flex justify-between text-[11px] text-neutral-600">
+                <span>Reason</span>
+                <span className="capitalize">
+                  {invoice.returnMeta.reason.replace(/_/g, " ").toLowerCase()}
+                </span>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
         {t.showSubtotal ? (
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span className="tabular-nums">₹{subtotal.toFixed(2)}</span>
+            <span className="tabular-nums">{fmt(subtotal)}</span>
           </div>
         ) : null}
         {!discountAfterTax ? discountLines : null}
         {taxBlock}
         {discountAfterTax ? discountLines : null}
-        {roundOff < 0 ? (
+        {showRoundOff ? (
           <div className="flex justify-between text-[11px] text-neutral-600">
             <span>Round off</span>
-            <span className="tabular-nums">− {formatInvoiceRupees(Math.abs(roundOff))}</span>
+            <span className="tabular-nums">− {fmt(Math.abs(roundOff))}</span>
           </div>
         ) : null}
         <div className="flex justify-between text-base font-bold">
           <span>Total</span>
-          <span className="tabular-nums">{formatInvoiceRupees(Number(invoice.totalPaise) / 100)}</span>
+          <span className="tabular-nums">{fmt(Number(invoice.totalPaise) / 100)}</span>
         </div>
         {cashTender && invoice.paymentMethod === "CASH" ? (
           <div className="invoice-payment">
             <div className="flex justify-between border-t border-dashed border-neutral-200 pt-2">
               <span>Cash received</span>
-              <span className="tabular-nums">{formatInvoiceRupees(cashTender.receivedRupees)}</span>
+              <span className="tabular-nums">{fmt(cashTender.receivedRupees)}</span>
             </div>
             <div className="flex justify-between font-semibold">
               <span>Change</span>
-              <span className="tabular-nums">{formatInvoiceRupees(cashTender.changeRupees)}</span>
+              <span className="tabular-nums">{fmt(cashTender.changeRupees)}</span>
             </div>
           </div>
         ) : null}
+          </>
+        )}
       </footer>
 
       {t.termsText ? (
