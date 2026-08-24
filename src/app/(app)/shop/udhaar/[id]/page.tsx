@@ -112,7 +112,15 @@ export default function CustomerLedgerPage() {
           <form onSubmit={recordPayment} className="flex gap-2">
             <div className="flex-1 space-y-1">
               <Label>Amount ₹</Label>
-              <Input type="number" min="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} className="h-11 rounded-xl" />
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="h-11 rounded-xl"
+              />
             </div>
             <Button type="submit" className="mt-6 rounded-xl" disabled={paymentMutation.isPending}>
               {paymentMutation.isPending ? "Saving…" : "Record"}

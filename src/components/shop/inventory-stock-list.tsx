@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { PageLoader } from "@/components/ui/page-loader";
 import { formatINR } from "@/lib/finance/money";
@@ -28,7 +29,6 @@ import {
   Plus,
   Printer,
   Search,
-  Trash2,
 } from "lucide-react";
 
 export type InventoryStockItem = {
@@ -388,17 +388,12 @@ function StockRow({
               <span className="sr-only">Print label</span>
             </Button>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 shrink-0 rounded-lg px-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          <DeleteIconButton
+            className="shrink-0"
             onClick={() => onDelete(item)}
             title={`Delete ${item.name}`}
             aria-label={`Delete ${item.name}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          />
         </div>
         </div>
       </td>

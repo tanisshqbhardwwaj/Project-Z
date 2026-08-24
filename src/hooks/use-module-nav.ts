@@ -15,6 +15,9 @@ export function useModuleNav() {
   const enabledModules = useAuthStore((s) => s.enabledModules);
   const role = useAuthStore((s) => s.role);
   const linkedStaffId = useAuthStore((s) => s.linkedStaffId);
+  const linkedStaffCanViewAttendance = useAuthStore(
+    (s) => s.linkedStaffCanViewAttendance
+  );
 
   return useMemo(() => {
     if (!businessType) return [];
@@ -30,10 +33,14 @@ export function useModuleNav() {
       key: m.key,
     }));
 
-    if (
+    const canViewOwnAttendance =
       linkedStaffId &&
       role &&
-      hasPermission(role as OrgRole, "attendance.view_own") &&
+      (hasPermission(role as OrgRole, "attendance.view_own") ||
+        linkedStaffCanViewAttendance);
+
+    if (
+      canViewOwnAttendance &&
       isModuleEnabled(enabledModules, "staff")
     ) {
       modules.push({
@@ -45,5 +52,12 @@ export function useModuleNav() {
     }
 
     return modules;
-  }, [businessType, shopSector, enabledModules, role, linkedStaffId]);
+  }, [
+    businessType,
+    shopSector,
+    enabledModules,
+    role,
+    linkedStaffId,
+    linkedStaffCanViewAttendance,
+  ]);
 }

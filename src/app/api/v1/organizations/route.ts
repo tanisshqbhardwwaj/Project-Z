@@ -23,6 +23,9 @@ const updateSchema = z.object({
   name: z.string().min(2).max(100).optional(),
   businessType: z.enum(BUSINESS_TYPES).optional(),
   shopSector: z.enum(SHOP_SECTORS).optional().nullable(),
+  /** Multi-select of business types; the first becomes the primary sector. */
+  shopBusinessTypes: z.array(z.enum(SHOP_SECTORS)).min(1).max(14).optional(),
+  shopCustomBusinessType: z.string().max(120).optional().nullable(),
   enableStaff: z.boolean().optional(),
   timezone: z.string().optional(),
   defaultCompletionDays: z.number().int().min(1).max(3650).optional(),

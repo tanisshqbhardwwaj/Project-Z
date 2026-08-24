@@ -6,6 +6,7 @@ import { createAuditLog } from "./audit.service";
 import type { BusinessType, OrgRole, ShopSector } from "@prisma/client";
 import { mergeModuleSettings, parseOrgSettings } from "@/lib/org/require-module";
 import { mergeShopOrgSettings, type ShopOrgSettings } from "@/lib/org/shop-settings";
+import { isShopSector } from "@/lib/org/shop-sector";
 import type { ModuleKey } from "@/lib/org/modules";
 import { defaultEnabledModules } from "@/lib/org/modules";
 import { setupFeeForNewOrg } from "@/services/billing.service";
@@ -175,6 +176,21 @@ export async function acceptInvite(token: string, userId: string) {
     });
   });
 
+  const staffByEmail = await prisma.staffMember.findFirst({
+    where: {
+      organizationId: invite.organizationId,
+      email: invite.email.toLowerCase(),
+      userId: null,
+      status: "ACTIVE",
+    },
+  });
+  if (staffByEmail) {
+    await prisma.staffMember.update({
+      where: { id: staffByEmail.id },
+      data: { userId },
+    });
+  }
+
   return { member, organization: invite.organization };
 }
 
@@ -225,6 +241,9 @@ export async function updateOrganization(input: {
   name?: string;
   businessType?: BusinessType;
   shopSector?: ShopSector | null;
+  /** Full multi-select of business types; the first entry becomes the primary. */
+  shopBusinessTypes?: string[];
+  shopCustomBusinessType?: string | null;
   enableStaff?: boolean;
   timezone?: string;
   defaultCompletionDays?: number;
@@ -292,6 +311,16 @@ export async function updateOrganization(input: {
     data.shopSector = input.shopSector;
   }
 
+  // A shop can trade in several business types; the primary sector column stays
+  // the first selection so existing single-sector behaviour is unchanged.
+  if (input.shopBusinessTypes !== undefined) {
+    const list = input.shopBusinessTypes.filter(isShopSector);
+    if (list.length === 0) {
+      throw new Error("Select at least one business type");
+    }
+    data.shopSector = list[0];
+  }
+
   if (input.enableStaff !== undefined) {
     const nextType = data.businessType ?? before.businessType;
     data.enableStaff = nextType === "SHOPKEEPER" ? input.enableStaff : false;
@@ -301,25 +330,35 @@ export async function updateOrganization(input: {
     data.timezone = input.timezone.trim() || "Asia/Kolkata";
   }
 
-  if (input.settings !== undefined) {
+  const shopTypePatch: ShopOrgSettings = {};
+  if (input.shopBusinessTypes !== undefined) {
+    shopTypePatch.businessTypes = input.shopBusinessTypes.filter(isShopSector);
+  }
+  if (input.shopCustomBusinessType !== undefined) {
+    shopTypePatch.customBusinessType = input.shopCustomBusinessType ?? "";
+  }
+  const hasShopTypePatch = Object.keys(shopTypePatch).length > 0;
+
+  if (input.settings !== undefined || hasShopTypePatch) {
     const existingSettings = parseOrgSettings(before.settings);
     let nextSettings = { ...existingSettings };
-    if (input.settings.modules) {
+    if (input.settings?.modules) {
       nextSettings = mergeModuleSettings(nextSettings, input.settings.modules);
       if (input.settings.modules.staff !== undefined) {
         data.enableStaff = Boolean(input.settings.modules.staff);
       }
     }
-    if (input.settings.weeklyOffDays) {
+    if (input.settings?.weeklyOffDays) {
       nextSettings.weeklyOffDays = input.settings.weeklyOffDays;
     }
-    if (input.settings.unmarkedDayPolicy) {
+    if (input.settings?.unmarkedDayPolicy) {
       nextSettings.unmarkedDayPolicy = input.settings.unmarkedDayPolicy;
     }
-    if (input.settings.shop) {
+    const shopPatch = { ...(input.settings?.shop ?? {}), ...shopTypePatch };
+    if (Object.keys(shopPatch).length > 0) {
       nextSettings = mergeShopOrgSettings(
         nextSettings as Record<string, unknown>,
-        input.settings.shop
+        shopPatch
       ) as typeof nextSettings;
     }
     data.settings = nextSettings;
@@ -335,7 +374,7 @@ export async function updateOrganization(input: {
     data.defaultCompletionDays = input.defaultCompletionDays;
   }
 
-  if (Object.keys(data).length === 0 && !input.settings) {
+  if (Object.keys(data).length === 0 && !input.settings && !hasShopTypePatch) {
     throw new Error("Nothing to update");
   }
 

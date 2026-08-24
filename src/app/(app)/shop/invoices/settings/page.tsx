@@ -31,11 +31,12 @@ import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import { printShopInvoice } from "@/lib/shop/print/invoice-print-service";
 import type { OrgSettingsJson } from "@/lib/org/modules";
 import { cn } from "@/lib/utils";
+import { fiscalYearLabel } from "@/lib/shop/bill-number";
 import { ArrowLeft, Printer, Save } from "lucide-react";
 
 const SAMPLE_INVOICE: ShopInvoiceData = {
   orgName: "Sample Shop",
-  billNumber: "INV-2026-00001",
+  billNumber: `INV-4-${fiscalYearLabel()}-00018`,
   customerName: "Rahul Sharma",
   customerPhone: "9876543210",
   customerGstin: "29ABCDE1234F1Z5",
@@ -127,6 +128,9 @@ export default function InvoiceSettingsPage() {
   const [defaultCopies, setDefaultCopies] = useState(
     String(DEFAULT_INVOICE_SETTINGS.defaultCopies)
   );
+  const [useDecimalPlaces, setUseDecimalPlaces] = useState(
+    DEFAULT_INVOICE_SETTINGS.useDecimalPlaces
+  );
   const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
@@ -167,6 +171,7 @@ export default function InvoiceSettingsPage() {
       )
     );
     setDefaultCopies(String(invoice.defaultCopies ?? DEFAULT_INVOICE_SETTINGS.defaultCopies));
+    setUseDecimalPlaces(invoice.useDecimalPlaces ?? DEFAULT_INVOICE_SETTINGS.useDecimalPlaces);
     setLoading(false);
   }, [activeOrgSettings]);
 
@@ -195,6 +200,7 @@ export default function InvoiceSettingsPage() {
       paperSize,
       printMarginMm: Number(printMarginMm) || 0,
       defaultCopies: Math.min(5, Math.max(1, Number(defaultCopies) || 1)),
+      useDecimalPlaces,
     };
   }, [
     displayName,
@@ -220,6 +226,7 @@ export default function InvoiceSettingsPage() {
     paperSize,
     printMarginMm,
     defaultCopies,
+    useDecimalPlaces,
   ]);
 
   const previewTemplate = useMemo(() => {
@@ -438,7 +445,7 @@ export default function InvoiceSettingsPage() {
                   disabled={!isOwner}
                 />
                 <p className="text-xs text-muted-foreground">
-                  New bills: {billPrefix || "INV"}-2026-00001
+                  New bills: {billPrefix || "INV"}-4-{fiscalYearLabel()}-00018
                 </p>
               </div>
               <div className="space-y-2">
@@ -595,6 +602,13 @@ export default function InvoiceSettingsPage() {
                   </p>
                 </div>
               </div>
+              <ToggleRow
+                label="Show paise (₹.00)"
+                description="When off, invoices use whole rupees with no round-off line."
+                checked={useDecimalPlaces}
+                disabled={!isOwner}
+                onCheckedChange={setUseDecimalPlaces}
+              />
               <p className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
                 Select your thermal printer once in the browser print dialog. Chrome
                 usually remembers it for this site. Silent/direct printing can be added

@@ -36,7 +36,6 @@ import { downloadBarcodeExportCsv } from "@/lib/shop/inventory-export";
 import {
   inventoryCategoriesForSector,
 } from "@/lib/shop/inventory-categories";
-import type { ShopSector } from "@/lib/org/shop-sector";
 import type { InventoryStockItem } from "@/components/shop/inventory-stock-list";
 
 type ToolTab =
@@ -76,7 +75,7 @@ type InventoryToolsDialogProps = {
   onOpenChange: (open: boolean) => void;
   orgId: string | null;
   items: InventoryStockItem[];
-  shopSector: ShopSector | null;
+  businessTypes: string[];
   initialTab?: ToolTab;
 };
 
@@ -85,7 +84,7 @@ export function InventoryToolsDialog({
   onOpenChange,
   orgId,
   items,
-  shopSector,
+  businessTypes,
   initialTab = "upload",
 }: InventoryToolsDialogProps) {
   const role = useAuthStore((s) => s.role);
@@ -110,7 +109,7 @@ export function InventoryToolsDialog({
 
   const duplicateGroups = useMemo(() => findDuplicateGroups(items), [items]);
   const selectedMergeGroup = duplicateGroups.find((g) => g.key === mergeGroupKey);
-  const categories = inventoryCategoriesForSector(shopSector);
+  const categories = inventoryCategoriesForSector(businessTypes);
   const noBarcodeCount = items.filter((i) => !i.barcode).length;
 
   const toolsMutation = useMutation({
@@ -273,7 +272,7 @@ export function InventoryToolsDialog({
     if (withBarcode.length === 0) {
       return showWarning("No items have barcodes yet");
     }
-    downloadBarcodeExportCsv(withBarcode, shopSector);
+    downloadBarcodeExportCsv(withBarcode, businessTypes);
     setLastResult(`Exported ${withBarcode.length} barcode(s) to CSV.`);
   }
 
@@ -340,15 +339,15 @@ export function InventoryToolsDialog({
         {tab === "upload" ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Upload a CSV with columns: name, category, size, quantity, sell price, barcode,
-              expiry date, etc.
+              Upload a CSV with product and variant columns for your business type.
+              Download the template for the exact headers.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
                 className="rounded-xl"
-                onClick={downloadCsvTemplate}
+                onClick={() => downloadCsvTemplate(businessTypes)}
               >
                 <Download className="mr-2 h-4 w-4" />
                 Download template

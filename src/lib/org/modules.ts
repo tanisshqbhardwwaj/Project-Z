@@ -137,12 +137,12 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     key: "shop_activity",
     label: {
-      SHOPKEEPER: "Activity Log",
-      CONTRACTOR: "Activity Log",
-      BUILDER: "Activity Log",
-      ARCHITECT: "Activity Log",
+      SHOPKEEPER: "Activity Trail",
+      CONTRACTOR: "Activity Trail",
+      BUILDER: "Activity Trail",
+      ARCHITECT: "Activity Trail",
     },
-    description: "Owner audit trail of shop actions",
+    description: "Owner audit trail of shop actions with filters",
     icon: ClipboardList,
     route: "/shop/activity",
     availableFor: ["SHOPKEEPER"],

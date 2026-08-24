@@ -9,14 +9,29 @@ export function saleLineKey(item: {
   return `name:${item.name.trim().toLowerCase()}:${item.priceRupees}`;
 }
 
+/**
+ * A sold line. Variant attributes are denormalised onto the line so that an
+ * invoice printed today still says "Size M" after the product is renamed or the
+ * variant is deleted, and so returns can never bring back the wrong size.
+ */
 export type SaleItemJson = {
   name: string;
   qty: number;
   priceRupees: number;
   inventoryItemId?: string;
+  productId?: string;
   barcode?: string;
+  sku?: string;
+  size?: string;
+  color?: string;
+  variantLabel?: string;
+  unit?: string;
   costPaisePerUnit?: number;
 };
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
 
 export function parseSaleItems(raw: unknown): SaleItemJson[] {
   if (!Array.isArray(raw)) return [];
@@ -28,9 +43,14 @@ export function parseSaleItems(raw: unknown): SaleItemJson[] {
         name: String(o.name ?? ""),
         qty: Number(o.qty ?? 0),
         priceRupees: Number(o.priceRupees ?? 0),
-        inventoryItemId:
-          typeof o.inventoryItemId === "string" ? o.inventoryItemId : undefined,
-        barcode: typeof o.barcode === "string" ? o.barcode : undefined,
+        inventoryItemId: optionalString(o.inventoryItemId),
+        productId: optionalString(o.productId),
+        barcode: optionalString(o.barcode),
+        sku: optionalString(o.sku),
+        size: optionalString(o.size),
+        color: optionalString(o.color),
+        variantLabel: optionalString(o.variantLabel),
+        unit: optionalString(o.unit),
         costPaisePerUnit:
           typeof o.costPaisePerUnit === "number" ? o.costPaisePerUnit : undefined,
       };

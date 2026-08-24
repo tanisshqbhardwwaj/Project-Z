@@ -4,6 +4,8 @@ import type { BusinessType } from "@/lib/org/business-type";
 import type { ShopSector } from "@/lib/org/shop-sector";
 import type { EnabledModulesMap } from "@/hooks/use-enabled-modules";
 import type { OrgSettingsJson } from "@/lib/org/modules";
+import type { StaffAccess } from "@/lib/staff/access";
+import { defaultStaffAccess } from "@/lib/staff/access";
 
 export type OrgMembership = {
   organizationId: string;
@@ -42,6 +44,8 @@ type AuthState = {
   role: string | null;
   linkedStaffId: string | null;
   linkedStaffName: string | null;
+  linkedStaffAccess: StaffAccess;
+  linkedStaffCanViewAttendance: boolean;
   isPlatformAdmin: boolean;
   status: "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
   error: string | null;
@@ -58,7 +62,8 @@ type AuthState = {
     timezone?: string,
     linkedStaffId?: string | null,
     linkedStaffName?: string | null,
-    orgSettings?: OrgSettingsJson | null
+    orgSettings?: OrgSettingsJson | null,
+    linkedStaffAccess?: StaffAccess | null
   ) => void;
   updateUser: (patch: Pick<AuthUser, "name" | "phone">) => void;
   logout: () => void;
@@ -107,6 +112,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   role: null,
   linkedStaffId: null,
   linkedStaffName: null,
+  linkedStaffAccess: defaultStaffAccess(),
+  linkedStaffCanViewAttendance: false,
   isPlatformAdmin: false,
   status: "idle",
   error: null,
@@ -148,6 +155,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role: activeOrg?.role ?? membership?.role ?? null,
         linkedStaffId: activeOrg?.linkedStaff?.id ?? null,
         linkedStaffName: activeOrg?.linkedStaff?.name ?? null,
+        linkedStaffAccess:
+          activeOrg?.linkedStaff?.access ?? defaultStaffAccess(),
+        linkedStaffCanViewAttendance:
+          activeOrg?.linkedStaff?.access?.canViewOwnAttendance === true,
         isPlatformAdmin: Boolean(me.isPlatformAdmin),
         status: "authenticated",
         initialized: true,
@@ -171,6 +182,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: null,
           linkedStaffId: null,
           linkedStaffName: null,
+          linkedStaffAccess: defaultStaffAccess(),
+          linkedStaffCanViewAttendance: false,
           isPlatformAdmin: false,
           status: "unauthenticated",
           initialized: true,
@@ -201,8 +214,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     timezone = "Asia/Kolkata",
     linkedStaffId = null,
     linkedStaffName = null,
-    orgSettings: OrgSettingsJson | null = null
+    orgSettings: OrgSettingsJson | null = null,
+    linkedStaffAccess: StaffAccess | null = null
   ) => {
+    const access = linkedStaffAccess ?? defaultStaffAccess();
     setActiveOrganizationId(orgId);
     set({
       activeOrganizationId: orgId,
@@ -216,6 +231,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       role,
       linkedStaffId: linkedStaffId ?? null,
       linkedStaffName: linkedStaffName ?? null,
+      linkedStaffAccess: access,
+      linkedStaffCanViewAttendance: access.canViewOwnAttendance,
     });
   },
 
@@ -240,6 +257,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       role: null,
       linkedStaffId: null,
       linkedStaffName: null,
+      linkedStaffAccess: defaultStaffAccess(),
+      linkedStaffCanViewAttendance: false,
       isPlatformAdmin: false,
       status: "unauthenticated",
       initialized: true,

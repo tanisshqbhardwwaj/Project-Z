@@ -18,9 +18,26 @@ import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { hasPermission } from "@/lib/permissions/rbac";
 import type { OrgRole } from "@prisma/client";
 import { newLineId } from "@/lib/shop/invoice-cart";
+import {
+  VariantSelect,
+  variantOptionText,
+} from "@/components/shop/variant-picker";
 
 type Supplier = { id: string; name: string };
-type InventoryItem = { id: string; name: string; costPaise: string | null };
+type InventoryItem = {
+  id: string;
+  name: string;
+  costPaise: string | null;
+  sellPaise: string | null;
+  size: string | null;
+  color: string | null;
+  variantLabel: string | null;
+  sku: string | null;
+  barcode: string | null;
+  unit: string;
+  quantity: number;
+  product?: { id: string; name: string; brand: string | null } | null;
+};
 
 type PurchaseLine = {
   id: string;
@@ -111,7 +128,8 @@ export default function NewPurchasePage() {
     if (!item) return;
     updateLine(lineId, {
       inventoryItemId: itemId,
-      productName: item.name,
+      // Stock goes onto a specific variant, so the line records which size.
+      productName: variantOptionText(item),
       rateRupees: item.costPaise ? String(Number(item.costPaise) / 100) : "",
     });
   }
@@ -226,16 +244,13 @@ export default function NewPurchasePage() {
             {lines.map((line) => (
               <div key={line.id} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-12">
                 <div className="sm:col-span-4">
-                  <select
+                  <VariantSelect
+                    options={inventoryQuery.data ?? []}
                     value={line.inventoryItemId}
-                    onChange={(e) => pickProduct(line.id, e.target.value)}
-                    className="h-10 w-full rounded-lg border bg-background px-2 text-sm"
-                  >
-                    <option value="">Select product…</option>
-                    {(inventoryQuery.data ?? []).map((i) => (
-                      <option key={i.id} value={i.id}>{i.name}</option>
-                    ))}
-                  </select>
+                    onChange={(itemId) => pickProduct(line.id, itemId)}
+                    placeholder="Select product / size…"
+                    showPrice={false}
+                  />
                 </div>
                 <Input
                   value={line.productName}

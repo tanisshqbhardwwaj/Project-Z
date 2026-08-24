@@ -22,8 +22,13 @@ import {
 import {
   SHOP_SECTOR_CONFIG,
   SHOP_SECTORS,
+  isShopSector,
   type ShopSector,
 } from "@/lib/org/shop-sector";
+import {
+  resolveCustomBusinessTypeLabel,
+  resolveShopBusinessTypes,
+} from "@/lib/org/shop-settings";
 import { cn } from "@/lib/utils";
 import { Users } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -65,7 +70,8 @@ export default function OrganizationSettingsPage() {
   const [savedMessage, setSavedMessage] = useState("");
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
-  const [shopSector, setShopSector] = useState<ShopSector>("GENERAL");
+  const [businessTypes, setBusinessTypes] = useState<ShopSector[]>(["GENERAL"]);
+  const [customBusinessType, setCustomBusinessType] = useState("");
   const [enableStaff, setEnableStaff] = useState(false);
   const [moduleToggles, setModuleToggles] = useState<Partial<Record<ModuleKey, boolean>>>({});
   const [unmarkedPolicy, setUnmarkedPolicy] = useState<"PRESENT" | "ABSENT" | "EXCLUDED">("EXCLUDED");
@@ -85,7 +91,15 @@ export default function OrganizationSettingsPage() {
         if (cancelled) return;
         setName(org.name);
         setBusinessType(org.businessType ?? "CONTRACTOR");
-        setShopSector(org.shopSector ?? "GENERAL");
+        setBusinessTypes(
+          resolveShopBusinessTypes(
+            org.settings ?? {},
+            org.shopSector ?? null
+          ).filter(isShopSector)
+        );
+        setCustomBusinessType(
+          resolveCustomBusinessTypeLabel(org.settings ?? {}) ?? ""
+        );
         setEnableStaff(Boolean(org.enableStaff));
         setModuleToggles(org.settings?.modules ?? {});
         setUnmarkedPolicy(org.settings?.unmarkedDayPolicy ?? "EXCLUDED");
@@ -108,6 +122,20 @@ export default function OrganizationSettingsPage() {
     };
   }, [applyError]);
 
+  /**
+   * Adds or removes a business type. Removing the last one is blocked, and the
+   * first entry stays the primary type used by the legacy `shopSector` column.
+   */
+  function toggleBusinessType(sector: ShopSector) {
+    setBusinessTypes((prev) => {
+      if (prev.includes(sector)) {
+        const next = prev.filter((s) => s !== sector);
+        return next.length > 0 ? next : prev;
+      }
+      return [...prev, sector];
+    });
+  }
+
   async function save() {
     clear();
     setSavedMessage("");
@@ -118,8 +146,16 @@ export default function OrganizationSettingsPage() {
       return;
     }
 
-    if (businessType === "SHOPKEEPER" && !shopSector) {
-      showWarning("Please select your shop sector");
+    if (businessType === "SHOPKEEPER" && businessTypes.length === 0) {
+      showWarning("Select at least one business type");
+      return;
+    }
+    if (
+      businessType === "SHOPKEEPER" &&
+      businessTypes.includes("OTHER") &&
+      !customBusinessType.trim()
+    ) {
+      showWarning("Tell us what your custom business type is");
       return;
     }
 
@@ -137,7 +173,14 @@ export default function OrganizationSettingsPage() {
           name: name.trim(),
           businessType,
           defaultCompletionDays: days,
-          ...(businessType === "SHOPKEEPER" ? { shopSector } : { shopSector: null }),
+          ...(businessType === "SHOPKEEPER"
+            ? {
+                shopBusinessTypes: businessTypes,
+                shopCustomBusinessType: businessTypes.includes("OTHER")
+                  ? customBusinessType.trim()
+                  : null,
+              }
+            : { shopSector: null }),
           settings: {
             modules: {
               ...moduleToggles,
@@ -274,17 +317,24 @@ export default function OrganizationSettingsPage() {
 
           {businessType === "SHOPKEEPER" && (
             <div className="space-y-2">
-              <Label>Shop sector</Label>
+              <Label>My business is</Label>
+              <p className="text-xs text-muted-foreground">
+                Pick every type you trade in. Product categories and the fields on
+                the product form adapt to your selection. The first one you pick is
+                your primary type.
+              </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {SHOP_SECTORS.map((sector) => {
                   const config = SHOP_SECTOR_CONFIG[sector];
-                  const active = shopSector === sector;
+                  const active = businessTypes.includes(sector);
+                  const isPrimary = businessTypes[0] === sector;
                   return (
                     <button
                       key={sector}
                       type="button"
                       disabled={!isOwner}
-                      onClick={() => setShopSector(sector)}
+                      onClick={() => toggleBusinessType(sector)}
+                      aria-pressed={active}
                       className={cn(
                         "rounded-xl border p-3 text-left transition-colors disabled:opacity-60",
                         active
@@ -292,14 +342,46 @@ export default function OrganizationSettingsPage() {
                           : "border-border hover:bg-accent/50"
                       )}
                     >
-                      <p className="text-sm font-semibold">{config.label}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold">{config.label}</span>
+                        {active ? (
+                          <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                            {isPrimary ? "Primary" : "✓"}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
                         {config.description}
-                      </p>
+                      </span>
                     </button>
                   );
                 })}
               </div>
+
+              {businessTypes.includes("OTHER") ? (
+                <div className="space-y-1.5 pt-1">
+                  <Label htmlFor="custom-business-type">
+                    What is your business? (custom type)
+                  </Label>
+                  <Input
+                    id="custom-business-type"
+                    value={customBusinessType}
+                    onChange={(e) => setCustomBusinessType(e.target.value)}
+                    className="h-12 rounded-xl"
+                    placeholder="e.g. Mobile Repair & Accessories"
+                    disabled={!isOwner}
+                    maxLength={120}
+                  />
+                </div>
+              ) : null}
+
+              <p className="pt-1 text-xs text-muted-foreground">
+                Need a category we don&apos;t list? Add your own from{" "}
+                <Link href="/shop/inventory" className="text-primary hover:underline">
+                  Inventory → Category
+                </Link>
+                .
+              </p>
             </div>
           )}
 
@@ -396,7 +478,7 @@ export default function OrganizationSettingsPage() {
               <CardTitle className="text-lg">Features</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {modulesForBusinessType(businessType, shopSector).map((mod) => {
+              {modulesForBusinessType(businessType, businessTypes[0] ?? null).map((mod) => {
                 const on = Boolean(
                   moduleToggles[mod.key] ??
                     (mod.key === "staff" ? enableStaff : mod.defaultOn[businessType])
