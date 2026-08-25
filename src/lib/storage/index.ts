@@ -86,35 +86,36 @@ export function buildStorageKey(
   return `org/${organizationId}/${folder}/${Date.now()}-${safeName}`;
 }
 
+function organizationIdFromKey(key: string): string | null {
+  const match = key.match(/^org\/([^/]+)\//);
+  return match?.[1] ?? null;
+}
+
+function categoryFromKey(key: string, fallback?: string): string {
+  if (fallback) return fallback;
+  const folder = key.split("/")[2];
+  if (folder === "backups") return "backup";
+  if (folder === "work-orders") return "document";
+  return folder || "file";
+}
+
 export async function uploadFile(
   key: string,
   body: Buffer | Uint8Array,
   contentType: string,
   options?: { organizationId?: string; category?: string }
 ) {
-  await ensureBucket();
   const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
-  if (options?.organizationId) {
-    const { assertCloudStorageAllowed, recordStorageUpload } = await import(
+  const organizationId = options?.organizationId ?? organizationIdFromKey(key);
+
+  if (organizationId) {
+    const { assertCloudStorageAllowed } = await import(
       "@/services/storage-quota.service"
     );
-    await assertCloudStorageAllowed(options.organizationId, BigInt(buf.length));
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: key,
-        Body: buf,
-        ContentType: contentType,
-      })
-    );
-    await recordStorageUpload({
-      organizationId: options.organizationId,
-      storageKey: key,
-      byteSize: BigInt(buf.length),
-      category: options.category ?? "file",
-    });
-    return key;
+    await assertCloudStorageAllowed(organizationId, BigInt(buf.length));
   }
+
+  await ensureBucket();
   await s3.send(
     new PutObjectCommand({
       Bucket: BUCKET,
@@ -123,6 +124,19 @@ export async function uploadFile(
       ContentType: contentType,
     })
   );
+
+  if (organizationId) {
+    const { recordStorageUpload } = await import(
+      "@/services/storage-quota.service"
+    );
+    await recordStorageUpload({
+      organizationId,
+      storageKey: key,
+      byteSize: BigInt(buf.length),
+      category: categoryFromKey(key, options?.category),
+    });
+  }
+
   return key;
 }
 

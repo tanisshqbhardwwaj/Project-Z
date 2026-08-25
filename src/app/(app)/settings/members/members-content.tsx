@@ -13,10 +13,17 @@ import { useFetch } from "@/hooks/use-fetch";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireEmail } from "@/lib/api/validation";
+import { useBusinessType } from "@/hooks/use-business-type";
+import { ORG_ROLE_LABELS } from "@/lib/permissions/rbac";
+import type { OrgRole } from "@prisma/client";
+
+const INVITE_ROLES: OrgRole[] = ["PARTNER", "ACCOUNTANT", "VIEWER", "CASHIER"];
 
 export default function MembersContent() {
+  const biz = useBusinessType();
   const { activeOrganizationId } = useAuthStore();
   const [email, setEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<OrgRole>("PARTNER");
   const [successMessage, setSuccessMessage] = useState("");
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const [inviteLink, setInviteLink] = useState("");
@@ -48,7 +55,7 @@ export default function MembersContent() {
     try {
       await apiFetch(`/api/v1/organizations/${activeOrganizationId}/members`, {
         method: "POST",
-        body: JSON.stringify({ email, role: "PARTNER" }),
+        body: JSON.stringify({ email, role: inviteRole }),
       });
       setSuccessMessage("Invitation email sent!");
       setEmail("");
@@ -65,7 +72,7 @@ export default function MembersContent() {
     try {
       const data = await apiFetch<{ url: string }>(
         `/api/v1/organizations/${activeOrganizationId}/members/link`,
-        { method: "POST", body: JSON.stringify({ role: "PARTNER" }) }
+        { method: "POST", body: JSON.stringify({ role: inviteRole }) }
       );
       setInviteLink(data.url);
       setSuccessMessage("Share this link with your partner");
@@ -85,17 +92,31 @@ export default function MembersContent() {
   return (
     <div className="mx-auto max-w-lg space-y-5 pb-8">
       <h1 className="text-2xl font-bold">Organization Team</h1>
-      <p className="text-sm text-muted-foreground">
-        Org-level access. To add partners to a specific work order, use the Partners button on that project.
-      </p>
+      <p className="text-sm text-muted-foreground">{biz.teamHint}</p>
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardHeader>
           <CardTitle className="text-lg">Invite Org Team Member</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={invite} className="space-y-2">
-            <Label>Email</Label>
+          <form onSubmit={invite} className="space-y-3">
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as OrgRole)}
+                className="h-12 w-full rounded-xl border bg-background px-3"
+              >
+                {INVITE_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ORG_ROLE_LABELS[r]}
+                    {r === "CASHIER" ? " — counter sales only" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
             <div className="flex gap-2">
               <Input
                 type="email"
@@ -108,6 +129,7 @@ export default function MembersContent() {
               <Button type="submit" className="h-12 shrink-0 rounded-xl px-4">
                 <Mail className="h-4 w-4" />
               </Button>
+            </div>
             </div>
           </form>
           <div className="flex flex-wrap gap-2">
@@ -140,12 +162,15 @@ export default function MembersContent() {
               <div className="min-w-0">
                 <p className="font-medium">{m.user.name}</p>
                 <p className="text-sm text-muted-foreground">{m.user.email}</p>
+                <p className="mt-1 text-xs text-muted-foreground capitalize">
+                  Role: {m.role.toLowerCase()}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {m.partnerProjectCount === 0
-                    ? "Not a partner on any work order"
+                    ? `Not a ${biz.partnerLabel.toLowerCase()} on any ${biz.workItemSingularLower}`
                     : m.partnerProjectCount === 1
-                      ? `Partner on 1 work order: ${m.partnerProjects[0]?.name ?? "—"}`
-                      : `Partner on ${m.partnerProjectCount} work orders: ${m.partnerProjects
+                      ? `${biz.partnerLabel} on 1 ${biz.workItemSingularLower}: ${m.partnerProjects[0]?.name ?? "—"}`
+                      : `${biz.partnerLabel} on ${m.partnerProjectCount} ${biz.workItemPlural.toLowerCase()}: ${m.partnerProjects
                           .map((p) => p.name)
                           .join(", ")}`}
                 </p>

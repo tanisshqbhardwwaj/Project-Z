@@ -163,6 +163,17 @@ export function validateProductionEnv(env = process.env) {
   return errors;
 }
 
+export function productionEnvWarnings(env = process.env) {
+  /** @type {string[]} */
+  const warnings = [];
+  if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
+    warnings.push(
+      "UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN are not set. Auth rate limits will be in-memory only (weak on Vercel). Create a Redis database at https://upstash.com"
+    );
+  }
+  return warnings;
+}
+
 export function printProductionEnvErrors(errors) {
   console.error("\n❌ Production build blocked — fix these Vercel environment variables:\n");
   for (const error of errors) {
@@ -180,4 +191,7 @@ if (isDirectRun) {
     process.exit(1);
   }
   console.log("✓ All production environment variables look valid.");
+  for (const warning of productionEnvWarnings()) {
+    console.warn(`  ⚠ ${warning}`);
+  }
 }

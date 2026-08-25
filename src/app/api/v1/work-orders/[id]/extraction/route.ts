@@ -39,7 +39,7 @@ export async function POST(
     const body = await request.json();
 
     if (body.action === "rerun") {
-      enforceRateLimit(request, "work-order:rerun", RATE_LIMITS.aiRerun.limit, RATE_LIMITS.aiRerun.windowMs);
+      await enforceRateLimit(request, "work-order:rerun", RATE_LIMITS.aiRerun.limit, RATE_LIMITS.aiRerun.windowMs);
       await rerunExtraction(id);
       const extraction = await prisma.aIExtraction.findUnique({ where: { id } });
       return apiSuccess(serializeBigInt(extraction));

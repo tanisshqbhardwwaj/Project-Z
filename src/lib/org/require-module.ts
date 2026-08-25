@@ -5,9 +5,7 @@ import {
   resolveEnabledModules,
   type OrgSettingsJson,
 } from "@/lib/org/modules";
-import type { BusinessType, ShopSector, BillingPlan } from "@prisma/client";
-import { effectiveModulesForPlan } from "@/lib/billing/entitlements";
-import { assertModuleAllowedByPlan } from "@/lib/billing/entitlements";
+import type { BusinessType, ShopSector } from "@prisma/client";
 
 export async function getOrgModuleContext(organizationId: string) {
   const org = await prisma.organization.findUnique({
@@ -19,7 +17,6 @@ export async function getOrgModuleContext(organizationId: string) {
       enableStaff: true,
       timezone: true,
       settings: true,
-      plan: true,
     },
   });
   if (!org) throw new Error("Organization not found");
@@ -35,9 +32,6 @@ export async function getOrgModuleContext(organizationId: string) {
 
 export async function requireModule(organizationId: string, moduleKey: ModuleKey) {
   const { org, enabledModules } = await getOrgModuleContext(organizationId);
-  if (org.businessType === "SHOPKEEPER") {
-    assertModuleAllowedByPlan(org.plan, moduleKey);
-  }
   if (!enabledModules[moduleKey]) {
     const def = getModuleDefinition(moduleKey);
     throw new Error(
@@ -67,7 +61,6 @@ export function modulesPayloadForClient(input: {
   shopSector: ShopSector | null;
   settings: unknown;
   enableStaff: boolean;
-  plan?: BillingPlan;
 }) {
   const settings = parseOrgSettings(input.settings);
   const enabled = resolveEnabledModules({
@@ -76,8 +69,5 @@ export function modulesPayloadForClient(input: {
     settings,
     enableStaffLegacy: input.enableStaff,
   });
-  if (input.businessType === "SHOPKEEPER" && input.plan) {
-    return { settings, enabledModules: effectiveModulesForPlan(input.plan, enabled) };
-  }
   return { settings, enabledModules: enabled };
 }

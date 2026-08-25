@@ -42,6 +42,12 @@ yarn-error.log*
 # OCR training data (large; not needed in repo)
 *.traineddata
 
+# Local installer binaries served from /downloads
+/public/downloads/*.apk
+/public/downloads/*.exe
+/public/downloads/*.msi
+
+
 # playwright
 /test-results/
 /playwright-report/

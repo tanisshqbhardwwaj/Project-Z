@@ -3,6 +3,7 @@ import type {
   BillingEventType,
   BillingPlan,
   PlanRequestStatus,
+  Prisma,
   SetupFeeStatus,
   SubscriptionStatus,
 } from "@prisma/client";
@@ -33,7 +34,7 @@ async function logBillingEvent(input: {
       organizationId: input.organizationId,
       type: input.type,
       actorUserId: input.actorUserId ?? null,
-      metadata: input.metadata ?? {},
+      metadata: (input.metadata ?? {}) as Prisma.InputJsonValue,
     },
   });
 }
@@ -392,6 +393,8 @@ export async function getOpsSummary() {
     where: { setupFeeStatus: "UNPAID", businessType: "SHOPKEEPER" },
   });
 
+  const ops = await getOpsActivitySignals();
+
   return {
     orgCount,
     byPlan: Object.fromEntries(byPlan.map((r) => [r.plan, r._count])),
@@ -403,7 +406,83 @@ export async function getOpsSummary() {
     storageUsedBytes: storageAgg._sum.storageUsedBytes?.toString() ?? "0",
     mrrPaise,
     setupOutstanding,
+    ...ops,
   };
+}
+
+function startOfDay(daysAgo = 0): Date {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - daysAgo);
+  return date;
+}
+
+/**
+ * Platform billing and adoption only. Shop sales, stock, staff and returns stay
+ * inside each organization — ops must not aggregate those private details.
+ */
+export async function getOpsActivitySignals() {
+  const today = startOfDay();
+  const weekAgo = startOfDay(7);
+  const monthAgo = startOfDay(30);
+
+  const safeCount = (promise: Promise<number>) => promise.catch(() => 0);
+
+  const [newOrgsThisWeek, newOrgsThisMonth, trialsExpiringSoon] = await Promise.all([
+    safeCount(prisma.organization.count({ where: { createdAt: { gte: weekAgo } } })),
+    safeCount(prisma.organization.count({ where: { createdAt: { gte: monthAgo } } })),
+    safeCount(
+      prisma.organization.count({
+        where: {
+          subscriptionStatus: "TRIAL",
+          currentPeriodEnd: {
+            gte: today,
+            lte: new Date(today.getTime() + 7 * 86_400_000),
+          },
+        },
+      })
+    ),
+  ]);
+
+  return {
+    activity: {
+      newOrgsThisWeek,
+      newOrgsThisMonth,
+      trialsExpiringSoon,
+    },
+  };
+}
+
+/** Recently created organizations with their owner, for the ops overview feed. */
+export async function listRecentOpsOrganizations(take = 8) {
+  const orgs = await prisma.organization.findMany({
+    orderBy: { createdAt: "desc" },
+    take,
+    select: {
+      id: true,
+      name: true,
+      businessType: true,
+      shopSector: true,
+      plan: true,
+      subscriptionStatus: true,
+      createdAt: true,
+      members: {
+        where: { role: "OWNER" },
+        take: 1,
+        select: { user: { select: { name: true, email: true, phone: true } } },
+      },
+    },
+  });
+  return orgs.map((org) => ({
+    id: org.id,
+    name: org.name,
+    businessType: org.businessType,
+    shopSector: org.shopSector,
+    plan: org.plan,
+    subscriptionStatus: org.subscriptionStatus,
+    createdAt: org.createdAt.toISOString(),
+    owner: org.members[0]?.user ?? null,
+  }));
 }
 
 export async function listOpsOrganizations(input: {

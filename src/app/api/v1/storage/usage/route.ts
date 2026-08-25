@@ -1,4 +1,4 @@
-import { handleApi, apiSuccess, getAuthContext, requireOwner, ApiError } from "@/lib/api/context";
+import { handleApi, apiSuccess, getAuthContext, ApiError } from "@/lib/api/context";
 import { prisma } from "@/lib/db/prisma";
 import { subscriptionAllowsCloudSync } from "@/lib/billing/entitlements";
 import { getStorageUsageBreakdown } from "@/services/storage-quota.service";
@@ -10,7 +10,6 @@ export async function GET(request: Request) {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"), {
       allowCancelled: true,
     });
-    requireOwner(ctx);
     const org = await prisma.organization.findUnique({ where: { id: ctx.organizationId } });
     if (!org) throw new ApiError(404, "NOT_FOUND", "Organization not found");
     const usage = await getStorageUsageBreakdown(ctx.organizationId);

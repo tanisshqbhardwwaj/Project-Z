@@ -14,6 +14,7 @@ export type PlanCardData = {
   mostPopular?: boolean;
   features: string[];
   comingSoon?: string[];
+  introLabel?: string | null;
 };
 
 type PlanCardsProps = {
@@ -55,6 +56,9 @@ export function PlanCards({
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">{plan.name}</CardTitle>
               <p className="text-2xl font-bold">{plan.monthlyLabel}</p>
+              {plan.introLabel ? (
+                <p className="text-sm font-medium text-primary">{plan.introLabel}</p>
+              ) : null}
               <p className="text-xs text-muted-foreground">per month · {plan.storageLabel} cloud</p>
               <p className="text-sm text-muted-foreground">{plan.tagline}</p>
             </CardHeader>
@@ -106,16 +110,18 @@ export function StorageUsageBar({
   usedLabel,
   quotaLabel,
   percent,
+  label = "Cloud photos & files",
 }: {
   usedLabel: string;
   quotaLabel: string;
   percent: number;
+  label?: string;
 }) {
   const pct = Math.min(100, Math.max(0, percent));
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-sm">
-        <span>Cloud photos & files</span>
+        <span>{label}</span>
         <span className="text-muted-foreground">
           {usedLabel} / {quotaLabel}
         </span>

@@ -14,11 +14,14 @@ export type PlanDefinition = {
   modules: ModuleKey[];
   inventorySkuCap: number | null;
   comingSoon?: string[];
+  introMonthPaise?: number;
+  introLabel?: string;
 };
 
-export const SETUP_FEE_REGULAR_PAISE = 1_899_900;
-export const SETUP_FEE_EARLY_BIRD_PAISE = 1_499_900;
-export const EARLY_BIRD_SETUP_LIMIT = 100;
+/** Setup / onboarding is no longer billed. Kept at 0 for older callers. */
+export const SETUP_FEE_REGULAR_PAISE = 0;
+export const SETUP_FEE_EARLY_BIRD_PAISE = 0;
+export const EARLY_BIRD_SETUP_LIMIT = 0;
 
 const GB = 1024 * 1024 * 1024;
 
@@ -29,15 +32,16 @@ export const BILLING_PLANS: Record<BillingPlan, PlanDefinition> = {
     monthlyPaise: 39_900,
     storageBytes: 2 * GB,
     storageLabel: "2 GB",
-    tagline: "Small businesses getting started",
+    tagline: "For small businesses getting started",
     features: [
       "Invoice generation",
       "Customer management",
-      "Basic sales & history",
-      "Basic reports",
+      "Basic sales",
+      "Invoice history",
       "PDF / print invoice",
       "Limited inventory (200 SKUs)",
-      "Email sharing",
+      "Android app support",
+      "2 GB cloud storage",
     ],
     modules: ["shop_sales", "shop_inventory"],
     inventorySkuCap: 200,
@@ -48,25 +52,31 @@ export const BILLING_PLANS: Record<BillingPlan, PlanDefinition> = {
     monthlyPaise: 99_900,
     storageBytes: 5 * GB,
     storageLabel: "5 GB",
-    tagline: "Growing retail businesses",
+    tagline: "All the essentials for growing retail",
     mostPopular: true,
     features: [
       "Everything in Basic",
       "Full inventory",
-      "Barcode scanner & labels",
-      "Purchase & supplier management",
-      "Customer udhaar / ledger",
-      "Daily & monthly expenses",
-      "Profit reports & low-stock alerts",
-      "Returns, offers & hold bills",
+      "Barcode scanner",
+      "Barcode generation & printing",
+      "Purchase management",
+      "Customer ledger (udhaar)",
+      "Profit reports",
+      "Low-stock alerts",
+      "Returns & exchanges",
+      "Offers & discounts",
+      "Hold bill (30 minutes)",
       "Excel / CSV import & export",
+      "Staff management",
+      "iOS app support",
+      "5 GB cloud storage",
     ],
     modules: [
       "shop_sales",
       "shop_inventory",
       "shop_udhaar",
       "shop_purchases",
-      "shop_expenses",
+      "staff",
     ],
     inventorySkuCap: null,
   },
@@ -76,16 +86,22 @@ export const BILLING_PLANS: Record<BillingPlan, PlanDefinition> = {
     monthlyPaise: 149_900,
     storageBytes: 10 * GB,
     storageLabel: "10 GB",
-    tagline: "Staff management & advanced control",
+    tagline: "Advanced management for growing teams",
+    introMonthPaise: 99_900,
+    introLabel: "₹999 for the 1st month only",
     features: [
       "Everything in Business",
-      "Staff management",
-      "Attendance & payroll",
-      "Customer & product analytics",
-      "Activity / audit log",
+      "Attendance",
+      "Payroll",
+      "Advanced reports",
+      "Customer analytics",
+      "Product analytics",
+      "Activity trail",
+      "Expense management",
       "Cash denomination",
-      "WhatsApp payment reminders",
+      "Payment reminders",
       "Priority support",
+      "10 GB cloud storage",
     ],
     modules: [
       "shop_sales",
@@ -103,13 +119,16 @@ export const BILLING_PLANS: Record<BillingPlan, PlanDefinition> = {
     name: "Business Pro",
     monthlyPaise: 249_900,
     storageBytes: 20 * GB,
-    storageLabel: "Custom storage",
-    tagline: "Established businesses — full suite",
+    storageLabel: "Higher storage on request",
+    tagline: "For growing and multi-store businesses",
     features: [
       "Everything in Professional",
+      "Multi-store facility",
       "Advanced business analytics",
+      "Advanced staff reports",
       "Higher cloud storage (on request)",
-      "Multiple users & devices",
+      "Multiple-user expansion",
+      "WhatsApp invoicing integrations",
       "Premium support",
     ],
     modules: [
@@ -122,12 +141,7 @@ export const BILLING_PLANS: Record<BillingPlan, PlanDefinition> = {
       "staff",
     ],
     inventorySkuCap: null,
-    comingSoon: [
-      "Loyalty / rewards program",
-      "Gift cards / store wallet",
-      "Advanced cash reconciliation",
-      "Advanced integrations",
-    ],
+    comingSoon: ["Loyalty / rewards program", "Gift cards / store wallet"],
   },
 };
 
@@ -150,8 +164,8 @@ export function defaultStorageQuotaBytes(plan: BillingPlan): bigint {
   return BigInt(BILLING_PLANS[plan].storageBytes);
 }
 
-export function formatStorageBytes(bytes: bigint | number): string {
-  const n = typeof bytes === "bigint" ? Number(bytes) : bytes;
+export function formatStorageBytes(bytes: bigint | number | string): string {
+  const n = Number(bytes);
   if (n >= GB) return `${(n / GB).toFixed(1)} GB`;
   if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(0)} MB`;
   return `${n} B`;

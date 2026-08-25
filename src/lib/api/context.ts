@@ -3,15 +3,12 @@ import { ZodError } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import type { OrgRole } from "@prisma/client";
-<<<<<<< Updated upstream
-import { hasPermission, type Permission } from "@/lib/permissions/rbac";
-=======
-import { hasPermission, canManageOrg, type Permission } from "@/lib/permissions/rbac";
+import { hasPermission, canManageOrg, canAccessProjectsNav, type Permission } from "@/lib/permissions/rbac";
 import { subscriptionAllowsProductUse } from "@/lib/billing/entitlements";
->>>>>>> Stashed changes
 import { formatZodError } from "@/lib/api/validation";
 import { logger } from "@/lib/logger";
 import { RateLimitError } from "@/lib/rate-limit";
+import { clientSafeInternalMessage } from "@/lib/api/internal-error";
 
 export class ApiError extends Error {
   constructor(
@@ -30,6 +27,12 @@ export interface AuthContext {
   userName: string;
   organizationId: string;
   role: OrgRole;
+}
+
+export function requireOwner(ctx: AuthContext) {
+  if (!canManageOrg(ctx.role)) {
+    throw new ApiError(403, "FORBIDDEN", "Owner access required");
+  }
 }
 
 export async function getAuthContext(
@@ -56,6 +59,21 @@ export async function getAuthContext(
     throw new ApiError(400, "ORG_REQUIRED", "Organization context required");
   }
 
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { subscriptionStatus: true },
+  });
+  if (!org) {
+    throw new ApiError(404, "NOT_FOUND", "Organization not found");
+  }
+  if (!subscriptionAllowsProductUse(org.subscriptionStatus) && !options?.allowCancelled) {
+    throw new ApiError(
+      403,
+      "SUBSCRIPTION_CANCELLED",
+      "This shop subscription is cancelled. Go to Settings → Billing or contact support to reactivate."
+    );
+  }
+
   const member = await prisma.organizationMember.findUnique({
     where: {
       organizationId_userId: {
@@ -67,21 +85,6 @@ export async function getAuthContext(
 
   if (!member || member.status !== "ACTIVE") {
     throw new ApiError(403, "FORBIDDEN", "Not a member of this organization");
-  }
-
-  const org = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { subscriptionStatus: true, name: true },
-  });
-  if (!org) {
-    throw new ApiError(404, "NOT_FOUND", "Organization not found");
-  }
-  if (!subscriptionAllowsProductUse(org.subscriptionStatus) && !options?.allowCancelled) {
-    throw new ApiError(
-      403,
-      "SUBSCRIPTION_CANCELLED",
-      "This shop subscription is cancelled. Go to Settings → Billing or contact support to reactivate."
-    );
   }
 
   return {
@@ -97,6 +100,29 @@ export function requirePermission(ctx: AuthContext, permission: Permission) {
   if (!hasPermission(ctx.role, permission)) {
     throw new ApiError(403, "FORBIDDEN", "Insufficient permissions");
   }
+}
+
+export function requireProjectViewAccess(ctx: AuthContext) {
+  if (!canAccessProjectsNav(ctx.role)) {
+    throw new ApiError(403, "FORBIDDEN", "Insufficient permissions");
+  }
+}
+
+export function requireProjectWriteAccess(ctx: AuthContext) {
+  requireProjectViewAccess(ctx);
+  if (ctx.role === "VIEWER") {
+    throw new ApiError(403, "FORBIDDEN", "Viewers cannot change project data");
+  }
+}
+
+export function requireUdhaarWrite(ctx: AuthContext) {
+  if (
+    hasPermission(ctx.role, "payment.create") ||
+    hasPermission(ctx.role, "shop.sales")
+  ) {
+    return;
+  }
+  throw new ApiError(403, "FORBIDDEN", "Not allowed to change customer credit");
 }
 
 export async function requireProjectAccess(
@@ -147,23 +173,27 @@ export async function handleApi<T>(
     if (e instanceof ZodError) {
       return apiError(new ApiError(400, "VALIDATION_ERROR", formatZodError(e), e.issues));
     }
+    if (e instanceof Error) {
+      const msg = e.message;
+      if (
+        msg.includes("UNIQUE constraint failed") ||
+        msg.includes("Unique constraint failed")
+      ) {
+        const friendly =
+          msg.includes("BuilderUnit") && msg.includes("unitNumber")
+            ? "This unit number already exists in the project"
+            : "A record with this value already exists";
+        return apiError(new ApiError(409, "CONFLICT", friendly));
+      }
+    }
     logger.error("api.unhandled_error", {
       error: e instanceof Error ? e.message : String(e),
       name: e instanceof Error ? e.name : "UnknownError",
     });
-    const isCloud =
-      Boolean(process.env.VERCEL) ||
-      process.env.S3_ENDPOINT?.includes("r2.cloudflarestorage.com");
-    const message =
-      e instanceof Error && e.name === "NoSuchBucket"
-        ? isCloud
-          ? `R2 bucket "${process.env.S3_BUCKET ?? "project-z"}" not found. Create it in Cloudflare Dashboard → R2.`
-          : "Storage bucket missing. Run: docker compose up -d"
-        : e instanceof Error && e.name === "AccessDenied"
-          ? "Storage access denied. Check R2 API token has Object Read & Write on the correct bucket."
-          : e instanceof Error
-            ? e.message
-            : "An unexpected error occurred";
+    const message = clientSafeInternalMessage(
+      e,
+      process.env.NODE_ENV === "production"
+    );
     return apiError(new ApiError(500, "INTERNAL_ERROR", message));
   }
 }

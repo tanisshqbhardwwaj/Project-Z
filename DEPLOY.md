@@ -57,9 +57,9 @@ Use a process manager or orchestrator (Railway, Fly.io, ECS, etc.) with:
 1. Create an Inngest app and copy event + signing keys.
 2. Set `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`.
 3. Register your app's serve URL: `https://your-domain.com/api/inngest`
-4. Work order uploads will queue extraction jobs with **3 automatic retries**.
+4. Work order uploads queue extraction jobs with **1 first run + 3 retries (4 attempts)**. Quota/429 errors complete with empty fields and do **not** retry.
 
-Without Inngest, extraction runs inline (fine for dev/small pilots).
+Without Inngest, extraction runs inline with **no retries** (dev/small pilots only).
 
 ## 6. Backups
 
@@ -72,7 +72,7 @@ Without Inngest, extraction runs inline (fine for dev/small pilots).
 - [ ] HTTPS only in production
 - [ ] Production S3 credentials (not MinIO defaults)
 - [ ] Verified email domain in Resend
-- [ ] Rate limits active (built-in on auth/upload)
+- [ ] Rate limits: set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` on Vercel
 - [ ] Inngest signing key set if using queue
 
 ## 8. Post-Deploy Verification

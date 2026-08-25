@@ -10,7 +10,7 @@ const schema = z.object({ email: z.string().email() });
 
 export async function POST(request: Request) {
   return handleApi(async () => {
-    enforceRateLimit(request, "auth:forgot-password", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
+    await enforceRateLimit(request, "auth:forgot-password", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
     const body = await request.json();
     const { email } = schema.parse(body);
 

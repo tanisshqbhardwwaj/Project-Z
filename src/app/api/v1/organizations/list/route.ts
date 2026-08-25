@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db/prisma";
 import { handleApi, apiSuccess } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
+import { modulesPayloadForClient } from "@/lib/org/require-module";
+import { parseStaffAccess } from "@/lib/staff/access";
+import { readStaffAccessJsonMap } from "@/lib/staff/access-storage";
 
 export async function GET() {
   return handleApi(async () => {
@@ -17,19 +20,23 @@ export async function GET() {
 
     const memberships = await prisma.organizationMember.findMany({
       where: { userId: session.user.id, status: "ACTIVE" },
-      include: { organization: true },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            businessType: true,
+            shopSector: true,
+            enableStaff: true,
+            timezone: true,
+            settings: true,
+          },
+        },
+      },
       orderBy: { joinedAt: "asc" },
     });
 
-<<<<<<< Updated upstream
-    return apiSuccess({
-      organizations: serializeBigInt(
-        memberships.map((m) => ({
-          id: m.organization.id,
-          name: m.organization.name,
-          role: m.role,
-        }))
-=======
     const primaryOrgId = memberships[0]?.organizationId ?? null;
 
     const staffLinks = await prisma.staffMember.findMany({
@@ -41,15 +48,9 @@ export async function GET() {
       select: { id: true, name: true, organizationId: true },
     });
     const staffByOrg = new Map(staffLinks.map((s) => [s.organizationId, s]));
-
-    const activeMembership =
-      memberships.find(
-        (m) =>
-          m.organizationId === session.user.activeOrganizationId &&
-          m.organization.subscriptionStatus !== "CANCELLED"
-      ) ??
-      memberships.find((m) => m.organization.subscriptionStatus !== "CANCELLED") ??
-      memberships[0];
+    const accessByStaffId = await readStaffAccessJsonMap(
+      staffLinks.map((s) => s.id)
+    );
 
     return apiSuccess({
       organizations: serializeBigInt(
@@ -59,7 +60,6 @@ export async function GET() {
             shopSector: m.organization.shopSector,
             settings: m.organization.settings,
             enableStaff: m.organization.enableStaff,
-            plan: m.organization.plan,
           });
           const isPrimary = m.organizationId === primaryOrgId;
           const canDelete =
@@ -75,18 +75,19 @@ export async function GET() {
             enabledModules,
             orgSettings: settings,
             role: m.role,
-            plan: m.organization.plan,
-            subscriptionStatus: m.organization.subscriptionStatus,
             isPrimary,
             canDelete,
             linkedStaff: linkedStaff
-              ? { id: linkedStaff.id, name: linkedStaff.name }
+              ? {
+                  id: linkedStaff.id,
+                  name: linkedStaff.name,
+                  access: accessByStaffId.get(linkedStaff.id) ?? parseStaffAccess(null),
+                }
               : null,
           };
         })
->>>>>>> Stashed changes
       ),
-      activeOrganizationId: activeMembership?.organizationId ?? null,
+      activeOrganizationId: session.user.activeOrganizationId ?? memberships[0]?.organizationId,
       canCreateMore: memberships.length < MAX_ORGANIZATIONS,
     });
   });

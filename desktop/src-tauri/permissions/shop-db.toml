@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "shop-db"
+description = "Read and write the DPAPI-encrypted shop snapshot on this PC."
+commands.allow = [
+  "persist_shop_db",
+  "save_shop_db",
+  "load_shop_db",
+  "list_shop_orgs",
+  "local_data_dir",
+]

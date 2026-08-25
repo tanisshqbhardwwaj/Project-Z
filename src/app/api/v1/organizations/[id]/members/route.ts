@@ -7,7 +7,7 @@ import type { OrgRole } from "@prisma/client";
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["PARTNER", "VIEWER", "ACCOUNTANT"]).default("PARTNER"),
+  role: z.enum(["PARTNER", "VIEWER", "ACCOUNTANT", "CASHIER"]).default("PARTNER"),
 });
 
 export async function GET(

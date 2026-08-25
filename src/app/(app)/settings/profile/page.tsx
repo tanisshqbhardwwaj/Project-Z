@@ -14,6 +14,12 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireField } from "@/lib/api/validation";
 import { MAX_BETA_TEST_EMAILS } from "@/lib/email/test-allowlist";
+import { getBusinessTypeConfig } from "@/lib/org/business-type";
+import { getShopSectorConfig } from "@/lib/org/shop-sector";
+import { Switch } from "@/components/ui/switch";
+import { useCashierMode } from "@/hooks/use-cashier-mode";
+import { hasPermission } from "@/lib/permissions/rbac";
+import type { OrgRole } from "@prisma/client";
 
 type BetaTestEmail = {
   id: string;
@@ -23,7 +29,7 @@ type BetaTestEmail = {
 };
 
 export default function SettingsProfilePage() {
-  const { user, activeOrganizationName, role, status, initialized, updateUser, logout } =
+  const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, isPlatformAdmin, updateUser, logout } =
     useAuthStore();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -59,6 +65,11 @@ export default function SettingsProfilePage() {
   } = useFormFeedback();
 
   const isOrgOwner = role === "OWNER";
+  const { previewMode, setPreviewMode, isOwnerPreview } = useCashierMode();
+  const canPreviewCashier =
+    activeBusinessType === "SHOPKEEPER" &&
+    role &&
+    hasPermission(role as OrgRole, "shop.sales");
 
   useEffect(() => {
     if (user) {
@@ -272,13 +283,81 @@ export default function SettingsProfilePage() {
             <p>
               <strong>{activeOrganizationName ?? "—"}</strong>
             </p>
-            <Link href="/settings/members">
-              <Button variant="outline" className="rounded-xl">
-                Manage Members
-              </Button>
-            </Link>
+            <p className="text-sm text-muted-foreground">
+              {getBusinessTypeConfig(activeBusinessType).label}
+              {activeBusinessType === "SHOPKEEPER" && activeShopSector
+                ? ` · ${getShopSectorConfig(activeShopSector).label}`
+                : ""}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/settings/organization">
+                <Button variant="outline" className="rounded-xl">
+                  Manage Organization
+                </Button>
+              </Link>
+              <Link href="/settings/members">
+                <Button variant="outline" className="rounded-xl">
+                  Manage Members
+                </Button>
+              </Link>
+              {isOrgOwner ? (
+                <Link href="/settings/billing">
+                  <Button variant="outline" className="rounded-xl">
+                    Billing
+                  </Button>
+                </Link>
+              ) : null}
+              {isPlatformAdmin ? (
+                <Link href="/ops">
+                  <Button variant="outline" className="rounded-xl">
+                    Owner dashboard
+                  </Button>
+                </Link>
+              ) : null}
+              {enabledModules.staff && (
+                <Link href="/staff">
+                  <Button variant="outline" className="rounded-xl">
+                    Staff & payroll
+                  </Button>
+                </Link>
+              )}
+            </div>
           </CardContent>
         </Card>
+
+        {canPreviewCashier ? (
+          <Card className="rounded-2xl border-0 shadow-md">
+            <CardHeader>
+              <CardTitle>Cashier preview</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                See the simplified counter UI your cashiers get — billing, scan, returns
+                only. Your owner permissions stay the same; this only changes navigation.
+              </p>
+              <div className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                <div>
+                  <p className="text-sm font-medium">Cashier mode preview</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isOwnerPreview ? "On — open Cashier home from the sidebar" : "Off — full owner menu"}
+                  </p>
+                </div>
+                <Switch
+                  checked={previewMode}
+                  onCheckedChange={setPreviewMode}
+                  aria-label="Toggle cashier preview"
+                />
+              </div>
+              {previewMode ? (
+                <Link href="/cashier">
+                  <Button variant="outline" className="rounded-xl">
+                    Open cashier home
+                  </Button>
+                </Link>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
 
       <Card className="rounded-2xl border-0 shadow-md">
@@ -394,13 +473,13 @@ export default function SettingsProfilePage() {
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
-                      className="shrink-0 text-destructive hover:text-destructive"
+                      className="h-10 min-h-10 shrink-0 gap-2 px-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => removeBetaEmail(entry.email)}
                       disabled={betaSaving}
                       aria-label={`Remove ${entry.email}`}
                     >
                       <Trash2 className="h-4 w-4" />
+                      <span className="text-sm">Remove</span>
                     </Button>
                   </li>
                 ))}

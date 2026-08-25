@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { getDefaultAiModel, getParser } from "@/lib/ai/get-parser";
-import { emptyExtractionFields } from "@/lib/ai/shared";
 import { WORK_ORDER_FIELDS } from "@/lib/ai/types";
 import { uploadFile, buildStorageKey, getFileBuffer } from "@/lib/storage";
 import { logger } from "@/lib/logger";
+import { ExtractionQuotaError, isAiQuotaError } from "@/lib/ai/extraction-retry";
 import { queueWorkOrderExtraction } from "@/services/extraction-queue.service";
 import { createProject } from "./project.service";
 import { rupeesToPaise } from "@/lib/finance/money";
@@ -90,10 +90,11 @@ export async function runWorkOrderExtraction(documentId: string, extractionId: s
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Extraction failed";
-    const isQuota = message.includes("429") || message.includes("quota");
+    if (error instanceof ExtractionQuotaError) throw error;
 
-    if (isQuota) {
+    const message = error instanceof Error ? error.message : "Extraction failed";
+
+    if (isAiQuotaError(message)) {
       const { emptyExtractionFields: emptyFields } = await import("@/lib/ai/shared");
       await prisma.aIExtraction.update({
         where: { id: extractionId },
@@ -105,19 +106,18 @@ export async function runWorkOrderExtraction(documentId: string, extractionId: s
           extractedAt: new Date(),
         },
       });
-      return;
+      throw new ExtractionQuotaError(message);
     }
 
     await prisma.aIExtraction.update({
       where: { id: extractionId },
       data: {
-        status: "COMPLETED",
-        extractedFields: emptyExtractionFields() as unknown as object,
-        errorMessage: `${message}. Fill in the fields manually below.`,
-        extractedAt: new Date(),
+        status: "PENDING",
+        errorMessage: message,
       },
     });
     logger.error("extraction.failed", { documentId, extractionId, message });
+    throw error instanceof Error ? error : new Error(message);
   }
 }
 
