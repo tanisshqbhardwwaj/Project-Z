@@ -28,6 +28,7 @@
     "deploy:once": "powershell -ExecutionPolicy Bypass -File scripts/deploy-once.ps1",
     "desktop:dev": "npm run dev --prefix desktop",
     "desktop:build:win": "npm run build:win --prefix desktop",
+    "desktop:icons": "node scripts/generate-tauri-icon.mjs",
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
     "turso:migrate": "node --env-file=.env scripts/turso-migrate-idempotent.mjs"

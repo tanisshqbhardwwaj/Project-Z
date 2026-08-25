@@ -44,8 +44,13 @@ foreach ($procId in $on3000) {
 }
 
 $iconPath = Join-Path (Get-Location) "desktop\src-tauri\icons\icon.ico"
-if (-not (Test-Path $iconPath)) {
-  Write-Host "Generating default app icon..."
+$brandSvg = Join-Path (Get-Location) "public\brand-mark.svg"
+$regenIcon = -not (Test-Path $iconPath)
+if (-not $regenIcon -and (Test-Path $brandSvg)) {
+  $regenIcon = (Get-Item $brandSvg).LastWriteTime -gt (Get-Item $iconPath).LastWriteTime
+}
+if ($regenIcon) {
+  Write-Host "Generating app icons from brand mark..."
   node scripts/generate-tauri-icon.mjs
 }
 
