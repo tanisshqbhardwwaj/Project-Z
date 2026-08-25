@@ -65,7 +65,7 @@ function DownloadTile({
   if (href) {
     return (
       <Button asChild className={className}>
-        <a href={href}>
+        <a href={href} download>
           {icon}
           {label}
         </a>

@@ -102,6 +102,27 @@ Open `https://YOUR-APP.vercel.app` → Register → Create org → Upload work o
 
 ---
 
+## Step 6 — Windows download on `/pricing`
+
+The installer is **not** uploaded automatically. Vercel only serves files that are in git (or an external URL you configure).
+
+**Option A — ship with the site (easiest)**
+
+1. Copy your built installer to `public/downloads/project-z-setup.exe`  
+   (build: `cd desktop && npm run build:win`, then copy from `desktop/src-tauri/target/release/bundle/nsis/`)
+2. Commit and push that file (it is allowed in git; other `.exe` files stay ignored)
+3. Redeploy Vercel → button links to `https://YOUR-APP.vercel.app/downloads/project-z-setup.exe`
+
+**Option B — Cloudflare R2 / external URL**
+
+1. Upload `project-z-setup.exe` to R2 (same bucket as uploads) with public read
+2. Vercel env: `NEXT_PUBLIC_WINDOWS_DOWNLOAD_URL=https://.../project-z-setup.exe`
+3. Redeploy
+
+Android APK: same pattern with `NEXT_PUBLIC_ANDROID_APK_URL` (APK must point at your **https** Vercel URL when built).
+
+---
+
 ## Why Turso instead of PostgreSQL?
 
 | | PostgreSQL (Neon) | Turso (SQLite) |

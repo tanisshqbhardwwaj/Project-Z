@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { getPublicMarketingConfig } from "@/lib/marketing/public-config";
 
@@ -28,10 +26,7 @@ describe("getPublicMarketingConfig", () => {
     expect(config.phoneUrl).toBe("tel:+919876543210");
     expect(config.emailUrl).toBe("mailto:hello@example.com");
     expect(config.androidApkUrl).toBe("https://example.com/app.apk");
-    const localWin = path.join(process.cwd(), "public", "downloads", "project-z-setup.exe");
-    expect(config.windowsDownloadUrl).toBe(
-      existsSync(localWin) ? "/downloads/project-z-setup.exe" : null
-    );
+    expect(config.windowsDownloadUrl).toBe("/downloads/project-z-setup.exe");
   });
 
   it("ignores incomplete contact values", () => {
