@@ -22,7 +22,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       include: {
         members: {
           where: { status: "ACTIVE" },
-          include: { user: { select: { id: true, name: true, email: true, phone: true, role: true } } },
+          include: { user: { select: { id: true, name: true, email: true, phone: true } } },
         },
         planRequests: { orderBy: { createdAt: "desc" }, take: 10 },
         billingEvents: { orderBy: { createdAt: "desc" }, take: 20 },

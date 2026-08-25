@@ -16,12 +16,13 @@ export const APP_CSP_DIRECTIVES = [
 
 export const APP_CONTENT_SECURITY_POLICY = APP_CSP_DIRECTIVES.join("; ");
 
-export function capacitorNetworkFlags(env: {
+export function capacitorNetworkFlags(env?: {
   CAPACITOR_SERVER_URL?: string;
   CAPACITOR_ALLOW_CLEARTEXT?: string;
-} = process.env) {
-  const url = env.CAPACITOR_SERVER_URL?.trim() || "";
-  const allowCleartext = env.CAPACITOR_ALLOW_CLEARTEXT === "true";
+}) {
+  const url = (env?.CAPACITOR_SERVER_URL ?? process.env.CAPACITOR_SERVER_URL)?.trim() || "";
+  const allowCleartext =
+    (env?.CAPACITOR_ALLOW_CLEARTEXT ?? process.env.CAPACITOR_ALLOW_CLEARTEXT) === "true";
   if (url.startsWith("http://") && !allowCleartext) {
     throw new Error(
       "CAPACITOR_SERVER_URL must use https:// for a shipping Android build. Set CAPACITOR_ALLOW_CLEARTEXT=true only for LAN debug."

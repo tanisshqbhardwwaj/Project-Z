@@ -10,16 +10,19 @@ const FEATURES = [
     n: "01",
     title: "Trust layer",
     body: "GST invoices, bill history, and a clear paper trail so every sale is accountable.",
+    emphasis: false,
   },
   {
     n: "02",
     title: "Operational clarity",
     body: "Barcode, inventory, purchases, and udhaar stay in one counter flow — not five notebooks.",
+    emphasis: false,
   },
   {
     n: "03",
     title: "Team presence",
     body: "Staff, attendance, and payroll so the shop keeps running when you are not at the till.",
+    emphasis: false,
   },
   {
     n: "04",

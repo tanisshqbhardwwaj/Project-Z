@@ -83,7 +83,7 @@ export async function createOrganization(input: {
     return organization;
   });
 
-  await seedExpenseCategories(prisma, org.id, businessType, shopSector);
+  await seedExpenseCategories(prisma, org.id);
 
   await createAuditLog({
     organizationId: org.id,
@@ -391,12 +391,7 @@ export async function updateOrganization(input: {
     input.shopSector !== before.shopSector;
 
   if (typeChanged || sectorChanged) {
-    await seedExpenseCategories(
-      prisma,
-      input.organizationId,
-      updated.businessType,
-      updated.shopSector
-    );
+    await seedExpenseCategories(prisma, input.organizationId);
   }
 
   await createAuditLog({
