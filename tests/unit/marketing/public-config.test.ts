@@ -29,6 +29,11 @@ describe("getPublicMarketingConfig", () => {
     expect(config.windowsDownloadUrl).toBe("/downloads/project-z-setup.exe");
   });
 
+  it("returns committed apk path without filesystem checks", () => {
+    const config = getPublicMarketingConfig();
+    expect(config.androidApkUrl).toBe("/downloads/project-z.apk");
+  });
+
   it("ignores incomplete contact values", () => {
     process.env.BILLING_CONTACT = "Contact support";
     process.env.NEXT_PUBLIC_WHATSAPP = "123";

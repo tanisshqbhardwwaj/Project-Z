@@ -1,42 +1,48 @@
 # Android (Capacitor)
 
-Shipping build: SQLCipher on-device, HTTPS only, CSP on the WebView host.
+The APK loads the live Project Z web app in a WebView and stores shop data in **SQLCipher** on the device.
 
-Point the WebView at your **https** app:
-
-```bash
-set CAPACITOR_SERVER_URL=https://your-projectz-host
-npx cap sync android
-npx cap open android
-```
-
-LAN debug against `next dev` (not for Play Store):
+## Build (Windows)
 
 ```bash
-set CAPACITOR_SERVER_URL=http://192.168.1.10:3000
-set CAPACITOR_ALLOW_CLEARTEXT=true
-npx cap sync android
+npm run android:build
 ```
 
-The shop UI is the same Next.js app. On a phone it talks to **encrypted SQLite** and syncs to the cloud when Wi‑Fi is back.
+This sets `CAPACITOR_SERVER_URL` (default `https://beta-project-z.vercel.app`), syncs Capacitor, builds a debug APK, and copies it to `public/downloads/project-z.apk`.
 
-Android keeps the **full product catalog** plus **invoices from the last 90 days**.
+Override the host:
+
+```powershell
+$env:CAPACITOR_SERVER_URL="https://your-host.vercel.app"
+npm run android:build
+```
+
+LAN debug against `next dev`:
+
+```powershell
+$env:CAPACITOR_SERVER_URL="http://192.168.1.10:3000"
+$env:CAPACITOR_ALLOW_CLEARTEXT="true"
+npx cap sync android
+npm run android:open
+```
+
+## Open in Android Studio
+
+```bash
+npm run android:open
+```
 
 ## Offline behaviour
 
-- First launch needs internet: sign in and **download shop data**.
-- After that, open the app with Wi‑Fi off. New bills, returns (for bills already on this phone), stock, customers, and udhaar still work.
-- When Wi‑Fi returns, pending rows upload (`POST /api/v1/sync/push`). Failed application rows retry up to **8** times then dead-letter.
-- Cloud **file** quota being full does **not** stop billing. Only photo/backup upload is blocked. See **Settings → Storage & Sync**.
+- First launch needs internet: sign in and download shop data.
+- After that, billing works offline; sync runs when the network returns.
 
 ## Plugins
 
 | Plugin | Use |
 |--------|-----|
-| `@capacitor-community/sqlite` | SQLCipher shop database (secret in Android Keystore) |
-| `@capacitor/camera` | Barcode scan on New invoice / Returns |
-| `@capacitor/network` | Auto-sync when connectivity returns |
-| `@capacitor/app` | Sync again when the app resumes |
-| `@capacitor-community/keep-awake` | Screen stays on during billing |
-
-If `npx cap add android` says the platform already exists, temporarily move this README out of `android/`, run the command, then copy the README back.
+| `@capacitor-community/sqlite` | Encrypted shop database |
+| `@capacitor/camera` | Barcode scan |
+| `@capacitor/network` | Auto-sync when online |
+| `@capacitor/app` | Sync on resume |
+| `@capacitor-community/keep-awake` | Screen on during billing |

@@ -1,7 +1,7 @@
 Put release installers here so the pricing page can serve them:
 
-- `project-z-setup.exe` — Windows (commit this file, then push + redeploy Vercel)
-- `project-z.apk` — Android (optional; or set `NEXT_PUBLIC_ANDROID_APK_URL` on Vercel)
+- `project-z-setup.exe` — Windows
+- `project-z.apk` — Android (build with `npm run android:build`)
 
 ## Vercel (recommended)
 

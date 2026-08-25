@@ -35,7 +35,7 @@ function inferPhoneFromText(text: string | null): string | null {
 }
 
 /** Shipped via git in public/downloads/ — use CDN path (existsSync fails in Vercel serverless). */
-const COMMITTED_DOWNLOADS = new Set(["project-z-setup.exe"]);
+const COMMITTED_DOWNLOADS = new Set(["project-z-setup.exe", "project-z.apk"]);
 
 function publicFileUrl(filename: string, envUrl: string | null): string | null {
   if (envUrl) return envUrl;

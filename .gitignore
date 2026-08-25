@@ -46,8 +46,9 @@ yarn-error.log*
 /public/downloads/*.apk
 /public/downloads/*.exe
 /public/downloads/*.msi
-# Allow shipping the Windows installer with the site (needed for Vercel /downloads)
+# Allow shipping installers with the site (needed for Vercel /downloads)
 !/public/downloads/project-z-setup.exe
+!/public/downloads/project-z.apk
 
 
 # playwright

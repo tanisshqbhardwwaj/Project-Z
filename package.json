@@ -31,6 +31,8 @@
     "desktop:icons": "node scripts/generate-tauri-icon.mjs",
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
+    "android:prepare": "node scripts/android-prepare.mjs",
+    "android:build": "powershell -ExecutionPolicy Bypass -File scripts/android-build.ps1",
     "turso:migrate": "node --env-file=.env scripts/turso-migrate-idempotent.mjs"
   },
   "dependencies": {
