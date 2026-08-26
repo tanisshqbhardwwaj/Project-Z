@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-function correlationId(): string {
+function newCorrelationId(): string {
   return globalThis.crypto.randomUUID();
 }
 
@@ -26,7 +26,7 @@ export default async function middleware(request: NextRequest) {
       const correlationId =
         request.headers.get("x-correlation-id")?.trim() ||
         request.headers.get("x-request-id")?.trim() ||
-        correlationId();
+        newCorrelationId();
       const response = NextResponse.next({
         request: {
           headers: new Headers(request.headers),
