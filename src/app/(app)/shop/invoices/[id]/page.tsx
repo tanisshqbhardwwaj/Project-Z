@@ -97,32 +97,34 @@ export default function ShopInvoicePage() {
     );
   }
 
+  const sale = data;
+
   const invoice: ShopInvoiceData = {
-    orgName: data.organization.name,
-    billNumber: data.billNumber,
-    customerName: data.customerName,
-    customerPhone: data.customerPhone,
-    customerGstin: data.customerGstin,
-    salesBoyName: data.salesBoyName,
-    paymentMethod: data.paymentMethod,
-    items: data.itemsJson ?? [],
-    totalPaise: data.totalPaise,
-    gstPaise: data.gstPaise,
-    notes: data.notes,
-    pricing: parsePricingJson(data.pricingJson),
-    createdAt: data.createdAt,
-    cashierName: data.createdBy?.name,
+    orgName: sale.organization.name,
+    billNumber: sale.billNumber,
+    customerName: sale.customerName,
+    customerPhone: sale.customerPhone,
+    customerGstin: sale.customerGstin,
+    salesBoyName: sale.salesBoyName,
+    paymentMethod: sale.paymentMethod,
+    items: sale.itemsJson ?? [],
+    totalPaise: sale.totalPaise,
+    gstPaise: sale.gstPaise,
+    notes: sale.notes,
+    pricing: parsePricingJson(sale.pricingJson),
+    createdAt: sale.createdAt,
+    cashierName: sale.createdBy?.name,
   };
 
   function shareWhatsApp() {
     const msg = buildInvoiceWhatsAppMessage({
-      orgName: data.organization.name,
-      billNumber: data.billNumber,
-      customerName: data.customerName,
-      totalPaise: data.totalPaise,
-      paymentMethod: data.paymentMethod,
+      orgName: sale.organization.name,
+      billNumber: sale.billNumber,
+      customerName: sale.customerName,
+      totalPaise: sale.totalPaise,
+      paymentMethod: sale.paymentMethod,
     });
-    shareInvoiceOnWhatsApp(msg, data.customerPhone);
+    shareInvoiceOnWhatsApp(msg, sale.customerPhone);
   }
 
   function savePdf() {
@@ -146,25 +148,25 @@ export default function ShopInvoicePage() {
             Invoices
           </Link>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <h1 className="font-mono text-lg font-bold">{data.billNumber ?? "Invoice"}</h1>
-            {data.paymentStatus && data.paymentStatus !== "PAID" ? (
+            <h1 className="font-mono text-lg font-bold">{sale.billNumber ?? "Invoice"}</h1>
+            {sale.paymentStatus && sale.paymentStatus !== "PAID" ? (
               <Badge variant="secondary" className="h-5 rounded-full text-[10px] capitalize">
-                {data.paymentStatus.replace(/_/g, " ").toLowerCase()}
+                {sale.paymentStatus.replace(/_/g, " ").toLowerCase()}
               </Badge>
             ) : null}
             <span className="text-sm font-semibold tabular-nums text-muted-foreground">
-              {formatINR(data.totalPaise)}
+              {formatINR(sale.totalPaise)}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {new Date(data.createdAt).toLocaleString("en-IN", {
+            {new Date(sale.createdAt).toLocaleString("en-IN", {
               dateStyle: "medium",
               timeStyle: "short",
             })}
             {" · "}
-            {data.customerName?.trim() || "Walk-in"}
+            {sale.customerName?.trim() || "Walk-in"}
             {" · "}
-            {String(data.paymentMethod).replace(/_/g, " ")}
+            {String(sale.paymentMethod).replace(/_/g, " ")}
           </p>
         </div>
 
@@ -181,7 +183,7 @@ export default function ShopInvoicePage() {
             <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
             WhatsApp
           </Button>
-          <Link href={`/shop/invoices/new?duplicate=${data.id}`}>
+          <Link href={`/shop/invoices/new?duplicate=${sale.id}`}>
             <Button size="sm" variant="outline" className="h-8 rounded-lg">
               <Copy className="mr-1.5 h-3.5 w-3.5" />
               Duplicate
@@ -190,14 +192,14 @@ export default function ShopInvoicePage() {
         </div>
 
         <InvoiceReturnPanel
-          saleId={data.id}
-          billNumber={data.billNumber}
-          customerName={data.customerName}
+          saleId={sale.id}
+          billNumber={sale.billNumber}
+          customerName={sale.customerName}
         />
 
-        {data.paymentStatus && data.paymentStatus !== "PAID" ? (
+        {sale.paymentStatus && sale.paymentStatus !== "PAID" ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/30">
-            Paid {formatINR(data.paidAmountPaise ?? 0)} of {formatINR(data.totalPaise)}
+            Paid {formatINR(sale.paidAmountPaise ?? 0)} of {formatINR(sale.totalPaise)}
           </div>
         ) : null}
 
