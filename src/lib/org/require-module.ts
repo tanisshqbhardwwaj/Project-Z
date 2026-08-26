@@ -6,6 +6,7 @@ import {
   type OrgSettingsJson,
 } from "@/lib/org/modules";
 import type { BusinessType, ShopSector } from "@prisma/client";
+import { sanitizeShopSettingsForClient } from "@/lib/org/shop-settings";
 
 export async function getOrgModuleContext(organizationId: string) {
   const org = await prisma.organization.findUnique({
@@ -62,7 +63,9 @@ export function modulesPayloadForClient(input: {
   settings: unknown;
   enableStaff: boolean;
 }) {
-  const settings = parseOrgSettings(input.settings);
+  const settings = sanitizeShopSettingsForClient(
+    parseOrgSettings(input.settings) as Record<string, unknown>
+  ) as OrgSettingsJson;
   const enabled = resolveEnabledModules({
     businessType: input.businessType,
     shopSector: input.shopSector,

@@ -8,6 +8,10 @@ import {
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { createMaterialIssue, listMaterialIssues } from "@/services/contractor.service";
+import {
+  requireAssignedProjectView,
+  requireAssignedProjectWrite,
+} from "@/lib/org/project-api-access";
 
 const createMaterialSchema = z.object({
   projectId: z.string().uuid(),
@@ -22,10 +26,10 @@ const createMaterialSchema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
-    const projectId = new URL(request.url).searchParams.get("projectId");
-    if (!projectId) throw new Error("projectId is required");
+    const projectId = await requireAssignedProjectView(
+      ctx,
+      new URL(request.url).searchParams.get("projectId")
+    );
 
     const issues = await listMaterialIssues(ctx.organizationId, projectId);
     return apiSuccess(serializeBigInt(issues));
@@ -36,9 +40,9 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     requirePermission(ctx, "expense.create");
-
     const body = await request.json();
     const data = createMaterialSchema.parse(body);
+    await requireAssignedProjectWrite(ctx, data.projectId);
 
     const issue = await createMaterialIssue({
       organizationId: ctx.organizationId,

@@ -4,7 +4,10 @@ import { useEffect } from "react";
 import { useRequireAuth } from "@/hooks/use-require-auth";
 import { AppHeader, AppSidebar, MobileNav, APP_SIDEBAR_WIDTH_CLASS } from "@/components/layout/app-shell";
 import { CashierRouteGuard } from "@/components/layout/cashier-route-guard";
+import { SyncEngineProvider } from "@/components/sync/sync-badge";
+import { OfflineBanner } from "@/components/sync/offline-banner";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { AndroidBackButton } from "@/components/layout/android-back-button";
 import { PageLoader } from "@/components/ui/page-loader";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -39,12 +42,16 @@ export function AppLayoutClient({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-screen min-w-0 flex-col">
           <AppHeader orgName={activeOrganizationName ?? undefined} />
           <main className="min-w-0 flex-1 p-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
-            <CashierRouteGuard>{children}</CashierRouteGuard>
+            <SyncEngineProvider>
+              <OfflineBanner />
+              <CashierRouteGuard>{children}</CashierRouteGuard>
+            </SyncEngineProvider>
           </main>
         </div>
       </div>
       <MobileNav />
       <CommandPalette />
+      <AndroidBackButton />
     </div>
   );
 }

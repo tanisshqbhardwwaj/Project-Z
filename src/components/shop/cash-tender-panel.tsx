@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { MobileNumpad } from "@/components/shop/mobile-numpad";
 
 const QUICK_DENOMINATIONS = [500, 1000, 2000, 5000] as const;
 
@@ -50,7 +51,7 @@ export function CashTenderPanel({
             variant="outline"
             size="sm"
             className="h-8 rounded-lg"
-            onClick={() => onReceivedChange(String(Math.max(amount, Math.ceil(totalRupees))))}
+            onClick={() => onReceivedChange(String(amount))}
           >
             ₹{amount}
           </Button>
@@ -67,9 +68,11 @@ export function CashTenderPanel({
             value={receivedRupees}
             onChange={(e) => onReceivedChange(e.target.value)}
             placeholder={String(Math.ceil(totalRupees))}
-            className="h-10 rounded-lg text-base font-semibold tabular-nums"
+            className="h-12 rounded-lg text-lg font-semibold tabular-nums sm:h-10 sm:text-base"
             autoComplete="off"
+            inputMode="decimal"
           />
+          <MobileNumpad value={receivedRupees} onChange={onReceivedChange} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Change to return</Label>

@@ -191,6 +191,13 @@ export type StoredInvoicePricing = {
   /** Saved per line index — offer + percent manual combined. */
   lineDiscountRupees?: number[];
   appliedOffers?: { offerId: string; name: string; discountRupees: number }[];
+  splitPayments?: { method: string; amountRupees: number }[];
+  terminalPayment?: {
+    provider: string;
+    externalId: string;
+    merchantTxnId: string;
+    reference?: string;
+  };
 };
 
 export function parsePricingJson(raw: unknown): StoredInvoicePricing | null {
@@ -232,6 +239,13 @@ export function parsePricingJson(raw: unknown): StoredInvoicePricing | null {
     appliedOffers: Array.isArray(p.appliedOffers)
       ? (p.appliedOffers as { offerId: string; name: string; discountRupees: number }[])
       : undefined,
+    splitPayments: Array.isArray(p.splitPayments)
+      ? (p.splitPayments as { method: string; amountRupees: number }[])
+      : undefined,
+    terminalPayment:
+      p.terminalPayment && typeof p.terminalPayment === "object"
+        ? (p.terminalPayment as StoredInvoicePricing["terminalPayment"])
+        : undefined,
   };
 }
 
@@ -255,12 +269,25 @@ export function formatInvoiceMoney(
   return formatInvoiceRupees(rupees, { decimals: template.useDecimalPlaces });
 }
 
-/** Per-item discount hint when line-level savings are shown. */
+/** Per-unit discount hint aligned with the Rate column (list price per piece). */
 export function formatLineDiscountHint(
-  allocated: Pick<AllocatedLineDiscount, "lineDiscountRupees">,
+  allocated: Pick<
+    AllocatedLineDiscount,
+    "lineDiscountRupees" | "qty" | "priceRupees" | "discountedUnitRupees"
+  >,
   template: Pick<ResolvedInvoiceTemplate, "useDecimalPlaces">
 ): string | null {
   if (allocated.lineDiscountRupees <= 0.004) return null;
+  const qty = allocated.qty ?? 1;
+  if (qty > 1) {
+    const perUnitOff =
+      allocated.priceRupees != null && allocated.discountedUnitRupees != null
+        ? round2(allocated.priceRupees - allocated.discountedUnitRupees)
+        : round2(allocated.lineDiscountRupees / qty);
+    if (perUnitOff > 0.004) {
+      return `Off ${formatInvoiceMoney(perUnitOff, template)}/pc`;
+    }
+  }
   return `Off ${formatInvoiceMoney(allocated.lineDiscountRupees, template)}`;
 }
 
@@ -280,6 +307,13 @@ export function shouldShowLineDiscountHints(
   if (pricing.manualDiscountMode === "percent") return true;
   if ((pricing.manualDiscountPercent ?? 0) > 0) return true;
   if ((pricing.discountPercent ?? 0) > 0) return true;
+  // Legacy bills: flat ₹ discount saved without manualDiscountMode — keep lines at list price.
+  if (
+    (pricing.manualDiscountRupees ?? 0) > 0 ||
+    ((pricing.discountRupees ?? 0) > 0 && (pricing.discountPercent ?? 0) <= 0)
+  ) {
+    return false;
+  }
   return false;
 }
 
@@ -380,6 +414,15 @@ export function resolveInvoiceLineAllocations(
 ): AllocatedLineDiscount[] | null {
   if (!input.showLineHints || input.totalDiscountRupees <= 0) return null;
 
+  const offerLineTotal = round2(
+    (input.offerLineDiscountRupees ?? []).reduce((s, n) => s + Math.max(0, n), 0)
+  );
+
+  // Flat ₹ discount on the whole cart — show only in totals, not per line.
+  if (input.manualDiscountMode === "rupees" && offerLineTotal <= 0) {
+    return null;
+  }
+
   if (
     input.storedLineDiscountRupees &&
     input.storedLineDiscountRupees.length === items.length
@@ -408,5 +451,5 @@ export function resolveInvoiceLineAllocations(
     return allocateLineDiscounts(items, input.manualDiscountRupees!);
   }
 
-  return allocateLineDiscounts(items, input.totalDiscountRupees);
+  return null;
 }

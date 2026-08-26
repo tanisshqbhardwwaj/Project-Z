@@ -29,6 +29,8 @@ export async function GET(request: Request) {
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
       staffId: staffScope ?? undefined,
+      cursor: searchParams.get("cursor") ?? undefined,
+      limit: Number(searchParams.get("limit") ?? 25),
     });
     return apiSuccess(serializeBigInt(rows));
   });

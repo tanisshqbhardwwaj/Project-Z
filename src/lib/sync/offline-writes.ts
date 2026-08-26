@@ -81,7 +81,11 @@ export async function createSaleOffline(orgId: string, payload: SalePayload) {
     id,
     data: sale,
   });
-  return sale;
+  return {
+    ...sale,
+    itemsJson: payload.items ?? [],
+    paymentMethod: (payload.paymentMethod as string | undefined) ?? "CASH",
+  };
 }
 
 export async function createReturnOffline(

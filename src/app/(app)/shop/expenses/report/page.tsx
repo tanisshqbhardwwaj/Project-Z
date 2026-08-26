@@ -35,7 +35,7 @@ export default function ExpenseReportPage() {
   });
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, error: queryError, refetch } = useQuery({
     queryKey: orgId ? [...queryKeys.modules.shop.profit(orgId, `${from}-${to}`)] : ["disabled"],
     queryFn: () => apiFetch<ProfitData>(`/api/v1/shop/profit?from=${from}&to=${to}`),
     enabled: !!orgId && enabled,
@@ -43,6 +43,21 @@ export default function ExpenseReportPage() {
 
   if (!enabled) return <p className="text-muted-foreground">Enable Expenses module first.</p>;
   if (isLoading) return <PageLoader label="Loading report..." />;
+  if (queryError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+        <div>
+          <h2 className="text-xl font-semibold">Could not load report</h2>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            {queryError instanceof Error ? queryError.message : "Failed to load report"}
+          </p>
+        </div>
+        <Button className="rounded-xl" onClick={() => refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 pb-8">

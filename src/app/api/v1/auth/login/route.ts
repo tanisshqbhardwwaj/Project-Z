@@ -11,7 +11,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   return handleApi(async () => {
-    enforceRateLimit(request, "auth:login", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
+    await enforceRateLimit(request, "auth:login", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
     const body = await request.json();
     const data = schema.parse(body);
 
@@ -30,21 +30,9 @@ export async function POST(request: Request) {
           { status: 403 }
         );
       }
-      if (message.includes("USER_NOT_FOUND")) {
+      if (message.includes("USER_NOT_FOUND") || message.includes("INVALID_PASSWORD")) {
         return NextResponse.json(
-          {
-            error: {
-              code: "USER_NOT_FOUND",
-              message:
-                "No account found for this email on the local database. Register first, or run: node scripts/seed-local-user.mjs",
-            },
-          },
-          { status: 401 }
-        );
-      }
-      if (message.includes("INVALID_PASSWORD")) {
-        return NextResponse.json(
-          { error: { code: "INVALID_PASSWORD", message: "Incorrect password" } },
+          { error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password" } },
           { status: 401 }
         );
       }

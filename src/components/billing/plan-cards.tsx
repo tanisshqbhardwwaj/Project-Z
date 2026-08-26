@@ -110,16 +110,18 @@ export function StorageUsageBar({
   usedLabel,
   quotaLabel,
   percent,
+  label = "Cloud photos & files",
 }: {
   usedLabel: string;
   quotaLabel: string;
   percent: number;
+  label?: string;
 }) {
   const pct = Math.min(100, Math.max(0, percent));
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-sm">
-        <span>Cloud photos & files</span>
+        <span>{label}</span>
         <span className="text-muted-foreground">
           {usedLabel} / {quotaLabel}
         </span>

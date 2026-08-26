@@ -50,6 +50,7 @@ const createSaleSchema = z.object({
     )
     .min(1),
   notes: z.string().optional().nullable(),
+  clientId: z.string().uuid().optional().nullable(),
   selectedOfferId: z.string().uuid().optional().nullable(),
   skipOffer: z.boolean().optional(),
   appliedOffers: z
@@ -60,6 +61,23 @@ const createSaleSchema = z.object({
         discountRupees: z.number().min(0),
       })
     )
+    .optional(),
+  splitPayments: z
+    .array(
+      z.object({
+        method: z.enum(["CASH", "UPI", "BANK", "CARD", "CHEQUE", "OTHER"]),
+        amountRupees: z.number().positive(),
+      })
+    )
+    .min(2)
+    .optional(),
+  terminalPayment: z
+    .object({
+      provider: z.string(),
+      externalId: z.string(),
+      merchantTxnId: z.string(),
+      reference: z.string().optional(),
+    })
     .optional(),
 });
 
@@ -74,6 +92,8 @@ export async function GET(request: Request) {
       q,
       customerId,
       staffId: staffScope,
+      cursor: searchParams.get("cursor") ?? undefined,
+      limit: Number(searchParams.get("limit") ?? 25),
     });
     return apiSuccess(serializeBigInt(sales));
   });
@@ -90,6 +110,7 @@ export async function POST(request: Request) {
     const sale = await createShopSale({
       organizationId: ctx.organizationId,
       createdById: ctx.userId,
+      clientId: data.clientId,
       customerId: data.customerId,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
@@ -113,6 +134,8 @@ export async function POST(request: Request) {
       selectedOfferId: data.selectedOfferId,
       skipOffer: data.skipOffer,
       appliedOffers: data.appliedOffers,
+      splitPayments: data.splitPayments,
+      terminalPayment: data.terminalPayment,
     });
 
     return NextResponse.json({ data: serializeBigInt(sale) }, { status: 201 });

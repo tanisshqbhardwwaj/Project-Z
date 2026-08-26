@@ -1,15 +1,14 @@
 import { z } from "zod";
 import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
 import { requirePlatformAdmin } from "@/lib/billing/platform-admin";
-import { prisma, serializeBigInt } from "@/lib/db/prisma";
+import { serializeBigInt } from "@/lib/db/prisma";
 import {
   activatePlanAfterPayment,
   markSetupFeePaid,
   reactivateOrganization,
   updateOrgBillingFromOps,
 } from "@/services/billing.service";
-import { getStorageUsageBreakdown } from "@/services/storage-quota.service";
-import { getPlanDefinition } from "@/lib/billing/plans";
+import { getOpsOrganizationDetail } from "@/services/ops.service";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -17,26 +16,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
   return handleApi(async () => {
     await requirePlatformAdmin();
     const { id } = await params;
-    const org = await prisma.organization.findUnique({
-      where: { id },
-      include: {
-        members: {
-          where: { status: "ACTIVE" },
-          include: { user: { select: { id: true, name: true, email: true, phone: true } } },
-        },
-        planRequests: { orderBy: { createdAt: "desc" }, take: 10 },
-        billingEvents: { orderBy: { createdAt: "desc" }, take: 20 },
-      },
-    });
-    if (!org) throw new ApiError(404, "NOT_FOUND", "Organization not found");
-    const storage = await getStorageUsageBreakdown(id);
-    return apiSuccess(
-      serializeBigInt({
-        org,
-        planDef: getPlanDefinition(org.plan),
-        storage,
-      })
-    );
+    const detail = await getOpsOrganizationDetail(id);
+    return apiSuccess(serializeBigInt(detail));
   });
 }
 

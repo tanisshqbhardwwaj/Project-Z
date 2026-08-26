@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     await requireShopScanAccess(ctx);
-    const result = await processPendingOutbox(20);
+    const result = await processPendingOutbox(ctx);
     return apiSuccess(result);
   });
 }

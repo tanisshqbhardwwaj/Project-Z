@@ -9,6 +9,7 @@ import {
   adjustStockOffline,
   upsertCustomerOffline,
 } from "@/lib/sync/offline-writes";
+import { normalizeLocalSaleRecord } from "@/lib/shop/sale-invoice-mapper";
 
 const LOCAL_FIRST_POST = new Set([
   "/api/v1/shop/sales",
@@ -83,8 +84,18 @@ export async function handleLocalApi<T>(path: string, options: RequestInit): Pro
   }
 
   if (method === "GET" && p.startsWith("/api/v1/shop/sales")) {
-    const sales = await getLocalDb().getAll<T>("sales", id);
-    return sales as T;
+    const sales = await getLocalDb().getAll<Record<string, unknown>>("sales", id);
+    const detailMatch = p.match(/^\/api\/v1\/shop\/sales\/([^/]+)$/);
+    if (detailMatch) {
+      const saleId = detailMatch[1]!;
+      const sale = sales.find((row) => String(row.id) === saleId);
+      if (!sale) throw new Error("Invoice not found");
+      return normalizeLocalSaleRecord(sale) as T;
+    }
+    if (p === "/api/v1/shop/sales") {
+      return sales.map(normalizeLocalSaleRecord) as T;
+    }
+    throw new Error("Invoice not found");
   }
 
   if (method === "GET" && p === "/api/v1/shop/inventory/lookup") {

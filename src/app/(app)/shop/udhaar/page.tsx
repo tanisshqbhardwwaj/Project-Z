@@ -9,6 +9,7 @@ import { moduleLabel } from "@/lib/org/modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { formatINR } from "@/lib/finance/money";
+import { UsersRound } from "lucide-react";
 
 type CustomerCredit = {
   id: string;
@@ -158,7 +160,11 @@ export default function ShopUdhaarPage() {
                 : "Failed to load ledger"}
             </p>
           ) : (creditsQuery.data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No customers yet.</p>
+            <EmptyState
+              icon={UsersRound}
+              title="No customers yet"
+              description="Add a customer above to start tracking their udhaar balance."
+            />
           ) : (
             (creditsQuery.data ?? []).map((c) => (
               <div key={c.id} className="space-y-2 rounded-xl border p-3">

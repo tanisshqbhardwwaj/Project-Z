@@ -12,6 +12,8 @@ type InvoicePreviewRootProps = {
   printMarginMm?: number;
   children: ReactNode;
   className?: string;
+  /** Screen-only frame around thermal/A4 preview (hidden when printing). */
+  framed?: boolean;
 };
 
 /** Standard mount point for WYSIWYG invoice preview + print. */
@@ -20,13 +22,18 @@ export function InvoicePreviewRoot({
   printMarginMm,
   children,
   className = "",
+  framed = false,
 }: InvoicePreviewRootProps) {
   const layout = resolvePaperLayout(paperSize, printMarginMm);
 
   return (
     <div
       id={SHOP_INVOICE_PREVIEW_ID}
-      className={`mx-auto box-border bg-white ${layout.tailwindWidthClass} ${className}`}
+      className={`mx-auto box-border bg-white ${layout.tailwindWidthClass} ${
+        framed
+          ? "rounded-sm shadow-[0_8px_30px_rgba(0,0,0,0.12)] ring-1 ring-black/5 print:shadow-none print:ring-0"
+          : ""
+      } ${className}`}
       style={{ width: layout.width, maxWidth: layout.width }}
     >
       {children}

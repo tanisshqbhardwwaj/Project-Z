@@ -40,8 +40,8 @@ export async function GET(request: Request) {
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
       sort: searchParams.get("sort") === "oldest" ? "oldest" : "newest",
-      page: Number(searchParams.get("page") ?? 1),
-      pageSize: Number(searchParams.get("pageSize") ?? 25),
+      cursor: searchParams.get("cursor") ?? undefined,
+      limit: Number(searchParams.get("limit") ?? 25),
     });
     return apiSuccess(serializeBigInt(data));
   });

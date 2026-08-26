@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   getAuthContext,
   handleApi,
-  requirePermission,
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
@@ -13,6 +12,11 @@ import {
   listDesignStages,
   updateDesignStage,
 } from "@/services/architect.service";
+import {
+  requireAssignedProjectView,
+  requireAssignedProjectWrite,
+  requireAssignedStageWrite,
+} from "@/lib/org/project-api-access";
 
 const createStageSchema = z.object({
   projectId: z.string().uuid(),
@@ -39,10 +43,10 @@ const createRevisionSchema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
-    const projectId = new URL(request.url).searchParams.get("projectId");
-    if (!projectId) throw new Error("projectId is required");
+    const projectId = await requireAssignedProjectView(
+      ctx,
+      new URL(request.url).searchParams.get("projectId")
+    );
 
     const stages = await listDesignStages(ctx.organizationId, projectId);
     return apiSuccess(serializeBigInt(stages));
@@ -52,12 +56,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
     const body = await request.json();
 
     if (body.stageId && body.title) {
       const data = createRevisionSchema.parse(body);
+      await requireAssignedStageWrite(ctx, data.stageId);
       const revision = await createDrawingRevision({
         organizationId: ctx.organizationId,
         userId: ctx.userId,
@@ -67,6 +70,7 @@ export async function POST(request: Request) {
     }
 
     const data = createStageSchema.parse(body);
+    await requireAssignedProjectWrite(ctx, data.projectId);
     const stage = await createDesignStage({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
@@ -80,10 +84,9 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
     const body = await request.json();
     const data = updateStageSchema.parse(body);
+    await requireAssignedStageWrite(ctx, data.stageId);
 
     const stage = await updateDesignStage({
       organizationId: ctx.organizationId,

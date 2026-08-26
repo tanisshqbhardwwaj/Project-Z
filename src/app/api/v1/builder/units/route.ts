@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   getAuthContext,
   handleApi,
-  requirePermission,
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
@@ -12,6 +11,11 @@ import {
   listBuilderUnits,
   updateBuilderUnit,
 } from "@/services/builder.service";
+import {
+  requireAssignedProjectView,
+  requireAssignedProjectWrite,
+  requireAssignedUnitWrite,
+} from "@/lib/org/project-api-access";
 
 const createUnitSchema = z.object({
   projectId: z.string().uuid(),
@@ -32,10 +36,10 @@ const updateUnitSchema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
-    const projectId = new URL(request.url).searchParams.get("projectId");
-    if (!projectId) throw new Error("projectId is required");
+    const projectId = await requireAssignedProjectView(
+      ctx,
+      new URL(request.url).searchParams.get("projectId")
+    );
 
     const units = await listBuilderUnits(ctx.organizationId, projectId);
     return apiSuccess(serializeBigInt(units));
@@ -45,10 +49,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
     const body = await request.json();
     const data = createUnitSchema.parse(body);
+    await requireAssignedProjectWrite(ctx, data.projectId);
 
     const unit = await createBuilderUnit({
       organizationId: ctx.organizationId,
@@ -63,10 +66,9 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
     const body = await request.json();
     const data = updateUnitSchema.parse(body);
+    await requireAssignedUnitWrite(ctx, data.unitId);
 
     const unit = await updateBuilderUnit({
       organizationId: ctx.organizationId,

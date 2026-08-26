@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
+import { DesktopOnlyNote } from "@/components/layout/desktop-only-note";
 import { PlanCards, StorageUsageBar, type PlanCardData } from "@/components/billing/plan-cards";
 import {
   Dialog,
@@ -136,6 +137,9 @@ export default function BillingSettingsPage() {
         <p className="text-sm text-muted-foreground">
           {activeOrganizationName} · Prices exclude tax · Hardware not included
         </p>
+        <div className="mt-2">
+          <DesktopOnlyNote feature="Billing and plans" />
+        </div>
       </div>
 
       <FormFeedback error={error} warning={warning} />

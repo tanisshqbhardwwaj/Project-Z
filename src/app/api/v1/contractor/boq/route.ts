@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   getAuthContext,
   handleApi,
-  requirePermission,
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
@@ -12,6 +11,11 @@ import {
   listBoqItems,
   updateBoqItem,
 } from "@/services/contractor.service";
+import {
+  requireAssignedBoqWrite,
+  requireAssignedProjectView,
+  requireAssignedProjectWrite,
+} from "@/lib/org/project-api-access";
 
 const createBoqSchema = z.object({
   projectId: z.string().uuid(),
@@ -32,10 +36,10 @@ const updateBoqSchema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
-    const projectId = new URL(request.url).searchParams.get("projectId");
-    if (!projectId) throw new Error("projectId is required");
+    const projectId = await requireAssignedProjectView(
+      ctx,
+      new URL(request.url).searchParams.get("projectId")
+    );
 
     const items = await listBoqItems(ctx.organizationId, projectId);
     return apiSuccess(serializeBigInt(items));
@@ -45,10 +49,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
     const body = await request.json();
     const data = createBoqSchema.parse(body);
+    await requireAssignedProjectWrite(ctx, data.projectId);
 
     const item = await createBoqItem({
       organizationId: ctx.organizationId,
@@ -63,10 +66,9 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "project.view_all");
-
     const body = await request.json();
     const data = updateBoqSchema.parse(body);
+    await requireAssignedBoqWrite(ctx, data.itemId);
 
     const item = await updateBoqItem({
       organizationId: ctx.organizationId,
