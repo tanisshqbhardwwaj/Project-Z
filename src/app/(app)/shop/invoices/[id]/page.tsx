@@ -102,7 +102,7 @@ export default function ShopInvoicePage() {
     if (sharingWhatsApp) return;
     const msg = buildInvoiceWhatsAppMessage({
       orgName: orgDisplayName,
-      billNumber: sale.billNumber,
+      billNumber: sale.billNumber ?? null,
       customerName: sale.customerName,
       totalPaise: sale.totalPaise ?? invoice.totalPaise,
       paymentMethod: sale.paymentMethod,
@@ -172,11 +172,11 @@ export default function ShopInvoicePage() {
               </Badge>
             ) : null}
             <span className="text-sm font-semibold tabular-nums text-muted-foreground">
-              {formatINR(sale.totalPaise)}
+              {formatINR(sale.totalPaise ?? invoice.totalPaise)}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {new Date(sale.createdAt).toLocaleString("en-IN", {
+            {new Date(sale.createdAt ?? invoice.createdAt).toLocaleString("en-IN", {
               dateStyle: "medium",
               timeStyle: "short",
             })}
@@ -247,7 +247,7 @@ export default function ShopInvoicePage() {
 
         <InvoiceReturnPanel
           saleId={sale.id}
-          billNumber={sale.billNumber}
+          billNumber={sale.billNumber ?? null}
           customerName={sale.customerName}
           hideActions
           returnOpen={returnOpen}
@@ -256,7 +256,7 @@ export default function ShopInvoicePage() {
 
         {sale.paymentStatus && sale.paymentStatus !== "PAID" ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/30">
-            Paid {formatINR(sale.paidAmountPaise ?? 0)} of {formatINR(sale.totalPaise)}
+            Paid {formatINR(sale.paidAmountPaise ?? 0)} of {formatINR(sale.totalPaise ?? invoice.totalPaise)}
           </div>
         ) : null}
       </div>

@@ -357,9 +357,9 @@ export function InvoiceEntryForm({
             productId: line.productId,
             barcode: line.barcode,
             sku: line.sku,
-            size: line.size,
-            color: line.color,
-            variantLabel: line.variantLabel,
+            size: line.size ?? undefined,
+            color: line.color ?? undefined,
+            variantLabel: line.variantLabel ?? undefined,
             unit: line.unit,
           }))
         );

@@ -1,5 +1,8 @@
 import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
-import { parsePricingJson } from "@/lib/shop/invoice-pricing";
+import {
+  parsePricingJson,
+  type StoredInvoicePricing,
+} from "@/lib/shop/invoice-pricing";
 
 export type SaleLineJson = {
   name: string;
@@ -51,16 +54,31 @@ export function normalizeLocalSaleRecord(
   };
 }
 
+/** Reconstruct bill total from persisted rupee breakdown (pricing JSON never stores paise). */
+function storedInvoiceTotalRupees(pricing: StoredInvoicePricing): number {
+  const discount = pricing.discountRupees;
+  const roundOff = pricing.roundOffRupees;
+  const beforeRound =
+    pricing.discountBasis === "total"
+      ? Math.max(
+          0,
+          (pricing.taxIncluded
+            ? pricing.subtotalRupees
+            : pricing.taxableRupees + pricing.gstRupees) - discount
+        )
+      : pricing.taxIncluded
+        ? Math.max(0, pricing.subtotalRupees - discount)
+        : pricing.taxableRupees + pricing.gstRupees;
+  return Math.max(0, Math.round((beforeRound + roundOff) * 100) / 100);
+}
+
 function resolveTotalPaise(sale: NormalizedSaleRecord): string {
   if (sale.totalPaise != null && sale.totalPaise !== "") {
     return String(sale.totalPaise);
   }
   const pricing = parsePricingJson(sale.pricingJson);
-  if (pricing?.totalPaise != null) {
-    return String(pricing.totalPaise);
-  }
-  if (pricing?.totalRupees != null) {
-    return String(Math.round(pricing.totalRupees * 100));
+  if (pricing) {
+    return String(Math.round(storedInvoiceTotalRupees(pricing) * 100));
   }
   const subtotal = saleLineItems(sale).reduce(
     (sum, line) => sum + line.qty * line.priceRupees,
@@ -74,8 +92,8 @@ function resolveGstPaise(sale: NormalizedSaleRecord): string | undefined {
     return String(sale.gstPaise);
   }
   const pricing = parsePricingJson(sale.pricingJson);
-  if (pricing?.gstPaise != null) {
-    return String(pricing.gstPaise);
+  if (pricing) {
+    return String(Math.round(pricing.gstRupees * 100));
   }
   return undefined;
 }

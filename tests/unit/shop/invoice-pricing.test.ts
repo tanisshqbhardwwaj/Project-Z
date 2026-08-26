@@ -145,7 +145,15 @@ describe("formatting", () => {
   });
 
   it("builds line discount hint for a single unit", () => {
-    const hint = formatLineDiscountHint({ lineDiscountRupees: 149 }, template);
+    const hint = formatLineDiscountHint(
+      {
+        qty: 1,
+        priceRupees: 745,
+        lineDiscountRupees: 149,
+        discountedUnitRupees: 596,
+      },
+      template
+    );
     expect(hint).toBe("Off ₹149.00");
     expect(hint).not.toContain("List");
   });
@@ -165,7 +173,15 @@ describe("formatting", () => {
 
   it("returns null hint when no line discount", () => {
     expect(
-      formatLineDiscountHint({ lineDiscountRupees: 0 }, template)
+      formatLineDiscountHint(
+        {
+          qty: 1,
+          priceRupees: 745,
+          lineDiscountRupees: 0,
+          discountedUnitRupees: 745,
+        },
+        template
+      )
     ).toBeNull();
   });
 });
