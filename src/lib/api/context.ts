@@ -9,6 +9,7 @@ import { formatZodError } from "@/lib/api/validation";
 import { logger } from "@/lib/logger";
 import { RateLimitError } from "@/lib/rate-limit";
 import { clientSafeInternalMessage } from "@/lib/api/internal-error";
+import { touchOrganizationActivity } from "@/lib/db/touch-org-activity";
 
 export class ApiError extends Error {
   constructor(
@@ -86,6 +87,8 @@ export async function getAuthContext(
   if (!member || member.status !== "ACTIVE") {
     throw new ApiError(403, "FORBIDDEN", "Not a member of this organization");
   }
+
+  void touchOrganizationActivity(organizationId);
 
   return {
     userId: session.user.id,

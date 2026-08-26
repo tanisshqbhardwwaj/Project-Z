@@ -3,6 +3,7 @@ import { handleApi, apiSuccess, getAuthContext, requireOwner, ApiError } from "@
 import { prisma } from "@/lib/db/prisma";
 import { generateToken } from "@/lib/utils";
 import { subscriptionAllowsProductUse } from "@/lib/billing/entitlements";
+import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 const startSchema = z.object({
   deviceType: z.enum(["WINDOWS", "ANDROID", "IOS", "MAC"]).default("ANDROID"),
@@ -53,6 +54,8 @@ const pairSchema = z.object({
 
 export async function PATCH(request: Request) {
   return handleApi(async () => {
+    await enforceRateLimit(request, "desktop:pair", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
+
     const body = pairSchema.parse(await request.json());
     const device = await prisma.device.findUnique({ where: { id: body.deviceId } });
     if (!device || device.pairingToken !== body.pairingToken.toUpperCase()) {
@@ -72,7 +75,7 @@ export async function PATCH(request: Request) {
       },
     });
 
-    return apiSuccess({ device: updated, organizationId: device.organizationId });
+    return apiSuccess({ deviceId: updated.id, status: updated.status });
   });
 }
 

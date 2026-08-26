@@ -79,14 +79,14 @@ export default function SettingsProfilePage() {
   }, [user]);
 
   useEffect(() => {
-    if (!isOrgOwner) return;
+    if (!isPlatformAdmin) return;
 
     setBetaLoading(true);
     apiFetch<{ emails: BetaTestEmail[]; max: number; count: number }>("/api/v1/beta-test-emails")
       .then((data) => setBetaEmails(data.emails))
       .catch(() => {})
       .finally(() => setBetaLoading(false));
-  }, [isOrgOwner]);
+  }, [isPlatformAdmin]);
 
   if (!initialized || status === "loading") return <PageLoader label="Loading profile..." />;
 
@@ -418,7 +418,7 @@ export default function SettingsProfilePage() {
         </CardContent>
       </Card>
 
-      {isOrgOwner ? (
+      {isPlatformAdmin ? (
         <Card className="rounded-2xl border-0 shadow-md">
           <CardHeader>
             <CardTitle>Beta testers</CardTitle>

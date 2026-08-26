@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
@@ -9,14 +10,27 @@ import { InvoiceEntryForm } from "@/components/shop/invoice-entry-form";
 import { InvoiceLivePreview, buildDraftInvoice } from "@/components/shop/invoice-live-preview";
 import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
 import { computeInvoicePricing } from "@/lib/shop/invoice-pricing";
+import {
+  buildInvoiceWhatsAppMessage,
+  shareInvoiceOnWhatsApp,
+} from "@/lib/shop/invoice-share";
 import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
+import { Download, MessageCircle, Settings } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   useShopInvoicePrint,
   type CashTender,
 } from "@/hooks/use-shop-invoice-print";
 
+type SavedSale = {
+  id: string;
+  billNumber: string | null;
+  customerPhone: string | null;
+};
+
 export default function NewInvoicePage() {
+  const searchParams = useSearchParams();
+  const duplicateSaleId = searchParams.get("duplicate");
   const { activeBusinessType, activeOrganizationName, enabledModules, user } =
     useAuthStore();
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
@@ -37,11 +51,18 @@ export default function NewInvoicePage() {
   );
   const [resetKey, setResetKey] = useState(0);
   const [printCashTender, setPrintCashTender] = useState<CashTender | null>(null);
+  const [lastSaved, setLastSaved] = useState<{
+    sale: SavedSale;
+    invoice: ShopInvoiceData;
+  } | null>(null);
+
+  const { toast } = useToast();
 
   const { printInvoice, PrintLayer } = useShopInvoicePrint({
     onComplete: () => {
       setPrintCashTender(null);
       setResetKey((k) => k + 1);
+      setLastSaved(null);
     },
   });
 
@@ -50,15 +71,38 @@ export default function NewInvoicePage() {
   }, []);
 
   function handleSaved(
-    _sale: unknown,
+    sale: SavedSale,
     invoice: ShopInvoiceData,
-    cashTender?: CashTender | null
+    cashTender?: CashTender | null,
+    options?: { print?: boolean }
   ) {
     setDraft(invoice);
+    setLastSaved({ sale, invoice });
+    if (options?.print === false) {
+      setResetKey((k) => k + 1);
+      return;
+    }
     setPrintCashTender(cashTender ?? null);
     window.setTimeout(() => {
       void printInvoice();
     }, 80);
+  }
+
+  function shareWhatsApp() {
+    if (!lastSaved) return;
+    const { invoice } = lastSaved;
+    const msg = buildInvoiceWhatsAppMessage({
+      orgName: invoice.orgName,
+      billNumber: invoice.billNumber,
+      customerName: invoice.customerName,
+      totalPaise: invoice.totalPaise,
+      paymentMethod: invoice.pricing?.splitPayments?.length
+        ? invoice.pricing.splitPayments
+            .map((s) => `${s.method} ₹${s.amountRupees}`)
+            .join(" + ")
+        : invoice.paymentMethod,
+    });
+    shareInvoiceOnWhatsApp(msg, invoice.customerPhone);
   }
 
   if (!salesEnabled) {
@@ -95,6 +139,39 @@ export default function NewInvoicePage() {
           </div>
         </div>
 
+        {lastSaved ? (
+          <div className="print-hidden flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+            <p className="w-full text-sm font-medium text-emerald-900 dark:text-emerald-100 sm:w-auto sm:flex-1">
+              Saved {lastSaved.invoice.billNumber ?? "invoice"} — share or print again
+            </p>
+            <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={shareWhatsApp}>
+              <MessageCircle className="mr-2 h-4 w-4" />
+              WhatsApp
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-lg"
+              onClick={() => {
+                void printInvoice();
+                toast({
+                  title: "Save as PDF",
+                  description: "Choose Save as PDF in the print dialog.",
+                });
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              PDF
+            </Button>
+            <Link href={`/shop/invoices/${lastSaved.sale.id}`}>
+              <Button type="button" variant="outline" size="sm" className="rounded-lg">
+                View invoice
+              </Button>
+            </Link>
+          </div>
+        ) : null}
+
         <div className="grid min-w-0 gap-4 xl:grid-cols-[2fr_3fr]">
           <div className="order-2 hidden min-w-0 xl:order-1 xl:sticky xl:top-4 xl:block xl:self-start">
             <InvoiceLivePreview invoice={draft} cashTender={printCashTender} />
@@ -102,6 +179,7 @@ export default function NewInvoicePage() {
           <div className="order-1 min-w-0 xl:order-2">
             <InvoiceEntryForm
               resetKey={resetKey}
+              duplicateSaleId={duplicateSaleId}
               onDraftChange={onDraftChange}
               onSaved={handleSaved}
             />

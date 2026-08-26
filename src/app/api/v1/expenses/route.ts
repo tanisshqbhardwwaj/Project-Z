@@ -29,6 +29,7 @@ const schema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+    requirePermission(ctx, "financial.view");
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId") ?? undefined;
 

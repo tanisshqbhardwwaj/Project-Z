@@ -99,6 +99,7 @@ export default function ShopInventoryPage() {
   const [variantSize, setVariantSize] = useState("");
   const [variantColor, setVariantColor] = useState("");
   const [variantBarcode, setVariantBarcode] = useState("");
+  const [variantSku, setVariantSku] = useState("");
   const [variantQty, setVariantQty] = useState("0");
   const [variantSell, setVariantSell] = useState("");
   const [variantCost, setVariantCost] = useState("");
@@ -370,6 +371,7 @@ export default function ShopInventoryPage() {
         size: variantSize.trim() || null,
         color: variantColor.trim() || null,
         barcode: variantBarcode.trim() || null,
+        sku: variantSku.trim() || null,
         quantity: Number(variantQty) || 0,
         reorderLevel: Number(variantReorder) || 0,
         sellRupees: variantSell ? Number(variantSell) : null,
@@ -509,6 +511,7 @@ export default function ShopInventoryPage() {
                 setVariantSize(variant.size ?? "");
                 setVariantColor(variant.color ?? "");
                 setVariantBarcode(variant.barcode ?? "");
+                setVariantSku(variant.sku ?? "");
                 setVariantQty(String(variant.quantity));
                 setVariantReorder(String(variant.reorderLevel));
                 setVariantSell(
@@ -759,6 +762,15 @@ export default function ShopInventoryPage() {
                 onChange={(e) => setVariantBarcode(e.target.value)}
                 className="h-11 rounded-xl font-mono"
                 placeholder="Leave blank to clear"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>SKU (optional)</Label>
+              <Input
+                value={variantSku}
+                onChange={(e) => setVariantSku(e.target.value)}
+                className="h-11 rounded-xl font-mono uppercase"
+                placeholder="Auto-generated if blank on create"
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">

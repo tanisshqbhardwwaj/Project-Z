@@ -1,7 +1,7 @@
 import { getLocalDb, androidInvoiceWindowDays } from "@/lib/local-db";
 import { apiFetch } from "@/lib/api/client";
 import { useSyncStore } from "@/lib/sync/store";
-import { formatShopBillNumber, fiscalYearLabel, normalizeCashierCode } from "@/lib/shop/bill-number";
+import { formatShopBillNumber, fiscalYearLabel, normalizeCashierCode, resolveStoreCode } from "@/lib/shop/bill-number";
 import type { SyncKind, SyncPullSnapshot, SyncPushResult } from "@/lib/sync/kinds";
 import type { LocalOutboxRow } from "@/lib/local-db/types";
 import { nextOutboxFailure } from "@/lib/sync/outbox-policy";
@@ -10,10 +10,17 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
+const DEVICE_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+function randomDeviceCode(): string {
+  const pick = () =>
+    DEVICE_CODE_ALPHABET[Math.floor(Math.random() * DEVICE_CODE_ALPHABET.length)];
+  return `D${pick()}`;
+}
+
 export async function allocateLocalBillNumber(
   orgId: string,
-  cashierCode?: string | null,
-  prefix = "INV"
+  cashierCode?: string | null
 ): Promise<string> {
   const db = getLocalDb();
   const fy = fiscalYearLabel();
@@ -27,10 +34,13 @@ export async function allocateLocalBillNumber(
     windowDays: androidInvoiceWindowDays(),
   };
   const seq = (meta.fiscalYear === fy ? meta.billSeq : 0) + 1;
-  await db.setMeta({ ...meta, billSeq: seq, fiscalYear: fy });
+  // Without a staff cashier code, use a stable per-device code so offline
+  // numbers from different devices can't collide on the same segment.
+  const deviceCode = meta.deviceCode ?? randomDeviceCode();
+  await db.setMeta({ ...meta, billSeq: seq, fiscalYear: fy, deviceCode });
   return formatShopBillNumber({
-    prefix,
-    cashierCode: normalizeCashierCode(cashierCode),
+    storeCode: meta.storeCode ?? null,
+    cashierCode: cashierCode?.trim() ? normalizeCashierCode(cashierCode) : deviceCode,
     fiscalYear: fy,
     sequence: seq,
   });
@@ -78,15 +88,25 @@ export async function applyPullSnapshot(orgId: string, snapshot: SyncPullSnapsho
 
   const used = Number(snapshot.storage.usedBytes);
   const quota = Number(snapshot.storage.quotaBytes);
+  const fy = fiscalYearLabel();
   const meta = (await db.getMeta(orgId)) ?? {
     orgId,
     cursor: null,
     lastSyncAt: null,
     lastError: null,
     billSeq: 0,
-    fiscalYear: fiscalYearLabel(),
+    fiscalYear: fy,
     windowDays: snapshot.windowDays,
   };
+  const invoiceSettings =
+    snapshot.invoiceSettings && typeof snapshot.invoiceSettings === "object"
+      ? (snapshot.invoiceSettings as Record<string, unknown>)
+      : {};
+  const storeCode = snapshot.storeCode || resolveStoreCode(invoiceSettings, null);
+  // Adopt the server's sequence so this device never reuses numbers the
+  // server already issued while it was offline.
+  const billSeq =
+    meta.fiscalYear === fy ? Math.max(meta.billSeq, snapshot.billSeq ?? 0) : Math.max(0, snapshot.billSeq ?? 0);
   await db.setMeta({
     ...meta,
     cursor: snapshot.cursor,
@@ -94,6 +114,9 @@ export async function applyPullSnapshot(orgId: string, snapshot: SyncPullSnapsho
     lastError: null,
     windowDays: snapshot.windowDays,
     storage: snapshot.storage,
+    billSeq,
+    fiscalYear: fy,
+    storeCode,
   });
 
   const ui = useSyncStore.getState();

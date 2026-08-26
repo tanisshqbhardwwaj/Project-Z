@@ -14,12 +14,12 @@ describe("offline bill numbers", () => {
   it("embeds cashier code and fiscal year", () => {
     expect(
       formatShopBillNumber({
-        prefix: "INV",
-        cashierCode: "4",
+        storeCode: "BF",
+        cashierCode: "R2",
         fiscalYear: "26-27",
         sequence: 18,
       })
-    ).toBe("INV-4-26-27-00018");
+    ).toBe("BF/26-27/R2/0018");
   });
 
   it("uses Apr–Mar fiscal year", () => {

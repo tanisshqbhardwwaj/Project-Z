@@ -6,6 +6,10 @@ export type LocalMeta = {
   billSeq: number;
   fiscalYear: string;
   windowDays: number;
+  /** Stable per-device code used as the cashier segment for offline bills without staff. */
+  deviceCode?: string;
+  /** Store code learned from the last pull, used for offline bill numbers. */
+  storeCode?: string;
   storage?: {
     usedBytes: string;
     quotaBytes: string;

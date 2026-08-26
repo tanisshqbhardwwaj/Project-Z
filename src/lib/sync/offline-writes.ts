@@ -13,7 +13,7 @@ export async function writeOffline(
   orgId: string,
   kind: SyncKind,
   payload: Record<string, unknown>,
-  localRow?: { store: "sales" | "returns" | "expenses" | "purchases" | "credits"; id: string; data: unknown }
+  localRow?: { store: "sales" | "returns" | "expenses" | "purchases" | "credits" | "customers"; id: string; data: unknown }
 ) {
   const id = typeof payload.clientId === "string" ? payload.clientId : crypto.randomUUID();
   payload.clientId = id;
@@ -99,6 +99,16 @@ export async function createReturnOffline(
       line.isExchangeIn ? -qty : qty
     );
   }
+  // Replacement goods in an exchange leave stock too — the wizard sends them
+  // as a separate exchangeItems array, not merged into lines.
+  const exchangeItems = (payload.exchangeItems as { inventoryItemId?: string; qty?: number }[]) ?? [];
+  for (const item of exchangeItems) {
+    if (!item.inventoryItemId) continue;
+    const qty = Number(item.qty || 0);
+    if (qty > 0) {
+      await applyLocalStockDelta(orgId, item.inventoryItemId, -qty);
+    }
+  }
   return writeOffline(orgId, "return.create", { ...payload, clientId: id }, {
     store: "returns",
     id,
@@ -149,6 +159,18 @@ export async function createExpenseOffline(
   const id = crypto.randomUUID();
   return writeOffline(orgId, "expense.create", { ...payload, clientId: id }, {
     store: "expenses",
+    id,
+    data: { id, ...payload, createdAt: new Date().toISOString(), _pendingSync: true },
+  });
+}
+
+export async function upsertCustomerOffline(
+  orgId: string,
+  payload: Record<string, unknown>
+) {
+  const id = crypto.randomUUID();
+  return writeOffline(orgId, "customer.upsert", { ...payload, clientId: id }, {
+    store: "customers",
     id,
     data: { id, ...payload, createdAt: new Date().toISOString(), _pendingSync: true },
   });

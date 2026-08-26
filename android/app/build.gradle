@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+// Release signing: copy keystore.properties.template to keystore.properties
+// (android/ or repo root) and fill in real values. Never commit the real file.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (!keystorePropertiesFile.exists()) {
+    keystorePropertiesFile = rootProject.file("../keystore.properties")
+}
+def keystoreProperties = new Properties()
+def hasReleaseSigning = keystorePropertiesFile.exists()
+if (hasReleaseSigning) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.projectz.shop"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +28,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

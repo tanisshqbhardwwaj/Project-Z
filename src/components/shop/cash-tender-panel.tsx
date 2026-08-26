@@ -51,7 +51,7 @@ export function CashTenderPanel({
             variant="outline"
             size="sm"
             className="h-8 rounded-lg"
-            onClick={() => onReceivedChange(String(Math.max(amount, Math.ceil(totalRupees))))}
+            onClick={() => onReceivedChange(String(amount))}
           >
             ₹{amount}
           </Button>

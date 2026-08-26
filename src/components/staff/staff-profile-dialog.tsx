@@ -288,7 +288,8 @@ export function StaffProfileDialog({
                   maxLength={10}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Used in bill numbers: INV-{values.cashierCode || "4"}-26-27-00018
+                  Used in bill numbers: BF/26-27/{values.cashierCode || "R1"}/0042. Leave
+                  blank to auto-assign the next free code.
                 </p>
               </div>
             </div>

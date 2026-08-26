@@ -16,6 +16,8 @@ import {
   ClipboardList,
   Package,
   RefreshCw,
+  Users,
+  UserCog,
   Wallet,
 } from "lucide-react";
 
@@ -45,7 +47,18 @@ type Summary = {
     newOrgsThisMonth: number;
     trialsExpiringSoon: number;
   };
+  totalUsers: number;
+  totalStaff: number;
+  activeUsers30d: number;
+  inactiveOrgs30d: number;
   recentOrganizations: RecentOrg[];
+  platformFeed: Array<{
+    id: string;
+    type: string;
+    label: string;
+    at: string;
+    href: string | null;
+  }>;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -182,6 +195,66 @@ export default function OpsOverviewPage() {
           />
         </div>
       </section>
+
+      <section className="space-y-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          People
+        </h3>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard
+            icon={Users}
+            title="Org members"
+            value={String(summary.totalUsers)}
+            hint={`${summary.activeUsers30d} logged in last 30 days`}
+            href="/ops/users"
+          />
+          <StatCard
+            icon={UserCog}
+            title="Staff records"
+            value={String(summary.totalStaff)}
+            hint="Payroll/cashier staff across all orgs"
+            href="/ops/users"
+          />
+          <StatCard
+            icon={Building2}
+            title="Inactive orgs (30d)"
+            value={String(summary.inactiveOrgs30d)}
+            hint="No platform activity in 30 days"
+            href="/ops/customers"
+          />
+        </div>
+      </section>
+
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Platform activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {summary.platformFeed.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No recent events.</p>
+          ) : (
+            <ul className="space-y-2">
+              {summary.platformFeed.map((ev) => (
+                <li
+                  key={ev.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
+                >
+                  {ev.href ? (
+                    <Link href={ev.href} className="font-medium hover:underline">
+                      {ev.label}
+                    </Link>
+                  ) : (
+                    <span className="font-medium">{ev.label}</span>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(ev.at).toLocaleString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl lg:col-span-2">

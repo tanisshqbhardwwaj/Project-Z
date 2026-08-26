@@ -26,7 +26,6 @@ export function PublicPricing() {
       <div className="grid gap-3 sm:grid-cols-2">
         {PLAN_ORDER.map((code) => {
           const plan = BILLING_PLANS[code];
-          const bullets = plan.features.slice(0, 3);
           const featured = Boolean(plan.mostPopular);
           return (
             <article
@@ -65,8 +64,8 @@ export function PublicPricing() {
               <p className={cn("mt-1 text-sm", featured ? "text-slate-400" : "text-slate-500")}>
                 {plan.storageLabel} cloud · {plan.tagline}
               </p>
-              <ul className="mt-5 space-y-2 text-sm">
-                {bullets.map((feature) => (
+              <ul className="mt-5 flex-1 space-y-2 text-sm">
+                {plan.features.map((feature) => (
                   <li key={feature} className="flex gap-2">
                     <Check
                       className={cn(

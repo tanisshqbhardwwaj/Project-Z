@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Wallet } from "lucide-react";
 import { RecurringExpensePanel } from "@/components/shop/recurring-expense-panel";
 import { useAuthStore } from "@/stores/auth-store";
@@ -12,12 +12,14 @@ import { moduleLabel } from "@/lib/org/modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatINR } from "@/lib/finance/money";
 import { hasPermission } from "@/lib/permissions/rbac";
 import { cn } from "@/lib/utils";
@@ -57,6 +59,7 @@ export default function ShopExpensesPage() {
     initialTab === "recurring" ? "recurring" : "one-time"
   );
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [categoryId, setCategoryId] = useState("");
   const [titleInput, setTitleInput] = useState("");
   const [amount, setAmount] = useState("");
@@ -68,14 +71,14 @@ export default function ShopExpensesPage() {
   const today = new Date().toISOString().slice(0, 10);
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
-    if (search.trim()) p.set("q", search.trim());
+    if (debouncedSearch.trim()) p.set("q", debouncedSearch.trim());
     if (categoryId) p.set("categoryId", categoryId);
     if (tab === "daily") {
       p.set("from", today);
       p.set("to", today);
     }
     return `?${p.toString()}`;
-  }, [search, categoryId, tab, today]);
+  }, [debouncedSearch, categoryId, tab, today]);
 
   const categoriesQuery = useQuery({
     queryKey: orgId ? queryKeys.modules.shop.expenseCategories(orgId) : ["disabled"],
@@ -84,9 +87,10 @@ export default function ShopExpensesPage() {
   });
 
   const expensesQuery = useQuery({
-    queryKey: orgId ? [...queryKeys.modules.shop.expenses(orgId), tab, search, categoryId] : ["disabled"],
+    queryKey: orgId ? [...queryKeys.modules.shop.expenses(orgId), tab, debouncedSearch, categoryId] : ["disabled"],
     queryFn: () => apiFetch<ExpenseList>(`/api/v1/shop/expenses${queryString}`),
     enabled: !!orgId && enabled && (tab === "daily" || tab === "history"),
+    placeholderData: keepPreviousData,
   });
 
   const profitQuery = useQuery({
@@ -123,7 +127,10 @@ export default function ShopExpensesPage() {
     return <p className="text-muted-foreground">Turn on {title} in Manage Organization → Features.</p>;
   }
 
-  if (categoriesQuery.isLoading || (expensesQuery.isLoading && tab !== "add")) {
+  if (
+    (categoriesQuery.isLoading && !categoriesQuery.data) ||
+    (expensesQuery.isLoading && !expensesQuery.data && tab !== "add")
+  ) {
     return <PageLoader label="Loading expenses..." />;
   }
 
@@ -315,15 +322,24 @@ export default function ShopExpensesPage() {
             {tab === "history" && (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-11 rounded-xl pl-9" />
+                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-11 rounded-xl pl-9" aria-busy={expensesQuery.isFetching && debouncedSearch !== search} />
               </div>
             )}
           </CardHeader>
           <CardContent>
             {expenses.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">No expenses recorded.</p>
+              <EmptyState
+                icon={Wallet}
+                title={tab === "daily" ? "No expenses recorded today" : "No expenses found"}
+                description={
+                  tab === "daily"
+                    ? "Expenses you add today will show up here."
+                    : "Try a different search or category filter."
+                }
+              />
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="pb-2 font-medium">Date</th>
@@ -347,6 +363,7 @@ export default function ShopExpensesPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </CardContent>
         </Card>

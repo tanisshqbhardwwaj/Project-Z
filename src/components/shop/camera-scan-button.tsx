@@ -3,28 +3,7 @@
 import { useRef } from "react";
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { isCapacitorNative } from "@/lib/platform/native";
-
-type BarcodeDetectorLike = {
-  detect: (source: ImageBitmapSource) => Promise<{ rawValue: string }[]>;
-};
-
-async function detectBarcodeFromBlob(blob: Blob): Promise<string> {
-  const Detector = (
-    window as unknown as { BarcodeDetector?: new (opts: { formats: string[] }) => BarcodeDetectorLike }
-  ).BarcodeDetector;
-  if (!Detector) return "";
-  try {
-    const bmp = await createImageBitmap(blob);
-    const detector = new Detector({
-      formats: ["ean_13", "ean_8", "code_128", "qr_code", "upc_a"],
-    });
-    const codes = await detector.detect(bmp);
-    return codes[0]?.rawValue ?? "";
-  } catch {
-    return "";
-  }
-}
+import { detectBarcodeFromBlob, scanRetailBarcode } from "@/lib/shop/barcode-scan";
 
 export function CameraScanButton({ onCode }: { onCode: (code: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,30 +11,14 @@ export function CameraScanButton({ onCode }: { onCode: (code: string) => void })
   async function onFile(file: File | undefined) {
     if (!file) return;
     const code = await detectBarcodeFromBlob(file);
-    onCode(code);
+    if (code) onCode(code);
   }
 
   async function openCamera() {
-    if (isCapacitorNative()) {
-      try {
-        const { Camera: CapCamera, CameraResultType, CameraSource } = await import(
-          "@capacitor/camera"
-        );
-        const photo = await CapCamera.getPhoto({
-          quality: 80,
-          resultType: CameraResultType.Uri,
-          source: CameraSource.Camera,
-        });
-        if (photo.webPath) {
-          const res = await fetch(photo.webPath);
-          const blob = await res.blob();
-          const code = await detectBarcodeFromBlob(blob);
-          onCode(code);
-          return;
-        }
-      } catch {
-        /* fall through to file input */
-      }
+    const code = await scanRetailBarcode();
+    if (code) {
+      onCode(code);
+      return;
     }
     inputRef.current?.click();
   }

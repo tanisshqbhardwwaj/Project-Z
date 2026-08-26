@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
 import { PageLoader } from "@/components/ui/page-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -198,7 +199,10 @@ function RegularityTable({
 }) {
   if (rows.length === 0) {
     return (
-      <p className="py-3 text-sm text-muted-foreground">No attendance data yet.</p>
+      <EmptyState
+        title="No attendance data yet"
+        className="py-6"
+      />
     );
   }
 
@@ -609,7 +613,12 @@ export default function StaffHubPage() {
                 {attendanceQuery.isLoading ? (
                   <PageLoader label="Loading..." />
                 ) : (attendanceQuery.data ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No active staff.</p>
+                  <EmptyState
+                    icon={UsersRound}
+                    title="No active staff"
+                    description="Add team members from the People tab to start marking attendance."
+                    className="py-6"
+                  />
                 ) : (
                   (attendanceQuery.data ?? []).map(({ staff, attendance }: AttendanceRow) => (
                     <div
@@ -688,7 +697,11 @@ export default function StaffHubPage() {
                 {gridQuery.isLoading ? (
                   <PageLoader label="Loading grid..." />
                 ) : (gridQuery.data?.rows ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No active staff to show.</p>
+                  <EmptyState
+                    icon={UsersRound}
+                    title="No active staff to show"
+                    className="py-6"
+                  />
                 ) : (
                   <div className="overflow-x-auto rounded-xl border">
                     <table className="min-w-full text-xs">
@@ -873,10 +886,11 @@ export default function StaffHubPage() {
             {payrollQuery.isLoading ? (
               <PageLoader label="Loading payroll..." />
             ) : payrollRows.length === 0 ? (
-              <div className="space-y-3 rounded-xl border border-dashed p-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  No payroll for {MONTHS[month - 1]} {year} yet.
-                </p>
+              <EmptyState
+                title={`No payroll for ${MONTHS[month - 1]} ${year} yet`}
+                description="Generate payroll to calculate salaries from attendance."
+                className="rounded-xl border border-dashed"
+              >
                 {canPayroll && (
                   <Button
                     className="rounded-xl"
@@ -886,7 +900,7 @@ export default function StaffHubPage() {
                     Generate payroll
                   </Button>
                 )}
-              </div>
+              </EmptyState>
             ) : (
               payrollRows.map((row: PayrollRow) => {
                 const adjustmentPaise = BigInt(row.adjustmentPaise || "0");
@@ -1185,19 +1199,20 @@ export default function StaffHubPage() {
             {staffQuery.isLoading ? (
               <PageLoader label="Loading team..." />
             ) : filteredStaff.length === 0 ? (
-              <div className="rounded-xl border border-dashed py-12 text-center">
-                <UsersRound className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-                <p className="font-medium">
-                  {(staffQuery.data ?? []).length === 0
+              <EmptyState
+                icon={UsersRound}
+                title={
+                  (staffQuery.data ?? []).length === 0
                     ? "No team members yet"
-                    : "No one matches that search"}
-                </p>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-                  {(staffQuery.data ?? []).length === 0
+                    : "No one matches that search"
+                }
+                description={
+                  (staffQuery.data ?? []).length === 0
                     ? "Add your first team member to start marking attendance, running payroll and tracking sales commission."
-                    : "Try a different name, phone or role."}
-                </p>
-              </div>
+                    : "Try a different name, phone or role."
+                }
+                className="rounded-xl border border-dashed"
+              />
             ) : (
               <div className="space-y-3">
                 {filteredStaff.map((s) => (

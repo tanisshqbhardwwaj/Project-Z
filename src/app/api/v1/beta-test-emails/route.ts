@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  getAuthContext,
-  handleApi,
-  requirePermission,
-  apiSuccess,
-} from "@/lib/api/context";
+import { handleApi, apiSuccess } from "@/lib/api/context";
+import { requirePlatformAdmin } from "@/lib/billing/platform-admin";
 import {
   addBetaTestEmail,
   listBetaTestEmails,
@@ -17,11 +13,10 @@ import { serializeBigInt } from "@/lib/db/prisma";
 const addSchema = z.object({ email: z.string().email() });
 const removeSchema = z.object({ email: z.string().email() });
 
-/** Org owners manage global beta registration allowlist (max 20). */
+/** Platform admins manage the global beta registration allowlist (max 20). */
 export async function GET(request: Request) {
   return handleApi(async () => {
-    const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "org.manage");
+    await requirePlatformAdmin();
 
     const emails = await listBetaTestEmails();
     return apiSuccess(
@@ -36,15 +31,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return handleApi(async () => {
-    const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "org.manage");
+    const admin = await requirePlatformAdmin();
 
     const body = await request.json();
     const { email } = addSchema.parse(body);
 
     const entry = await addBetaTestEmail({
       email,
-      addedById: ctx.userId,
+      addedById: admin.userId,
     });
 
     return NextResponse.json({ data: serializeBigInt(entry) }, { status: 201 });
@@ -53,8 +47,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   return handleApi(async () => {
-    const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "org.manage");
+    await requirePlatformAdmin();
 
     const body = await request.json();
     const { email } = removeSchema.parse(body);

@@ -11,6 +11,10 @@ import {
   Cloud,
   Shield,
   Tag,
+  RotateCcw,
+  Users,
+  Building2,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import type { OrgRole } from "@prisma/client";
@@ -110,6 +114,18 @@ export function useNavGroups(): NavGroups {
           label: "Offers",
           key: "shop_offers",
         });
+        modules.push({
+          href: "/shop/returns",
+          icon: RotateCcw,
+          label: "Returns",
+          key: "shop_returns",
+        });
+        modules.push({
+          href: "/shop/customers",
+          icon: Users,
+          label: "Customers",
+          key: "shop_customers",
+        });
       }
     }
 
@@ -129,6 +145,18 @@ export function useNavGroups(): NavGroups {
     }
 
     if (role === "OWNER") {
+      tools.push({
+        href: "/settings/organization",
+        icon: Building2,
+        label: "Organization",
+        key: "organization",
+      });
+      tools.push({
+        href: "/settings/members",
+        icon: UsersRound,
+        label: "Members",
+        key: "members",
+      });
       tools.push({
         href: "/settings/storage",
         icon: Cloud,

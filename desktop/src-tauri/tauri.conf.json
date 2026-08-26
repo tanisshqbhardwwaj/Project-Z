@@ -37,5 +37,16 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": {}
+  "plugins": {
+    // Updater prep (tauri v2 updater plugin config shape; tauri = "2" in Cargo.toml).
+    // BEFORE DISTRIBUTION: replace the placeholder pubkey with the real signing public key
+    // and point endpoints at the real update manifest feed. The Rust crate
+    // (tauri-plugin-updater) and JS package still need to be added to activate this.
+    "updater": {
+      "pubkey": "REPLACE_WITH_REAL_UPDATER_PUBLIC_KEY",
+      "endpoints": [
+        "https://beta-project-z.vercel.app/api/desktop-updates/{{target}}/{{arch}}/{{current_version}}"
+      ]
+    }
+  }
 }

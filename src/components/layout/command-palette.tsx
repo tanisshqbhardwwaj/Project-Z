@@ -141,7 +141,8 @@ function PaletteContent() {
             group: "Vendors",
             label: v.name,
             icon: Building2,
-            href: `/vendors/${v.id}`,
+            // Vendors are org-level; detail pages live under a project context.
+            href: "/projects",
           })),
         ];
 

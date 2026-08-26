@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { hash, verify } from "@node-rs/argon2";
 import { prisma } from "@/lib/db/prisma";
+import { ensureUserSchema } from "@/lib/db/ensure-user-schema";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -34,6 +35,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user.emailVerifiedAt) {
           throw new Error("EMAIL_NOT_VERIFIED");
         }
+
+        await ensureUserSchema();
+        await prisma.$executeRawUnsafe(
+          `UPDATE "User" SET "lastLoginAt" = ? WHERE "id" = ?`,
+          new Date().toISOString(),
+          user.id
+        ).catch(() => {
+          /* column may not exist until migration */
+        });
 
         return {
           id: user.id,

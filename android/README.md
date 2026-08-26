@@ -8,7 +8,7 @@ The APK loads the live Project Z web app in a WebView and stores shop data in **
 npm run android:build
 ```
 
-This sets `CAPACITOR_SERVER_URL` (default `https://beta-project-z.vercel.app`), syncs Capacitor, builds a debug APK, and copies it to `public/downloads/project-z.apk`.
+This sets `CAPACITOR_SERVER_URL` (default from NEXT_PUBLIC_APP_URL (`http://localhost:3000`)), syncs Capacitor, builds a debug APK, and copies it to `public/downloads/project-z.apk`.
 
 Override the host:
 

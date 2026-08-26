@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { useAuthStore } from "@/stores/auth-store";
 import { PageLoader } from "@/components/ui/page-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -285,18 +286,20 @@ export default function ShopReturnsPage() {
 
       {filtered.length === 0 ? (
         <Card className="rounded-2xl">
-          <CardContent className="py-12 text-center">
-            <RotateCcw className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="font-medium">
-              {rows.length === 0
-                ? "No returns or exchanges yet"
-                : "Nothing matches that search"}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {rows.length === 0
-                ? "Open an invoice and use Return / Exchange to start one."
-                : "Try a different search or filter."}
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={RotateCcw}
+              title={
+                rows.length === 0
+                  ? "No returns or exchanges yet"
+                  : "Nothing matches that search"
+              }
+              description={
+                rows.length === 0
+                  ? "Open an invoice and use Return / Exchange to start one."
+                  : "Try a different search or filter."
+              }
+            />
           </CardContent>
         </Card>
       ) : (

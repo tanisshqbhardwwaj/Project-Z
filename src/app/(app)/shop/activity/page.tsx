@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ClipboardList, Search } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type {
   ActivityDatePreset,
   ActivityModuleFilter,
@@ -83,6 +84,7 @@ export default function ShopActivityPage() {
   const enabled = isModuleEnabled(enabledModules, "shop_activity");
   const title = moduleLabel("shop_activity", activeBusinessType ?? "SHOPKEEPER");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [moduleFilter, setModuleFilter] = useState<ActivityModuleFilter>("all");
   const [datePreset, setDatePreset] = useState<ActivityDatePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -91,7 +93,7 @@ export default function ShopActivityPage() {
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
-    if (search.trim()) p.set("q", search.trim());
+    if (debouncedSearch.trim()) p.set("q", debouncedSearch.trim());
     if (moduleFilter !== "all") p.set("module", moduleFilter);
     if (datePreset !== "all") p.set("date", datePreset);
     if (datePreset === "custom") {
@@ -100,14 +102,15 @@ export default function ShopActivityPage() {
     }
     if (userId) p.set("userId", userId);
     return p.toString() ? `?${p.toString()}` : "";
-  }, [search, moduleFilter, datePreset, customFrom, customTo, userId]);
+  }, [debouncedSearch, moduleFilter, datePreset, customFrom, customTo, userId]);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: orgId
       ? [...queryKeys.modules.shop.activity(orgId), queryString]
       : ["disabled"],
     queryFn: () => apiFetch<ActivityRow[]>(`/api/v1/shop/activity${queryString}`),
     enabled: !!orgId && enabled,
+    placeholderData: keepPreviousData,
   });
 
   const actorsQuery = useQuery({
@@ -124,7 +127,7 @@ export default function ShopActivityPage() {
     );
   }
 
-  if (isLoading) return <PageLoader label="Loading activity trail..." />;
+  if (isLoading && !data) return <PageLoader label="Loading activity trail..." />;
   if (error) {
     return (
       <p className="text-destructive">
@@ -157,6 +160,7 @@ export default function ShopActivityPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search actions, descriptions, people…"
               className="h-11 rounded-xl pl-9"
+              aria-busy={isFetching && debouncedSearch !== search}
             />
           </div>
 

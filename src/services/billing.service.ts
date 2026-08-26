@@ -394,6 +394,35 @@ export async function getOpsSummary() {
   });
 
   const ops = await getOpsActivitySignals();
+  const recentOrganizations = await listRecentOpsOrganizations(8);
+  const platformFeed = await listOpsPlatformFeed(12);
+
+  const [totalUsers, totalStaff, activeUsers30d, inactiveOrgs30d] = await Promise.all([
+    prisma.organizationMember
+      .count({ where: { status: "ACTIVE" } })
+      .catch(() => 0),
+    prisma.staffMember
+      .count({ where: { status: "ACTIVE" } })
+      .catch(() => 0),
+    prisma.$queryRawUnsafe<Array<{ count: number }>>(
+      `SELECT COUNT(*) as count FROM "User" WHERE "lastLoginAt" >= ?`,
+      startOfDay(30).toISOString()
+    )
+      .then((rows) => Number(rows[0]?.count ?? 0))
+      .catch(() => 0),
+    prisma.organization
+      .count({
+        where: {
+          createdAt: { lt: startOfDay(30) },
+          subscriptionStatus: { in: ["ACTIVE", "TRIAL"] },
+          OR: [
+            { lastActiveAt: null },
+            { lastActiveAt: { lt: startOfDay(30) } },
+          ],
+        },
+      })
+      .catch(() => 0),
+  ]);
 
   return {
     orgCount,
@@ -406,6 +435,12 @@ export async function getOpsSummary() {
     storageUsedBytes: storageAgg._sum.storageUsedBytes?.toString() ?? "0",
     mrrPaise,
     setupOutstanding,
+    totalUsers,
+    totalStaff,
+    activeUsers30d,
+    inactiveOrgs30d,
+    recentOrganizations,
+    platformFeed,
     ...ops,
   };
 }
@@ -451,6 +486,60 @@ export async function getOpsActivitySignals() {
       trialsExpiringSoon,
     },
   };
+}
+
+export type OpsPlatformEvent = {
+  id: string;
+  type: "org_created" | "member_joined";
+  label: string;
+  at: string;
+  href: string | null;
+};
+
+/** Safe platform activity — no shop financial data. */
+export async function listOpsPlatformFeed(take = 12): Promise<OpsPlatformEvent[]> {
+  const [orgs, members] = await Promise.all([
+    prisma.organization.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { id: true, name: true, createdAt: true },
+    }),
+    prisma.organizationMember.findMany({
+      where: { status: "ACTIVE", joinedAt: { not: null } },
+      orderBy: { joinedAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        joinedAt: true,
+        role: true,
+        user: { select: { name: true } },
+        organization: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  const events: OpsPlatformEvent[] = [
+    ...orgs.map((o) => ({
+      id: `org-${o.id}`,
+      type: "org_created" as const,
+      label: `New organization · ${o.name}`,
+      at: o.createdAt.toISOString(),
+      href: `/ops/customers/${o.id}`,
+    })),
+    ...members
+      .filter((m) => m.joinedAt)
+      .map((m) => ({
+        id: `member-${m.id}`,
+        type: "member_joined" as const,
+        label: `${m.user.name} joined ${m.organization.name} (${m.role})`,
+        at: m.joinedAt!.toISOString(),
+        href: null,
+      })),
+  ];
+
+  return events
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .slice(0, take);
 }
 
 /** Recently created organizations with their owner, for the ops overview feed. */

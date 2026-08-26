@@ -37,6 +37,10 @@ export type SyncPullSnapshot = {
   expenses: unknown[];
   staff: unknown[];
   invoiceSettings: unknown;
+  /** Server-authoritative bill sequence for the current fiscal year. */
+  billSeq: number;
+  /** Resolved store code used as the first bill-number segment. */
+  storeCode: string;
   storage: {
     usedBytes: string;
     quotaBytes: string;

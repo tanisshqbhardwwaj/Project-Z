@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma, serializeBigInt } from "@/lib/db/prisma";
 import { auth } from "@/lib/auth";
+import { sanitizeShopSettingsForClient } from "@/lib/org/shop-settings";
 import {
   handleApi,
   getAuthContext,
@@ -57,6 +58,7 @@ const updateSchema = z.object({
               showPaymentMethod: z.boolean().optional(),
               showSubtotal: z.boolean().optional(),
               billPrefix: z.string().max(10).optional(),
+              storeCode: z.string().max(4).optional(),
               defaultTaxRatePercent: z.number().min(0).max(100).optional(),
               discountBasis: z.enum(["subtotal", "total"]).optional(),
               defaultStaffMonthlyTargetRupees: z.number().min(0).optional(),
@@ -64,6 +66,34 @@ const updateSchema = z.object({
               paperSize: z.enum(["58mm", "80mm", "A4"]).optional(),
               printMarginMm: z.number().min(0).max(30).optional(),
               defaultCopies: z.number().int().min(1).max(5).optional(),
+              useDecimalPlaces: z.boolean().optional(),
+              paymentTerminal: z
+                .object({
+                  enabled: z.boolean().optional(),
+                  provider: z
+                    .enum([
+                      "none",
+                      "paytm",
+                      "pine_labs",
+                      "razorpay_pos",
+                      "phonepe",
+                      "mswipe",
+                      "generic_bridge",
+                    ])
+                    .optional(),
+                  autoCollect: z.boolean().optional(),
+                  environment: z.enum(["staging", "production"]).optional(),
+                  mid: z.string().max(40).optional(),
+                  merchantKey: z.string().max(200).optional(),
+                  clientId: z.string().max(80).optional(),
+                  terminalId: z.string().max(40).optional(),
+                  storeId: z.string().max(40).optional(),
+                  bridgeUrl: z.string().max(300).optional(),
+                  bridgeApiKey: z.string().max(200).optional(),
+                  hasMerchantKey: z.boolean().optional(),
+                  hasBridgeApiKey: z.boolean().optional(),
+                })
+                .optional(),
             })
             .optional(),
         })
@@ -158,9 +188,16 @@ export async function PATCH(request: Request) {
     const org = await updateOrganization({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
-      ...data,
+      ...(data as Omit<Parameters<typeof updateOrganization>[0], "organizationId" | "userId">),
     });
 
-    return NextResponse.json({ data: serializeBigInt(org) });
+    const safe = {
+      ...org,
+      settings: sanitizeShopSettingsForClient(
+        (org.settings ?? {}) as Record<string, unknown>
+      ),
+    };
+
+    return NextResponse.json({ data: serializeBigInt(safe) });
   });
 }

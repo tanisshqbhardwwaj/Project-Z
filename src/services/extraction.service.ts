@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { ApiError } from "@/lib/api/context";
 import { getDefaultAiModel, getParser } from "@/lib/ai/get-parser";
 import { WORK_ORDER_FIELDS } from "@/lib/ai/types";
 import { uploadFile, buildStorageKey, getFileBuffer } from "@/lib/storage";
@@ -8,6 +9,24 @@ import { queueWorkOrderExtraction } from "@/services/extraction-queue.service";
 import { createProject } from "./project.service";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { calculateCompletionDate } from "@/lib/finance/completion-date";
+
+/** Load extraction only when its document belongs to the caller's organization. */
+export async function getOrgScopedExtraction(
+  extractionId: string,
+  organizationId: string
+) {
+  const extraction = await prisma.aIExtraction.findFirst({
+    where: {
+      id: extractionId,
+      document: { organizationId },
+    },
+    include: { document: true },
+  });
+  if (!extraction?.document) {
+    throw new ApiError(404, "NOT_FOUND", "Extraction not found");
+  }
+  return extraction;
+}
 
 function parseDate(value: unknown): Date | null {
   if (value == null || value === "") return null;
@@ -127,11 +146,10 @@ export async function acceptExtraction(input: {
   userId: string;
   corrections: Record<string, string | number | null>;
 }) {
-  const extraction = await prisma.aIExtraction.findUnique({
-    where: { id: input.extractionId },
-    include: { document: true },
-  });
-  if (!extraction?.document) throw new Error("Extraction not found");
+  const extraction = await getOrgScopedExtraction(
+    input.extractionId,
+    input.organizationId
+  );
 
   const fields = extraction.extractedFields as Array<{
     field: string;
@@ -210,12 +228,11 @@ export async function acceptExtraction(input: {
   return project;
 }
 
-export async function rerunExtraction(extractionId: string) {
-  const extraction = await prisma.aIExtraction.findUnique({
-    where: { id: extractionId },
-    include: { document: true },
-  });
-  if (!extraction) throw new Error("Not found");
+export async function rerunExtraction(
+  extractionId: string,
+  organizationId: string
+) {
+  const extraction = await getOrgScopedExtraction(extractionId, organizationId);
 
   await prisma.aIExtraction.update({
     where: { id: extractionId },

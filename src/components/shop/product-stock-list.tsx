@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { PageLoader } from "@/components/ui/page-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatINR } from "@/lib/finance/money";
 import { formatStockDisplay } from "@/lib/shop/inventory";
 import {
@@ -193,6 +194,13 @@ function VariantRow({
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
+      <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+        {variant.costPaise ? (
+          formatINR(variant.costPaise)
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </td>
       <td className="py-2 pr-3 text-right">
         <div className="flex justify-end gap-0.5">
           <Button
@@ -249,7 +257,11 @@ export function ProductStockList({
   onDeleteVariant,
 }: {
   products: ProductRow[];
-  categories: Array<{ key: string; label: string }>;
+  categories: Array<{
+    key: string;
+    label: string;
+    subcategories?: Array<{ key: string; label: string }>;
+  }>;
   lookup: CategoryLookup;
   isLoading: boolean;
   isUpdating: boolean;
@@ -264,6 +276,7 @@ export function ProductStockList({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StockFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const indexed = useMemo(
@@ -304,6 +317,12 @@ export function ProductStockList({
         if (categoryFilter !== "all" && product.categoryKey !== categoryFilter) {
           return false;
         }
+        if (
+          subCategoryFilter !== "all" &&
+          product.subCategoryKey !== subCategoryFilter
+        ) {
+          return false;
+        }
         if (filter === "low" && product.lowStockCount === 0) return false;
         if (
           filter === "no-barcode" &&
@@ -315,7 +334,7 @@ export function ProductStockList({
         return true;
       })
       .map((entry) => entry.product);
-  }, [indexed, search, categoryFilter, filter]);
+  }, [indexed, search, categoryFilter, subCategoryFilter, filter]);
 
   const stats = useMemo(() => {
     const variantCount = products.reduce((sum, p) => sum + p.variants.length, 0);
@@ -356,7 +375,10 @@ export function ProductStockList({
           <div className="flex gap-1.5 overflow-x-auto pb-1">
             <FilterChip
               active={categoryFilter === "all"}
-              onClick={() => setCategoryFilter("all")}
+                  onClick={() => {
+                    setCategoryFilter("all");
+                    setSubCategoryFilter("all");
+                  }}
             >
               All categories ({products.length})
             </FilterChip>
@@ -367,9 +389,42 @@ export function ProductStockList({
                 <FilterChip
                   key={cat.key}
                   active={categoryFilter === cat.key}
-                  onClick={() => setCategoryFilter(cat.key)}
+                  onClick={() => {
+                    setCategoryFilter(cat.key);
+                    setSubCategoryFilter("all");
+                  }}
                 >
                   {cat.label} ({count})
+                </FilterChip>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {categoryFilter !== "all" ? (
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            <FilterChip
+              active={subCategoryFilter === "all"}
+              onClick={() => setSubCategoryFilter("all")}
+            >
+              All sub-categories
+            </FilterChip>
+            {(categories.find((c) => c.key === categoryFilter)?.subcategories ??
+              []
+            ).map((sub) => {
+              const count = products.filter(
+                (p) =>
+                  p.categoryKey === categoryFilter &&
+                  p.subCategoryKey === sub.key
+              ).length;
+              if (count === 0 && subCategoryFilter !== sub.key) return null;
+              return (
+                <FilterChip
+                  key={sub.key}
+                  active={subCategoryFilter === sub.key}
+                  onClick={() => setSubCategoryFilter(sub.key)}
+                >
+                  {sub.label} ({count})
                 </FilterChip>
               );
             })}
@@ -397,19 +452,19 @@ export function ProductStockList({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-12 text-center">
-          <Package className="mb-3 h-10 w-10 text-muted-foreground/50" />
-          <p className="font-medium">
-            {products.length === 0
+        <EmptyState
+          icon={Package}
+          title={
+            products.length === 0
               ? "No products yet"
-              : "No product matches your search"}
-          </p>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            {products.length === 0
+              : "No product matches your search"
+          }
+          description={
+            products.length === 0
               ? "Add your first product above. If it comes in several sizes, add them all in one go and each size gets its own barcode."
-              : "Try a different search term or clear the filters."}
-          </p>
-        </div>
+              : "Try a different search term or clear the filters."
+          }
+        />
       ) : (
         <div className="overflow-hidden rounded-2xl border bg-card">
           <div className="overflow-x-auto">
@@ -418,7 +473,8 @@ export function ProductStockList({
                 <tr className="border-b bg-muted/50 text-left text-xs text-foreground/70">
                   <th className="p-3 font-medium">Product</th>
                   <th className="p-3 font-medium">Stock</th>
-                  <th className="p-3 text-right font-medium">Price</th>
+                  <th className="p-3 text-right font-medium">Sell</th>
+                  <th className="p-3 text-right font-medium">Cost</th>
                   <th className="p-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
@@ -544,6 +600,25 @@ export function ProductStockList({
                           {priceRange ?? (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
+                        </td>
+                        <td className="p-3 text-right align-middle tabular-nums text-muted-foreground">
+                          {(() => {
+                            const costs = product.variants
+                              .map((v) =>
+                                v.costPaise ? Number(v.costPaise) : null
+                              )
+                              .filter((p): p is number => p != null);
+                            if (costs.length === 0) {
+                              return (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              );
+                            }
+                            const min = Math.min(...costs);
+                            const max = Math.max(...costs);
+                            return min === max
+                              ? formatINR(String(min))
+                              : `${formatINR(String(min))} – ${formatINR(String(max))}`;
+                          })()}
                         </td>
                         <td className="p-3 align-middle">
                           <div className="flex justify-end gap-0.5">

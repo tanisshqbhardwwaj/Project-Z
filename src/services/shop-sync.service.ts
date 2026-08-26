@@ -11,6 +11,7 @@ import { createShopExpense } from "@/services/shop-expense.service";
 import { createShopPurchase } from "@/services/shop-purchase.service";
 import { upsertCustomerRaw } from "@/lib/shop/customer-store";
 import { parseShopInvoiceSettings } from "@/lib/org/shop-settings";
+import { fiscalYearLabel, resolveStoreCode } from "@/lib/shop/bill-number";
 import { ensureSyncSchema } from "@/lib/shop/ensure-sync-schema";
 import type { SyncKind, SyncPullSnapshot, SyncPushResult } from "@/lib/sync/kinds";
 
@@ -237,11 +238,22 @@ export async function pullShopSnapshot(input: {
   const org = await prisma.organization.findUnique({
     where: { id: input.organizationId },
     select: {
+      name: true,
       settings: true,
       subscriptionStatus: true,
     },
   });
   if (!org) throw new ApiError(404, "NOT_FOUND", "Organization not found");
+
+  const billCounter = await prisma.shopBillCounter.findUnique({
+    where: {
+      organizationId_fiscalYear: {
+        organizationId: input.organizationId,
+        fiscalYear: fiscalYearLabel(),
+      },
+    },
+    select: { seq: true },
+  });
 
   const [
     sales,
@@ -320,6 +332,11 @@ export async function pullShopSnapshot(input: {
     expenses,
     staff,
     invoiceSettings: parseShopInvoiceSettings(org.settings ?? {}),
+    billSeq: billCounter?.seq ?? 0,
+    storeCode: resolveStoreCode(
+      parseShopInvoiceSettings(org.settings ?? {}) as Record<string, unknown>,
+      org.name
+    ),
     storage: {
       usedBytes: storage.usedBytes,
       quotaBytes: storage.quotaBytes,

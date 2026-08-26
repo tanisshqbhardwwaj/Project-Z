@@ -12,8 +12,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Project Z — Work Order & Partner Accounting",
-  description: "Manage work orders, projects, expenses, and partner settlements",
+  title: "Project Z — Billing, inventory & business management",
+  description:
+    "Billing, inventory, staff, and projects for Indian shopkeepers, contractors, architects, and builders — one platform, from A to Z.",
   appleWebApp: {
     capable: true,
     title: "Project Z",

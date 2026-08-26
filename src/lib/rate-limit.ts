@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db/prisma";
+
 type RateLimitEntry = {
   count: number;
   resetAt: number;
@@ -36,6 +38,13 @@ export function hasUpstashRateLimit(): boolean {
   return Boolean(
     process.env.UPSTASH_REDIS_REST_URL?.trim() &&
       process.env.UPSTASH_REDIS_REST_TOKEN?.trim()
+  );
+}
+
+export function hasTursoRateLimit(): boolean {
+  return Boolean(
+    process.env.TURSO_DATABASE_URL?.trim() &&
+      process.env.TURSO_AUTH_TOKEN?.trim()
   );
 }
 
@@ -116,19 +125,73 @@ async function checkUpstashRateLimit(
   return { ok: true };
 }
 
+async function checkTursoRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  const now = new Date();
+  const resetAt = new Date(now.getTime() + windowMs);
+
+  return prisma.$transaction(async (tx) => {
+    const bucket = await tx.rateLimitBucket.findUnique({ where: { key } });
+    if (!bucket || bucket.resetAt <= now) {
+      await tx.rateLimitBucket.upsert({
+        where: { key },
+        create: { key, count: 1, resetAt },
+        update: { count: 1, resetAt },
+      });
+      return { ok: true as const };
+    }
+
+    if (bucket.count >= limit) {
+      return {
+        ok: false as const,
+        retryAfterSec: Math.max(
+          1,
+          Math.ceil((bucket.resetAt.getTime() - now.getTime()) / 1000)
+        ),
+      };
+    }
+
+    await tx.rateLimitBucket.update({
+      where: { key },
+      data: { count: { increment: 1 } },
+    });
+    return { ok: true as const };
+  });
+}
+
+async function checkDistributedRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  if (hasUpstashRateLimit()) {
+    try {
+      return await checkUpstashRateLimit(key, limit, windowMs);
+    } catch {
+      /* fall through to Turso or memory */
+    }
+  }
+
+  if (hasTursoRateLimit()) {
+    try {
+      return await checkTursoRateLimit(key, limit, windowMs);
+    } catch {
+      /* fall through to memory */
+    }
+  }
+
+  return checkRateLimit(key, limit, windowMs);
+}
+
 export async function checkRateLimitAsync(
   key: string,
   limit: number,
   windowMs: number
 ): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
-  if (!hasUpstashRateLimit()) {
-    return checkRateLimit(key, limit, windowMs);
-  }
-  try {
-    return await checkUpstashRateLimit(key, limit, windowMs);
-  } catch {
-    return checkRateLimit(key, limit, windowMs);
-  }
+  return checkDistributedRateLimit(key, limit, windowMs);
 }
 
 export async function enforceRateLimit(

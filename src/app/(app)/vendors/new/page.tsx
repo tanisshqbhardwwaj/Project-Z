@@ -11,17 +11,34 @@ export default function NewVendorPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", gstNumber: "" });
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const res = await fetch("/api/v1/vendors", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setLoading(false);
-    if (res.ok) router.push("/vendors");
+    setSubmitError(null);
+    try {
+      const res = await fetch("/api/v1/vendors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error?.message ?? "Failed to save vendor");
+      }
+      const body = await res.json();
+      const vendor = body?.data;
+      if (vendor?.projectId && vendor?.id) {
+        router.push(`/projects/${vendor.projectId}/vendors/${vendor.id}`);
+      } else {
+        router.push("/projects");
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to save vendor");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -51,6 +68,9 @@ export default function NewVendorPage() {
               <Input value={form.gstNumber} onChange={(e) => setForm({ ...form, gstNumber: e.target.value })} />
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>Save</Button>
+            {submitError ? (
+              <p className="text-sm text-destructive">{submitError}</p>
+            ) : null}
           </form>
         </CardContent>
       </Card>

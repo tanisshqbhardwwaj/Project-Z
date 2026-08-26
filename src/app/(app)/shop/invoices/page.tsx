@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, Printer, Receipt, Search, Settings, Users } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
@@ -11,11 +11,13 @@ import { moduleLabel } from "@/lib/org/modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
+import { EmptyState, PageHeader } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatINR } from "@/lib/finance/money";
 import { formatCustomerLabel } from "@/lib/shop/customer";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 type ShopSale = {
   id: string;
@@ -35,6 +37,7 @@ export default function InvoicesPage() {
   const title = moduleLabel("shop_sales", activeBusinessType ?? "SHOPKEEPER");
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [customerIdFilter, setCustomerIdFilter] = useState<string | null>(null);
   const searchParams = useSearchParams();
 
@@ -45,18 +48,19 @@ export default function InvoicesPage() {
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
-    if (search.trim()) params.set("q", search.trim());
+    if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
     if (customerIdFilter) params.set("customerId", customerIdFilter);
     const s = params.toString();
     return s ? `?${s}` : "";
-  }, [search, customerIdFilter]);
+  }, [debouncedSearch, customerIdFilter]);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: orgId
-      ? [...queryKeys.modules.shop.invoices(orgId), search, customerIdFilter]
+      ? [...queryKeys.modules.shop.invoices(orgId), debouncedSearch, customerIdFilter]
       : ["disabled"],
     queryFn: () => apiFetch<ShopSale[]>(`/api/v1/shop/sales${queryString}`),
     enabled: !!orgId && salesEnabled,
+    placeholderData: keepPreviousData,
   });
 
   if (!salesEnabled) {
@@ -67,7 +71,7 @@ export default function InvoicesPage() {
     );
   }
 
-  if (isLoading) return <PageLoader label="Loading invoices..." />;
+  if (isLoading && !data) return <PageLoader label="Loading invoices..." />;
   if (error) {
     return (
       <p className="text-destructive">
@@ -80,34 +84,32 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
-          <p className="text-sm text-muted-foreground">
-            Search by customer name, phone, or bill number
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/shop/customers">
-            <Button variant="outline" size="lg" className="rounded-xl">
-              <Users className="mr-2 h-5 w-5" />
-              Customers
-            </Button>
-          </Link>
-          <Link href="/shop/invoices/settings">
-            <Button variant="outline" size="lg" className="rounded-xl">
-              <Settings className="mr-2 h-5 w-5" />
-              Invoice settings
-            </Button>
-          </Link>
-          <Link href="/shop/invoices/new">
-            <Button size="lg" className="rounded-xl">
-              <Plus className="mr-2 h-5 w-5" />
-              New invoice
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title={title}
+        description="Search by customer name, phone, or bill number"
+        actions={
+          <>
+            <Link href="/shop/customers">
+              <Button variant="outline" size="lg" className="rounded-xl">
+                <Users className="mr-2 h-5 w-5" />
+                Customers
+              </Button>
+            </Link>
+            <Link href="/shop/invoices/settings">
+              <Button variant="outline" size="lg" className="rounded-xl">
+                <Settings className="mr-2 h-5 w-5" />
+                Invoice settings
+              </Button>
+            </Link>
+            <Link href="/shop/invoices/new">
+              <Button size="lg" className="rounded-xl">
+                <Plus className="mr-2 h-5 w-5" />
+                New invoice
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       <div className="relative max-w-xl">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -119,6 +121,7 @@ export default function InvoicesPage() {
           }}
           className="h-11 rounded-xl pl-10"
           placeholder="Search customer name, phone, or bill #"
+          aria-busy={isFetching && debouncedSearch !== search}
         />
       </div>
 
@@ -150,9 +153,23 @@ export default function InvoicesPage() {
         </CardHeader>
         <CardContent className="p-0">
           {invoices.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">
-              {search.trim() ? "No invoices match your search." : "No invoices yet."}
-            </p>
+            <EmptyState
+              icon={Receipt}
+              title={
+                search.trim() ? "No invoices match your search" : "No invoices yet"
+              }
+              description={
+                search.trim()
+                  ? "Try a different bill number or customer name."
+                  : "Create your first invoice to start tracking sales."
+              }
+            >
+              {!search.trim() ? (
+                <Link href="/shop/invoices/new">
+                  <Button className="rounded-xl">New invoice</Button>
+                </Link>
+              ) : null}
+            </EmptyState>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">

@@ -166,9 +166,21 @@ export function validateProductionEnv(env = process.env) {
 export function productionEnvWarnings(env = process.env) {
   /** @type {string[]} */
   const warnings = [];
-  if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
+  const hasUpstash =
+    env.UPSTASH_REDIS_REST_URL?.trim() && env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  const hasTurso = env.TURSO_DATABASE_URL?.trim() && env.TURSO_AUTH_TOKEN?.trim();
+  if (!hasUpstash && !hasTurso) {
     warnings.push(
-      "UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN are not set. Auth rate limits will be in-memory only (weak on Vercel). Create a Redis database at https://upstash.com"
+      "No distributed rate limit backend. Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (recommended) or TURSO_DATABASE_URL + TURSO_AUTH_TOKEN (Turso bucket fallback)."
+    );
+  } else if (!hasUpstash && hasTurso) {
+    warnings.push(
+      "Using Turso for distributed rate limits. Optional: add Upstash Redis for lower latency at https://upstash.com"
+    );
+  }
+  if (env.NODE_ENV === "production" && env.ALLOW_BETA_EMAIL_BYPASS === "true") {
+    warnings.push(
+      "ALLOW_BETA_EMAIL_BYPASS=true — beta allowlist emails skip verification in production. Disable before public launch."
     );
   }
   return warnings;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  deriveStoreCode,
   fiscalYearLabel,
   formatShopBillNumber,
   normalizeCashierCode,
@@ -13,27 +14,51 @@ describe("fiscalYearLabel", () => {
   });
 });
 
+describe("deriveStoreCode", () => {
+  it("uses word initials", () => {
+    expect(deriveStoreCode("Bharatdarsh Fashion")).toBe("BF");
+    expect(deriveStoreCode("Sri Balaji Traders")).toBe("SBT");
+  });
+
+  it("handles single-word and empty names", () => {
+    expect(deriveStoreCode("Zudio")).toBe("ZU");
+    expect(deriveStoreCode("")).toBe("Z");
+    expect(deriveStoreCode(null)).toBe("Z");
+  });
+});
+
 describe("formatShopBillNumber", () => {
-  it("formats INV-(cashier code)-FY-seq", () => {
+  it("formats STORE/FY/CASHIER/SEQ", () => {
     expect(
       formatShopBillNumber({
-        prefix: "inv",
-        cashierCode: "4",
+        storeCode: "bf",
+        cashierCode: "r2",
         fiscalYear: "26-27",
-        sequence: 18,
+        sequence: 42,
       })
-    ).toBe("INV-4-26-27-00018");
+    ).toBe("BF/26-27/R2/0042");
   });
 
   it("falls back to 00 when cashier code is missing", () => {
     expect(
       formatShopBillNumber({
-        prefix: "INV",
+        storeCode: "BF",
         cashierCode: null,
         fiscalYear: "26-27",
         sequence: 1,
       })
-    ).toBe("INV-00-26-27-00001");
+    ).toBe("BF/26-27/00/0001");
+  });
+
+  it("stays within the 16-character GST limit", () => {
+    const bill = formatShopBillNumber({
+      storeCode: "LONGSTORE",
+      cashierCode: "R9",
+      fiscalYear: "26-27",
+      sequence: 9999,
+    });
+    expect(bill.length).toBeLessThanOrEqual(16);
+    expect(bill).toBe("LO/26-27/R9/9999");
   });
 });
 

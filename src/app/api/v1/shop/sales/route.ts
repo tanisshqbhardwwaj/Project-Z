@@ -62,6 +62,23 @@ const createSaleSchema = z.object({
       })
     )
     .optional(),
+  splitPayments: z
+    .array(
+      z.object({
+        method: z.enum(["CASH", "UPI", "BANK", "CARD", "CHEQUE", "OTHER"]),
+        amountRupees: z.number().positive(),
+      })
+    )
+    .min(2)
+    .optional(),
+  terminalPayment: z
+    .object({
+      provider: z.string(),
+      externalId: z.string(),
+      merchantTxnId: z.string(),
+      reference: z.string().optional(),
+    })
+    .optional(),
 });
 
 export async function GET(request: Request) {
@@ -115,6 +132,8 @@ export async function POST(request: Request) {
       selectedOfferId: data.selectedOfferId,
       skipOffer: data.skipOffer,
       appliedOffers: data.appliedOffers,
+      splitPayments: data.splitPayments,
+      terminalPayment: data.terminalPayment,
     });
 
     return NextResponse.json({ data: serializeBigInt(sale) }, { status: 201 });

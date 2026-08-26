@@ -7,6 +7,7 @@ import {
   createPurchaseOffline,
   createExpenseOffline,
   adjustStockOffline,
+  upsertCustomerOffline,
 } from "@/lib/sync/offline-writes";
 
 const LOCAL_FIRST_POST = new Set([
@@ -15,6 +16,7 @@ const LOCAL_FIRST_POST = new Set([
   "/api/v1/shop/udhaar/payments",
   "/api/v1/shop/purchases",
   "/api/v1/shop/expenses",
+  "/api/v1/shop/customers",
 ]);
 
 function orgId(): string {
@@ -144,6 +146,11 @@ export async function handleLocalApi<T>(path: string, options: RequestInit): Pro
   if (method === "POST" && p === "/api/v1/shop/expenses") {
     const expenseId = await createExpenseOffline(id, body);
     return { id: expenseId, ...body } as T;
+  }
+
+  if (method === "POST" && p === "/api/v1/shop/customers") {
+    const customerId = await upsertCustomerOffline(id, body);
+    return { id: customerId, ...body } as T;
   }
 
   if (method === "PATCH" && /^\/api\/v1\/shop\/inventory\/[^/]+$/.test(p)) {

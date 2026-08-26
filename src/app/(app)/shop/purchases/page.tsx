@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, Search, Truck } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
@@ -10,11 +10,13 @@ import { moduleLabel } from "@/lib/org/modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatINR } from "@/lib/finance/money";
 import { hasPermission } from "@/lib/permissions/rbac";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { OrgRole } from "@prisma/client";
 
 type PurchaseRow = {
@@ -43,21 +45,23 @@ export default function PurchasesPage() {
   const title = moduleLabel("shop_purchases", activeBusinessType ?? "SHOPKEEPER");
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [paymentFilter, setPaymentFilter] = useState("");
   const [page, setPage] = useState(1);
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
-    if (search.trim()) p.set("q", search.trim());
+    if (debouncedSearch.trim()) p.set("q", debouncedSearch.trim());
     if (paymentFilter) p.set("paymentStatus", paymentFilter);
     p.set("page", String(page));
     return `?${p.toString()}`;
-  }, [search, paymentFilter, page]);
+  }, [debouncedSearch, paymentFilter, page]);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: orgId ? [...queryKeys.modules.shop.purchases(orgId), search, paymentFilter, page] : ["disabled"],
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: orgId ? [...queryKeys.modules.shop.purchases(orgId), debouncedSearch, paymentFilter, page] : ["disabled"],
     queryFn: () => apiFetch<PurchaseList>(`/api/v1/shop/purchases${queryString}`),
     enabled: !!orgId && enabled,
+    placeholderData: keepPreviousData,
   });
 
   if (!enabled) {
@@ -68,7 +72,7 @@ export default function PurchasesPage() {
     );
   }
 
-  if (isLoading) return <PageLoader label="Loading purchases..." />;
+  if (isLoading && !data) return <PageLoader label="Loading purchases..." />;
   if (error) {
     return (
       <p className="text-destructive">
@@ -111,6 +115,7 @@ export default function PurchasesPage() {
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 placeholder="Search supplier or bill number…"
                 className="h-11 rounded-xl pl-9"
+                aria-busy={isFetching && debouncedSearch !== search}
               />
             </div>
             <select
@@ -127,7 +132,21 @@ export default function PurchasesPage() {
         </CardHeader>
         <CardContent>
           {purchases.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No purchases yet.</p>
+            <EmptyState
+              icon={Truck}
+              title={debouncedSearch.trim() || paymentFilter ? "No purchases match your filters" : "No purchases yet"}
+              description={
+                debouncedSearch.trim() || paymentFilter
+                  ? "Try a different search or payment status."
+                  : "Record your first purchase to start tracking stock and supplier bills."
+              }
+            >
+              {!debouncedSearch.trim() && !paymentFilter && canManage ? (
+                <Link href="/shop/purchases/new">
+                  <Button className="rounded-xl">New purchase</Button>
+                </Link>
+              ) : null}
+            </EmptyState>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

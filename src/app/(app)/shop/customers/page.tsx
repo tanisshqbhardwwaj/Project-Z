@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Receipt, Search } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Receipt, Search, Users } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCustomerLabel } from "@/lib/shop/customer";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 type ShopCustomerRow = {
   id: string;
@@ -28,18 +30,20 @@ export default function ShopCustomersPage() {
   const { enabledModules } = useAuthStore();
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: orgId
-      ? queryKeys.modules.shop.customerRegistry(orgId, search || "all")
+      ? queryKeys.modules.shop.customerRegistry(orgId, debouncedSearch || "all")
       : ["disabled"],
     queryFn: () =>
       apiFetch<ShopCustomerRow[]>(
-        search.trim()
-          ? `/api/v1/shop/customers?q=${encodeURIComponent(search.trim())}`
+        debouncedSearch.trim()
+          ? `/api/v1/shop/customers?q=${encodeURIComponent(debouncedSearch.trim())}`
           : "/api/v1/shop/customers?all=1"
       ),
     enabled: !!orgId && salesEnabled,
+    placeholderData: keepPreviousData,
   });
 
   if (!salesEnabled) {
@@ -50,7 +54,7 @@ export default function ShopCustomersPage() {
     );
   }
 
-  if (isLoading) return <PageLoader label="Loading customers..." />;
+  if (isLoading && !data) return <PageLoader label="Loading customers..." />;
   if (error) {
     return (
       <p className="text-destructive">
@@ -84,6 +88,7 @@ export default function ShopCustomersPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="h-11 rounded-xl pl-10"
           placeholder="Search by name or phone"
+          aria-busy={isFetching && debouncedSearch !== search}
         />
       </div>
 
@@ -95,11 +100,15 @@ export default function ShopCustomersPage() {
         </CardHeader>
         <CardContent className="p-0">
           {customers.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">
-              {search.trim()
-                ? "No customers match your search."
-                : "Customers appear here when you bill someone with a name."}
-            </p>
+            <EmptyState
+              icon={Users}
+              title={debouncedSearch.trim() ? "No customers match your search" : "No customers yet"}
+              description={
+                debouncedSearch.trim()
+                  ? "Try a different name or phone number."
+                  : "Customers appear here when you bill someone with a name."
+              }
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
