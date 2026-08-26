@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Receipt, Search, Users } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
-import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
+import { buildCursorListUrl } from "@/lib/api/list-url";
 import { PageLoader } from "@/components/ui/page-loader";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
+import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
 import { formatCustomerLabel } from "@/lib/shop/customer";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
 
 type ShopCustomerRow = {
   id: string;
@@ -30,20 +31,24 @@ export default function ShopCustomersPage() {
   const { enabledModules } = useAuthStore();
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search);
 
-  const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: orgId
-      ? queryKeys.modules.shop.customerRegistry(orgId, debouncedSearch || "all")
-      : ["disabled"],
-    queryFn: () =>
-      apiFetch<ShopCustomerRow[]>(
-        debouncedSearch.trim()
-          ? `/api/v1/shop/customers?q=${encodeURIComponent(debouncedSearch.trim())}`
-          : "/api/v1/shop/customers?all=1"
-      ),
+  const {
+    items: customers,
+    debouncedSearch,
+    isInitialLoading,
+    isSearchPending,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteShopList<ShopCustomerRow>({
+    queryKey: orgId ? queryKeys.modules.shop.customerRegistry(orgId, "list") : ["disabled"],
+    buildUrl: (cursor, debouncedSearch) =>
+      debouncedSearch.trim()
+        ? buildCursorListUrl("/api/v1/shop/customers", { q: debouncedSearch.trim(), limit: 25 }, cursor)
+        : buildCursorListUrl("/api/v1/shop/customers", { all: 1, limit: 25 }, cursor),
     enabled: !!orgId && salesEnabled,
-    placeholderData: keepPreviousData,
+    search,
   });
 
   if (!salesEnabled) {
@@ -54,7 +59,7 @@ export default function ShopCustomersPage() {
     );
   }
 
-  if (isLoading && !data) return <PageLoader label="Loading customers..." />;
+  if (isInitialLoading) return <PageLoader label="Loading customers..." />;
   if (error) {
     return (
       <p className="text-destructive">
@@ -62,8 +67,6 @@ export default function ShopCustomersPage() {
       </p>
     );
   }
-
-  const customers = data ?? [];
 
   return (
     <div className="space-y-6">
@@ -88,14 +91,15 @@ export default function ShopCustomersPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="h-11 rounded-xl pl-10"
           placeholder="Search by name or phone"
-          aria-busy={isFetching && debouncedSearch !== search}
+          aria-busy={isSearchPending}
         />
       </div>
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-2">
             {customers.length} customer{customers.length === 1 ? "" : "s"}
+            <ListFetchIndicator active={isSearchPending} />
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -110,45 +114,52 @@ export default function ShopCustomersPage() {
               }
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Customer</th>
-                    <th className="px-4 py-3 font-medium">GSTIN</th>
-                    <th className="px-4 py-3 font-medium">Invoices</th>
-                    <th className="px-4 py-3 font-medium">Last bill</th>
-                    <th className="px-4 py-3 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {customers.map((c) => (
-                    <tr key={c.id} className="hover:bg-muted/30">
-                      <td className="px-4 py-3 font-medium">
-                        {formatCustomerLabel(c)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {c.gstin ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 tabular-nums">{c._count.sales}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {c.lastSaleAt
-                          ? new Date(c.lastSaleAt).toLocaleDateString("en-IN")
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Link href={`/shop/invoices?customerId=${c.id}`}>
-                          <Button variant="outline" size="sm" className="rounded-xl">
-                            <Receipt className="mr-1 h-3.5 w-3.5" />
-                            View bills
-                          </Button>
-                        </Link>
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Customer</th>
+                      <th className="px-4 py-3 font-medium">GSTIN</th>
+                      <th className="px-4 py-3 font-medium">Invoices</th>
+                      <th className="px-4 py-3 font-medium">Last bill</th>
+                      <th className="px-4 py-3 font-medium text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {customers.map((c) => (
+                      <tr key={c.id} className="hover:bg-muted/30">
+                        <td className="px-4 py-3 font-medium">
+                          {formatCustomerLabel(c)}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                          {c.gstin ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums">{c._count.sales}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {c.lastSaleAt
+                            ? new Date(c.lastSaleAt).toLocaleDateString("en-IN")
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Link href={`/shop/invoices?customerId=${c.id}`}>
+                            <Button variant="outline" size="sm" className="rounded-xl">
+                              <Receipt className="mr-1 h-3.5 w-3.5" />
+                              View bills
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <LoadMoreTrigger
+                hasMore={!!hasNextPage}
+                isLoading={isFetchingNextPage}
+                onLoadMore={() => fetchNextPage()}
+              />
+            </>
           )}
         </CardContent>
       </Card>

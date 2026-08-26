@@ -1,7 +1,6 @@
 import { EXTRACTION_EVENT, inngest, isInngestEnabled, type ExtractionEventData } from "@/inngest/client";
 import { logger } from "@/lib/logger";
 import { ExtractionQuotaError } from "@/lib/ai/extraction-retry";
-import { runWorkOrderExtraction } from "@/services/extraction.service";
 
 export async function queueWorkOrderExtraction(data: ExtractionEventData) {
   if (isInngestEnabled()) {
@@ -14,6 +13,7 @@ export async function queueWorkOrderExtraction(data: ExtractionEventData) {
   }
 
   logger.warn("extraction.inline_fallback", data);
+  const { runWorkOrderExtraction } = await import("@/services/extraction.service");
   void runWorkOrderExtraction(data.documentId, data.extractionId).catch((error) => {
     if (error instanceof ExtractionQuotaError) {
       logger.warn("extraction.inline_quota", data);

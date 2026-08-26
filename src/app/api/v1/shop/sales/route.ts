@@ -92,6 +92,8 @@ export async function GET(request: Request) {
       q,
       customerId,
       staffId: staffScope,
+      cursor: searchParams.get("cursor") ?? undefined,
+      limit: Number(searchParams.get("limit") ?? 25),
     });
     return apiSuccess(serializeBigInt(sales));
   });

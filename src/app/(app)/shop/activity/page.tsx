@@ -1,19 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ClipboardList, Search } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
+import { buildCursorListUrl } from "@/lib/api/list-url";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
+import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
 import { cn } from "@/lib/utils";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
 import type {
   ActivityDatePreset,
   ActivityModuleFilter,
@@ -84,33 +87,43 @@ export default function ShopActivityPage() {
   const enabled = isModuleEnabled(enabledModules, "shop_activity");
   const title = moduleLabel("shop_activity", activeBusinessType ?? "SHOPKEEPER");
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search);
   const [moduleFilter, setModuleFilter] = useState<ActivityModuleFilter>("all");
   const [datePreset, setDatePreset] = useState<ActivityDatePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [userId, setUserId] = useState("");
 
-  const queryString = useMemo(() => {
-    const p = new URLSearchParams();
-    if (debouncedSearch.trim()) p.set("q", debouncedSearch.trim());
-    if (moduleFilter !== "all") p.set("module", moduleFilter);
-    if (datePreset !== "all") p.set("date", datePreset);
-    if (datePreset === "custom") {
-      if (customFrom) p.set("from", customFrom);
-      if (customTo) p.set("to", customTo);
-    }
-    if (userId) p.set("userId", userId);
-    return p.toString() ? `?${p.toString()}` : "";
-  }, [debouncedSearch, moduleFilter, datePreset, customFrom, customTo, userId]);
-
-  const { data, isLoading, isFetching, error } = useQuery({
+  const {
+    items: logs,
+    isInitialLoading,
+    isSearchPending,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteShopList<ActivityRow>({
     queryKey: orgId
-      ? [...queryKeys.modules.shop.activity(orgId), queryString]
+      ? [
+          ...queryKeys.modules.shop.activity(orgId),
+          moduleFilter,
+          datePreset,
+          customFrom,
+          customTo,
+          userId,
+        ]
       : ["disabled"],
-    queryFn: () => apiFetch<ActivityRow[]>(`/api/v1/shop/activity${queryString}`),
+    buildUrl: (cursor, debouncedSearch) =>
+      buildCursorListUrl("/api/v1/shop/activity", {
+        q: debouncedSearch.trim() || undefined,
+        module: moduleFilter !== "all" ? moduleFilter : undefined,
+        date: datePreset !== "all" ? datePreset : undefined,
+        from: datePreset === "custom" ? customFrom || undefined : undefined,
+        to: datePreset === "custom" ? customTo || undefined : undefined,
+        userId: userId || undefined,
+        limit: 50,
+      }, cursor),
     enabled: !!orgId && enabled,
-    placeholderData: keepPreviousData,
+    search,
   });
 
   const actorsQuery = useQuery({
@@ -127,7 +140,7 @@ export default function ShopActivityPage() {
     );
   }
 
-  if (isLoading && !data) return <PageLoader label="Loading activity trail..." />;
+  if (isInitialLoading) return <PageLoader label="Loading activity trail..." />;
   if (error) {
     return (
       <p className="text-destructive">
@@ -136,7 +149,7 @@ export default function ShopActivityPage() {
     );
   }
 
-  const logs = data ?? [];
+  const logsList = logs;
 
   return (
     <div className="space-y-6">
@@ -152,6 +165,7 @@ export default function ShopActivityPage() {
           <CardTitle className="flex items-center gap-2 text-lg">
             <ClipboardList className="h-5 w-5" />
             Recent activity
+            <ListFetchIndicator active={isSearchPending} className="ml-1" />
           </CardTitle>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -160,7 +174,7 @@ export default function ShopActivityPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search actions, descriptions, people…"
               className="h-11 rounded-xl pl-9"
-              aria-busy={isFetching && debouncedSearch !== search}
+              aria-busy={isSearchPending}
             />
           </div>
 
@@ -233,13 +247,14 @@ export default function ShopActivityPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {logs.length === 0 ? (
+          {logsList.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               No activity matches these filters.
             </p>
           ) : (
-            <ul className="space-y-3">
-              {logs.map((log) => {
+            <>
+              <ul className="space-y-3">
+                {logsList.map((log) => {
                 const dt = new Date(log.createdAt);
                 return (
                   <li key={log.id} className="rounded-xl border p-3 text-sm">
@@ -264,8 +279,14 @@ export default function ShopActivityPage() {
                     </div>
                   </li>
                 );
-              })}
-            </ul>
+                })}
+              </ul>
+              <LoadMoreTrigger
+                hasMore={!!hasNextPage}
+                isLoading={isFetchingNextPage}
+                onLoadMore={() => fetchNextPage()}
+              />
+            </>
           )}
         </CardContent>
       </Card>

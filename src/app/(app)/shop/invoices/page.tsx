@@ -1,23 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, Printer, Receipt, Search, Settings, Users } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
-import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
+import { buildCursorListUrl } from "@/lib/api/list-url";
 import { PageLoader } from "@/components/ui/page-loader";
 import { EmptyState, PageHeader } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
+import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
 import { formatINR } from "@/lib/finance/money";
 import { formatCustomerLabel } from "@/lib/shop/customer";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
 
 type ShopSale = {
   id: string;
@@ -37,7 +38,6 @@ export default function InvoicesPage() {
   const title = moduleLabel("shop_sales", activeBusinessType ?? "SHOPKEEPER");
 
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search);
   const [customerIdFilter, setCustomerIdFilter] = useState<string | null>(null);
   const searchParams = useSearchParams();
 
@@ -46,21 +46,26 @@ export default function InvoicesPage() {
     if (fromUrl) setCustomerIdFilter(fromUrl);
   }, [searchParams]);
 
-  const queryString = useMemo(() => {
-    const params = new URLSearchParams();
-    if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
-    if (customerIdFilter) params.set("customerId", customerIdFilter);
-    const s = params.toString();
-    return s ? `?${s}` : "";
-  }, [debouncedSearch, customerIdFilter]);
-
-  const { data, isLoading, isFetching, error } = useQuery({
+  const {
+    items: invoices,
+    isInitialLoading,
+    isSearchPending,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteShopList<ShopSale>({
     queryKey: orgId
-      ? [...queryKeys.modules.shop.invoices(orgId), debouncedSearch, customerIdFilter]
+      ? [...queryKeys.modules.shop.invoices(orgId), customerIdFilter]
       : ["disabled"],
-    queryFn: () => apiFetch<ShopSale[]>(`/api/v1/shop/sales${queryString}`),
+    buildUrl: (cursor, debouncedSearch) =>
+      buildCursorListUrl("/api/v1/shop/sales", {
+        q: debouncedSearch.trim() || undefined,
+        customerId: customerIdFilter ?? undefined,
+        limit: 25,
+      }, cursor),
     enabled: !!orgId && salesEnabled,
-    placeholderData: keepPreviousData,
+    search,
   });
 
   if (!salesEnabled) {
@@ -71,7 +76,7 @@ export default function InvoicesPage() {
     );
   }
 
-  if (isLoading && !data) return <PageLoader label="Loading invoices..." />;
+  if (isInitialLoading) return <PageLoader label="Loading invoices..." />;
   if (error) {
     return (
       <p className="text-destructive">
@@ -79,8 +84,6 @@ export default function InvoicesPage() {
       </p>
     );
   }
-
-  const invoices = data ?? [];
 
   return (
     <div className="space-y-6">
@@ -121,7 +124,7 @@ export default function InvoicesPage() {
           }}
           className="h-11 rounded-xl pl-10"
           placeholder="Search customer name, phone, or bill #"
-          aria-busy={isFetching && debouncedSearch !== search}
+          aria-busy={isSearchPending}
         />
       </div>
 
@@ -144,9 +147,10 @@ export default function InvoicesPage() {
           <CardTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
             Recent invoices
+            <ListFetchIndicator active={isSearchPending} className="ml-1" />
             {search.trim() ? (
               <span className="text-sm font-normal text-muted-foreground">
-                ({invoices.length} match{invoices.length === 1 ? "" : "es"})
+                ({invoices.length} loaded)
               </span>
             ) : null}
           </CardTitle>
@@ -171,70 +175,77 @@ export default function InvoicesPage() {
               ) : null}
             </EmptyState>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Bill #</th>
-                    <th className="px-4 py-3 font-medium">Date</th>
-                    <th className="px-4 py-3 font-medium">Customer</th>
-                    <th className="px-4 py-3 font-medium">Payment</th>
-                    <th className="px-4 py-3 font-medium text-right">Total</th>
-                    <th className="px-4 py-3 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-muted/30">
-                      <td className="px-4 py-3 font-mono text-xs">
-                        {inv.billNumber ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
-                        {new Date(inv.createdAt).toLocaleString("en-IN")}
-                      </td>
-                      <td className="px-4 py-3">
-                        {inv.customerName ? (
-                          inv.customerId ? (
-                            <button
-                              type="button"
-                              className="text-left hover:underline"
-                              onClick={() => {
-                                setCustomerIdFilter(inv.customerId);
-                                setSearch("");
-                              }}
-                            >
-                              {formatCustomerLabel({
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Bill #</th>
+                      <th className="px-4 py-3 font-medium">Date</th>
+                      <th className="px-4 py-3 font-medium">Customer</th>
+                      <th className="px-4 py-3 font-medium">Payment</th>
+                      <th className="px-4 py-3 font-medium text-right">Total</th>
+                      <th className="px-4 py-3 font-medium text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {invoices.map((inv) => (
+                      <tr key={inv.id} className="hover:bg-muted/30">
+                        <td className="px-4 py-3 font-mono text-xs">
+                          {inv.billNumber ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                          {new Date(inv.createdAt).toLocaleString("en-IN")}
+                        </td>
+                        <td className="px-4 py-3">
+                          {inv.customerName ? (
+                            inv.customerId ? (
+                              <button
+                                type="button"
+                                className="text-left hover:underline"
+                                onClick={() => {
+                                  setCustomerIdFilter(inv.customerId);
+                                  setSearch("");
+                                }}
+                              >
+                                {formatCustomerLabel({
+                                  name: inv.customerName,
+                                  phone: inv.customerPhone,
+                                })}
+                              </button>
+                            ) : (
+                              formatCustomerLabel({
                                 name: inv.customerName,
                                 phone: inv.customerPhone,
-                              })}
-                            </button>
+                              })
+                            )
                           ) : (
-                            formatCustomerLabel({
-                              name: inv.customerName,
-                              phone: inv.customerPhone,
-                            })
-                          )
-                        ) : (
-                          "Walk-in"
-                        )}
-                      </td>
-                      <td className="px-4 py-3">{inv.paymentMethod}</td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                        {formatINR(inv.totalPaise)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Link href={`/shop/invoices/${inv.id}`}>
-                          <Button variant="outline" size="sm" className="rounded-xl">
-                            <Printer className="mr-1 h-3.5 w-3.5" />
-                            View / Print
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            "Walk-in"
+                          )}
+                        </td>
+                        <td className="px-4 py-3">{inv.paymentMethod}</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                          {formatINR(inv.totalPaise)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Link href={`/shop/invoices/${inv.id}`}>
+                            <Button variant="outline" size="sm" className="rounded-xl">
+                              <Printer className="mr-1 h-3.5 w-3.5" />
+                              View / Print
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <LoadMoreTrigger
+                hasMore={!!hasNextPage}
+                isLoading={isFetchingNextPage}
+                onLoadMore={() => fetchNextPage()}
+              />
+            </>
           )}
         </CardContent>
       </Card>

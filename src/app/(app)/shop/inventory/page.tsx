@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
@@ -125,6 +125,7 @@ export default function ShopInventoryPage() {
     queryKey: orgId ? ["shop", orgId, "products"] : ["disabled"],
     queryFn: () => apiFetch<ProductRow[]>("/api/v1/shop/products"),
     enabled: !!orgId && moduleEnabled,
+    placeholderData: keepPreviousData,
   });
 
   const itemsQuery = useQuery({
@@ -490,7 +491,8 @@ export default function ShopInventoryPage() {
               products={productsQuery.data ?? []}
               categories={categories.map((c) => ({ key: c.key, label: c.label }))}
               lookup={lookup}
-              isLoading={productsQuery.isLoading}
+              isLoading={productsQuery.isFetching}
+              isInitialLoading={productsQuery.isLoading && !productsQuery.data}
               isUpdating={variantMutation.isPending}
               onAddVariant={(product) => {
                 setAddSizeTarget(product);

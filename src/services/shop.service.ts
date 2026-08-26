@@ -12,12 +12,9 @@ import {
 import { nextShopBillNumber } from "@/lib/shop/bill-number";
 import {
   customerSearchWhere,
-  invoiceSearchWhere,
 } from "@/lib/shop/customer";
 import {
   getCustomerRaw,
-  listCustomersRaw,
-  searchCustomersRaw,
   upsertCustomerRaw,
 } from "@/lib/shop/customer-store";
 import { ensureShopExtendedSchema } from "@/lib/shop/ensure-shop-extended-schema";
@@ -53,6 +50,13 @@ import {
   variantDisplayName,
   variantSubtitle,
 } from "@/lib/shop/variant-display";
+export {
+  listShopSales,
+  listShopCustomers,
+  searchShopCustomers,
+  getShopCustomer,
+  type ShopCustomerWithCount,
+} from "./shop/sales-list.service";
 
 export type ShopSaleItem = {
   name: string;
@@ -310,60 +314,6 @@ export async function resolveBarcodeScan(
 
   const sale = await lookupSaleByBillScan(organizationId, code);
   return { type: "invoice", sale };
-}
-
-export async function listShopSales(
-  organizationId: string,
-  opts?: { q?: string; customerId?: string; limit?: number; staffId?: string }
-) {
-  await requireModule(organizationId, "shop_sales");
-  await ensureShopSaleSchema();
-  const where = invoiceSearchWhere(
-    organizationId,
-    opts?.q ?? "",
-    opts?.customerId
-  );
-  if (opts?.staffId) {
-    where.staffId = opts.staffId;
-  }
-  return prisma.shopSale.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: opts?.limit ?? 100,
-  });
-}
-
-export async function searchShopCustomers(
-  organizationId: string,
-  query?: string,
-  limit = 20
-) {
-  await requireModule(organizationId, "shop_sales");
-  return searchCustomersRaw(organizationId, query, limit);
-}
-
-export async function listShopCustomers(organizationId: string, limit = 200) {
-  await requireModule(organizationId, "shop_sales");
-  return listCustomersRaw(organizationId, limit);
-}
-
-export async function getShopCustomer(organizationId: string, customerId: string) {
-  await requireModule(organizationId, "shop_sales");
-  const customer = await getCustomerRaw(organizationId, customerId);
-  if (!customer) throw new Error("Customer not found");
-  const sales = await prisma.shopSale.findMany({
-    where: { organizationId, customerId },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    select: {
-      id: true,
-      billNumber: true,
-      totalPaise: true,
-      paymentMethod: true,
-      createdAt: true,
-    },
-  });
-  return { ...customer, sales };
 }
 
 export async function getShopDashboard(

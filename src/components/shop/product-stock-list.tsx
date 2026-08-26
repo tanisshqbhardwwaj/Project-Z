@@ -247,6 +247,7 @@ export function ProductStockList({
   categories,
   lookup,
   isLoading,
+  isInitialLoading,
   isUpdating,
   onAddVariant,
   onEditProduct,
@@ -264,6 +265,8 @@ export function ProductStockList({
   }>;
   lookup: CategoryLookup;
   isLoading: boolean;
+  /** True only before the first product load — keeps search mounted during refetch. */
+  isInitialLoading?: boolean;
   isUpdating: boolean;
   onAddVariant: (product: ProductRow) => void;
   onEditProduct: (product: ProductRow) => void;
@@ -356,10 +359,12 @@ export function ProductStockList({
     });
   }
 
-  if (isLoading) return <PageLoader label="Loading stock..." />;
+  if (isInitialLoading ?? (isLoading && products.length === 0)) {
+    return <PageLoader label="Loading stock..." />;
+  }
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", isLoading && products.length > 0 && "opacity-80")}>
       <div className="space-y-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

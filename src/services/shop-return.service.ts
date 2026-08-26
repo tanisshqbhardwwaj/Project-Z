@@ -13,6 +13,7 @@ import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
 import { isInfiniteStock } from "@/lib/shop/inventory";
 import { fiscalYearLabel } from "@/lib/shop/bill-number";
 import { parsePricingJson } from "@/lib/shop/invoice-pricing";
+import { toCursorPage } from "@/lib/api/cursor-page";
 import { variantDisplayName, variantSubtitle } from "@/lib/shop/variant-display";
 import { createAuditLog } from "./audit.service";
 import { scheduleShopInventoryAlertSync } from "./shop-notification.service";
@@ -209,12 +210,14 @@ export async function listSaleReturns(
     to?: Date;
     limit?: number;
     staffId?: string;
+    cursor?: string;
   }
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopFeaturesSchema();
   await ensureCatalogSchema();
-  return prisma.shopSaleReturn.findMany({
+  const limit = Math.min(100, Math.max(1, options?.limit ?? 25));
+  const rows = await prisma.shopSaleReturn.findMany({
     where: {
       organizationId,
       ...(shopSaleId ? { shopSaleId } : {}),
@@ -231,8 +234,10 @@ export async function listSaleReturns(
     },
     include: returnInclude,
     orderBy: { createdAt: "desc" },
-    take: options?.limit ?? 200,
+    take: limit + 1,
+    ...(options?.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
   });
+  return toCursorPage(rows, limit);
 }
 
 /** Full receipt payload: original bill → returned items → replacements → money. */

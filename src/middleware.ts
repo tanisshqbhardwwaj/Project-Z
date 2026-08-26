@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 
 const publicPaths = [
   "/",
@@ -18,6 +19,19 @@ export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/api") || pathname.startsWith("/_next")) {
+    if (pathname.startsWith("/api")) {
+      const correlationId =
+        request.headers.get("x-correlation-id")?.trim() ||
+        request.headers.get("x-request-id")?.trim() ||
+        randomUUID();
+      const response = NextResponse.next({
+        request: {
+          headers: new Headers(request.headers),
+        },
+      });
+      response.headers.set("x-correlation-id", correlationId);
+      return response;
+    }
     return NextResponse.next();
   }
 
