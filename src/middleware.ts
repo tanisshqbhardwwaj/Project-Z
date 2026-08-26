@@ -27,11 +27,7 @@ export default async function middleware(request: NextRequest) {
         request.headers.get("x-correlation-id")?.trim() ||
         request.headers.get("x-request-id")?.trim() ||
         newCorrelationId();
-      const response = NextResponse.next({
-        request: {
-          headers: new Headers(request.headers),
-        },
-      });
+      const response = NextResponse.next();
       response.headers.set("x-correlation-id", correlationId);
       return response;
     }
