@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/context";
 import { hasPermission } from "@/lib/permissions/rbac";
 import { serializeBigInt } from "@/lib/db/prisma";
+import { parseShopDashboardPeriod } from "@/lib/shop/dashboard-period";
 import { getStaffSalesInvoices } from "@/services/shop.service";
 
 export async function GET(request: Request) {
@@ -18,7 +19,10 @@ export async function GET(request: Request) {
       requirePermission(ctx, "shop.sales");
     }
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get("period") === "month" ? "month" : "today";
+    const { period, date } = parseShopDashboardPeriod(
+      searchParams.get("period"),
+      searchParams.get("date")
+    );
     const staffName = searchParams.get("staffName")?.trim();
     if (!staffName) {
       throw new Error("staffName is required");
@@ -26,7 +30,8 @@ export async function GET(request: Request) {
     const data = await getStaffSalesInvoices(
       ctx.organizationId,
       period,
-      staffName
+      staffName,
+      date
     );
     return apiSuccess(serializeBigInt(data));
   });

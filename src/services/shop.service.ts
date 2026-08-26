@@ -29,6 +29,10 @@ import { getPurchaseSummary } from "./shop-purchase.service";
 import { getExpenseSummary } from "./shop-expense.service";
 import { getTotalOutstandingCredit } from "./shop-credit.service";
 import {
+  resolveShopDashboardBounds,
+  type ShopDashboardPeriod,
+} from "@/lib/shop/dashboard-period";
+import {
   computeInvoicePricing,
   resolveInvoiceLineAllocations,
   type StoredInvoicePricing,
@@ -318,21 +322,17 @@ export async function resolveBarcodeScan(
 
 export async function getShopDashboard(
   organizationId: string,
-  period: "today" | "month" = "today"
+  period: ShopDashboardPeriod = "today",
+  date?: string | null
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopSaleSchema();
   await ensureShopExtendedSchema();
 
-  const periodStart = new Date();
-  const periodEnd = new Date();
-  periodEnd.setHours(23, 59, 59, 999);
-  if (period === "today") {
-    periodStart.setHours(0, 0, 0, 0);
-  } else {
-    periodStart.setDate(1);
-    periodStart.setHours(0, 0, 0, 0);
-  }
+  const { start: periodStart, end: periodEnd } = resolveShopDashboardBounds(
+    period,
+    date
+  );
 
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
@@ -346,13 +346,19 @@ export async function getShopDashboard(
   const [periodSales, recentInvoices, inventorySnapshot, profitToday, purchaseSummary, expenseSummary, outstandingCreditPaise, totalCustomers, totalStaff, heldBillsCount, activeOffersCount, recentReturnsCount, topCustomer] =
     await Promise.all([
     prisma.shopSale.findMany({
-      where: { organizationId, createdAt: { gte: periodStart } },
+      where: {
+        organizationId,
+        createdAt: { gte: periodStart, lte: periodEnd },
+      },
       select: { totalPaise: true, totalCostPaise: true, paymentMethod: true, salesBoyName: true },
     }),
     prisma.shopSale.findMany({
-      where: { organizationId },
+      where: {
+        organizationId,
+        createdAt: { gte: periodStart, lte: periodEnd },
+      },
       orderBy: { createdAt: "desc" },
-      take: 5,
+      take: 100,
       select: {
         id: true,
         billNumber: true,
@@ -378,10 +384,19 @@ export async function getShopDashboard(
     (async () => {
       try {
         const { getShopProfitAnalytics } = await import("./shop-profit.service");
-        return getShopProfitAnalytics({
-          organizationId,
-          period: period === "today" ? "today" : "month",
-        });
+        return getShopProfitAnalytics(
+          period === "date"
+            ? {
+                organizationId,
+                period: "custom",
+                from: periodStart,
+                to: periodEnd,
+              }
+            : {
+                organizationId,
+                period: period === "today" ? "today" : "month",
+              }
+        );
       } catch {
         return null;
       }
@@ -508,24 +523,22 @@ export async function getShopDashboard(
 
 export async function getStaffSalesInvoices(
   organizationId: string,
-  period: "today" | "month",
-  staffName: string
+  period: ShopDashboardPeriod,
+  staffName: string,
+  date?: string | null
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopSaleSchema();
 
-  const periodStart = new Date();
-  if (period === "today") {
-    periodStart.setHours(0, 0, 0, 0);
-  } else {
-    periodStart.setDate(1);
-    periodStart.setHours(0, 0, 0, 0);
-  }
+  const { start: periodStart, end: periodEnd } = resolveShopDashboardBounds(
+    period,
+    date
+  );
 
   const sales = await prisma.shopSale.findMany({
     where: {
       organizationId,
-      createdAt: { gte: periodStart },
+      createdAt: { gte: periodStart, lte: periodEnd },
       ...(staffName === "Unassigned"
         ? { OR: [{ salesBoyName: null }, { salesBoyName: "" }] }
         : { salesBoyName: staffName }),
