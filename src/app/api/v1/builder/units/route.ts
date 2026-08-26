@@ -3,10 +3,7 @@ import { z } from "zod";
 import {
   getAuthContext,
   handleApi,
-<<<<<<< HEAD
-=======
   requirePermission,
->>>>>>> origin/master
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
@@ -15,14 +12,6 @@ import {
   listBuilderUnits,
   updateBuilderUnit,
 } from "@/services/builder.service";
-<<<<<<< HEAD
-import {
-  requireAssignedProjectView,
-  requireAssignedProjectWrite,
-  requireAssignedUnitWrite,
-} from "@/lib/org/project-api-access";
-=======
->>>>>>> origin/master
 
 const createUnitSchema = z.object({
   projectId: z.string().uuid(),
@@ -43,17 +32,10 @@ const updateUnitSchema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-<<<<<<< HEAD
-    const projectId = await requireAssignedProjectView(
-      ctx,
-      new URL(request.url).searchParams.get("projectId")
-    );
-=======
     requirePermission(ctx, "project.view_all");
 
     const projectId = new URL(request.url).searchParams.get("projectId");
     if (!projectId) throw new Error("projectId is required");
->>>>>>> origin/master
 
     const units = await listBuilderUnits(ctx.organizationId, projectId);
     return apiSuccess(serializeBigInt(units));
@@ -63,16 +45,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-<<<<<<< HEAD
-    const body = await request.json();
-    const data = createUnitSchema.parse(body);
-    await requireAssignedProjectWrite(ctx, data.projectId);
-=======
     requirePermission(ctx, "project.view_all");
 
     const body = await request.json();
     const data = createUnitSchema.parse(body);
->>>>>>> origin/master
 
     const unit = await createBuilderUnit({
       organizationId: ctx.organizationId,
@@ -87,16 +63,10 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-<<<<<<< HEAD
-    const body = await request.json();
-    const data = updateUnitSchema.parse(body);
-    await requireAssignedUnitWrite(ctx, data.unitId);
-=======
     requirePermission(ctx, "project.view_all");
 
     const body = await request.json();
     const data = updateUnitSchema.parse(body);
->>>>>>> origin/master
 
     const unit = await updateBuilderUnit({
       organizationId: ctx.organizationId,

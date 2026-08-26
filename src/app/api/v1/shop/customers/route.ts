@@ -15,19 +15,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") ?? undefined;
     const listAll = searchParams.get("all") === "1";
-<<<<<<< HEAD
-    const cursor = searchParams.get("cursor") ?? undefined;
-    const limit = Number(searchParams.get("limit") ?? 25);
-
-    const customers = listAll
-      ? await listShopCustomers(ctx.organizationId, limit, cursor)
-      : await searchShopCustomers(ctx.organizationId, q, limit, cursor);
-=======
 
     const customers = listAll
       ? await listShopCustomers(ctx.organizationId)
       : await searchShopCustomers(ctx.organizationId, q);
->>>>>>> origin/master
 
     return apiSuccess(serializeBigInt(customers));
   });

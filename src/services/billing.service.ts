@@ -393,40 +393,7 @@ export async function getOpsSummary() {
     where: { setupFeeStatus: "UNPAID", businessType: "SHOPKEEPER" },
   });
 
-<<<<<<< HEAD
-  const ops = await getOpsActivitySignals();
-  const recentOrganizations = await listRecentOpsOrganizations(8);
-  const platformFeed = await listOpsPlatformFeed(12);
-
-  const [totalUsers, totalStaff, activeUsers30d, inactiveOrgs30d] = await Promise.all([
-    prisma.organizationMember
-      .count({ where: { status: "ACTIVE" } })
-      .catch(() => 0),
-    prisma.staffMember
-      .count({ where: { status: "ACTIVE" } })
-      .catch(() => 0),
-    prisma.$queryRawUnsafe<Array<{ count: number }>>(
-      `SELECT COUNT(*) as count FROM "User" WHERE "lastLoginAt" >= ?`,
-      startOfDay(30).toISOString()
-    )
-      .then((rows) => Number(rows[0]?.count ?? 0))
-      .catch(() => 0),
-    prisma.organization
-      .count({
-        where: {
-          createdAt: { lt: startOfDay(30) },
-          subscriptionStatus: { in: ["ACTIVE", "TRIAL"] },
-          OR: [
-            { lastActiveAt: null },
-            { lastActiveAt: { lt: startOfDay(30) } },
-          ],
-        },
-      })
-      .catch(() => 0),
-  ]);
-=======
   const ops = await getOpsActivitySignals(orgCount);
->>>>>>> origin/master
 
   return {
     orgCount,
@@ -439,15 +406,6 @@ export async function getOpsSummary() {
     storageUsedBytes: storageAgg._sum.storageUsedBytes?.toString() ?? "0",
     mrrPaise,
     setupOutstanding,
-<<<<<<< HEAD
-    totalUsers,
-    totalStaff,
-    activeUsers30d,
-    inactiveOrgs30d,
-    recentOrganizations,
-    platformFeed,
-=======
->>>>>>> origin/master
     ...ops,
   };
 }
@@ -460,19 +418,6 @@ function startOfDay(daysAgo = 0): Date {
 }
 
 /**
-<<<<<<< HEAD
- * Platform billing and adoption only. Shop sales, stock, staff and returns stay
- * inside each organization — ops must not aggregate those private details.
- */
-export async function getOpsActivitySignals() {
-  const today = startOfDay();
-  const weekAgo = startOfDay(7);
-  const monthAgo = startOfDay(30);
-
-  const safeCount = (promise: Promise<number>) => promise.catch(() => 0);
-
-  const [newOrgsThisWeek, newOrgsThisMonth, trialsExpiringSoon] = await Promise.all([
-=======
  * Platform-wide activity the operator actually needs to run the service:
  * who signed up, who is billing, who has gone quiet, and where the money and
  * stock health sit. Every query is tolerant of a module being unused so a fresh
@@ -503,7 +448,6 @@ export async function getOpsActivitySignals(orgCount: number) {
     lowStockCount,
     overdueRecurring,
   ] = await Promise.all([
->>>>>>> origin/master
     safeCount(prisma.organization.count({ where: { createdAt: { gte: weekAgo } } })),
     safeCount(prisma.organization.count({ where: { createdAt: { gte: monthAgo } } })),
     safeCount(
@@ -517,8 +461,6 @@ export async function getOpsActivitySignals(orgCount: number) {
         },
       })
     ),
-<<<<<<< HEAD
-=======
     prisma.shopSale
       .aggregate({
         where: { createdAt: { gte: today }, status: "COMPLETED" },
@@ -555,7 +497,6 @@ export async function getOpsActivitySignals(orgCount: number) {
         where: { status: "PENDING", dueDate: { lt: today } },
       })
     ),
->>>>>>> origin/master
   ]);
 
   return {
@@ -563,8 +504,6 @@ export async function getOpsActivitySignals(orgCount: number) {
       newOrgsThisWeek,
       newOrgsThisMonth,
       trialsExpiringSoon,
-<<<<<<< HEAD
-=======
       salesTodayPaise: salesToday.toString(),
       salesThisMonthPaise: salesThisMonth.toString(),
       activeShopsToday,
@@ -580,68 +519,10 @@ export async function getOpsActivitySignals(orgCount: number) {
         orgCount > 0
           ? Math.round(((orgCount - activeShopsThisWeek) / orgCount) * 100)
           : 0,
->>>>>>> origin/master
     },
   };
 }
 
-<<<<<<< HEAD
-export type OpsPlatformEvent = {
-  id: string;
-  type: "org_created" | "member_joined";
-  label: string;
-  at: string;
-  href: string | null;
-};
-
-/** Safe platform activity — no shop financial data. */
-export async function listOpsPlatformFeed(take = 12): Promise<OpsPlatformEvent[]> {
-  const [orgs, members] = await Promise.all([
-    prisma.organization.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 6,
-      select: { id: true, name: true, createdAt: true },
-    }),
-    prisma.organizationMember.findMany({
-      where: { status: "ACTIVE", joinedAt: { not: null } },
-      orderBy: { joinedAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        joinedAt: true,
-        role: true,
-        user: { select: { name: true } },
-        organization: { select: { name: true } },
-      },
-    }),
-  ]);
-
-  const events: OpsPlatformEvent[] = [
-    ...orgs.map((o) => ({
-      id: `org-${o.id}`,
-      type: "org_created" as const,
-      label: `New organization · ${o.name}`,
-      at: o.createdAt.toISOString(),
-      href: `/ops/customers/${o.id}`,
-    })),
-    ...members
-      .filter((m) => m.joinedAt)
-      .map((m) => ({
-        id: `member-${m.id}`,
-        type: "member_joined" as const,
-        label: `${m.user.name} joined ${m.organization.name} (${m.role})`,
-        at: m.joinedAt!.toISOString(),
-        href: null,
-      })),
-  ];
-
-  return events
-    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-    .slice(0, take);
-}
-
-=======
->>>>>>> origin/master
 /** Recently created organizations with their owner, for the ops overview feed. */
 export async function listRecentOpsOrganizations(take = 8) {
   const orgs = await prisma.organization.findMany({

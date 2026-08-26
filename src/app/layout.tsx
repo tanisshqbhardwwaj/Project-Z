@@ -12,9 +12,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Project Z — Billing, inventory & business management",
-  description:
-    "Billing, inventory, staff, and projects for Indian shopkeepers, contractors, architects, and builders — one platform, from A to Z.",
+  title: "Project Z — Work Order & Partner Accounting",
+  description: "Manage work orders, projects, expenses, and partner settlements",
   appleWebApp: {
     capable: true,
     title: "Project Z",
@@ -28,12 +27,6 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#f4f6fa" },
     { media: "(prefers-color-scheme: dark)", color: "#0c1222" },
   ],
-<<<<<<< HEAD
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-=======
->>>>>>> origin/master
 };
 
 export default async function RootLayout({

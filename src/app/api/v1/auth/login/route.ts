@@ -11,7 +11,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   return handleApi(async () => {
-    await enforceRateLimit(request, "auth:login", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
+    enforceRateLimit(request, "auth:login", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
     const body = await request.json();
     const data = schema.parse(body);
 
@@ -30,11 +30,6 @@ export async function POST(request: Request) {
           { status: 403 }
         );
       }
-<<<<<<< HEAD
-      if (message.includes("USER_NOT_FOUND") || message.includes("INVALID_PASSWORD")) {
-        return NextResponse.json(
-          { error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password" } },
-=======
       if (message.includes("USER_NOT_FOUND")) {
         return NextResponse.json(
           {
@@ -50,7 +45,6 @@ export async function POST(request: Request) {
       if (message.includes("INVALID_PASSWORD")) {
         return NextResponse.json(
           { error: { code: "INVALID_PASSWORD", message: "Incorrect password" } },
->>>>>>> origin/master
           { status: 401 }
         );
       }

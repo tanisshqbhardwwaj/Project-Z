@@ -15,10 +15,6 @@ import { createShopPurchasePaymentRecord } from "@/lib/shop/staff-expense-links"
 import { requireModule } from "@/lib/org/require-module";
 import { createAuditLog } from "./audit.service";
 import { scheduleShopInventoryAlertSync } from "./shop-notification.service";
-<<<<<<< HEAD
-import { toCursorPage, type CursorPage } from "@/lib/api/cursor-page";
-=======
->>>>>>> origin/master
 
 export type PurchaseLineInput = {
   inventoryItemId?: string | null;
@@ -168,13 +164,6 @@ export async function listShopPurchases(input: {
   from?: Date;
   to?: Date;
   sort?: "newest" | "oldest";
-<<<<<<< HEAD
-  cursor?: string;
-  limit?: number;
-}) {
-  await ensureShopExtendedSchema();
-  const pageSize = Math.min(100, Math.max(1, input.limit ?? 25));
-=======
   page?: number;
   pageSize?: number;
 }) {
@@ -182,7 +171,6 @@ export async function listShopPurchases(input: {
   const page = Math.max(1, input.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 25));
   const skip = (page - 1) * pageSize;
->>>>>>> origin/master
 
   const where = {
     organizationId: input.organizationId,
@@ -207,21 +195,6 @@ export async function listShopPurchases(input: {
       : {}),
   };
 
-<<<<<<< HEAD
-  const items = await prisma.shopPurchase.findMany({
-    where,
-    include: {
-      supplier: { select: { id: true, name: true } },
-      createdBy: { select: { id: true, name: true } },
-      _count: { select: { items: true } },
-    },
-    orderBy: { purchaseDate: input.sort === "oldest" ? "asc" : "desc" },
-    take: pageSize + 1,
-    ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
-  });
-
-  return toCursorPage(items, pageSize);
-=======
   const [items, total] = await Promise.all([
     prisma.shopPurchase.findMany({
       where,
@@ -238,7 +211,6 @@ export async function listShopPurchases(input: {
   ]);
 
   return { items, total, page, pageSize };
->>>>>>> origin/master
 }
 
 export async function getShopPurchase(organizationId: string, purchaseId: string) {

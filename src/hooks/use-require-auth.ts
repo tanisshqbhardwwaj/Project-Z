@@ -4,16 +4,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 
-const PUBLIC_PATHS = [
-  "/",
-  "/pricing",
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/reset-password",
-  "/verify-email",
-  "/invite",
-];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/invite"];
 
 export function useRequireAuth() {
   const router = useRouter();
@@ -31,17 +22,7 @@ export function useRequireAuth() {
     if (!initialized) return;
 
     if (status === "unauthenticated") {
-<<<<<<< HEAD
-      const isPublic = PUBLIC_PATHS.some((p) => {
-        if (p === "/") return pathname === "/";
-        return pathname === p || pathname.startsWith(`${p}/`);
-      });
-      if (!isPublic) {
-        router.replace(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
-      }
-=======
       router.replace(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
->>>>>>> origin/master
       return;
     }
 

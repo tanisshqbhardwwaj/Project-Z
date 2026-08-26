@@ -11,31 +11,10 @@ import { requireModule, getOrgModuleContext } from "@/lib/org/require-module";
 import { ensureShopFeaturesSchema } from "@/lib/shop/ensure-shop-features-schema";
 import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
 import { isInfiniteStock } from "@/lib/shop/inventory";
-<<<<<<< HEAD
-import { fiscalYearLabel } from "@/lib/shop/bill-number";
-import { parsePricingJson } from "@/lib/shop/invoice-pricing";
-import { toCursorPage } from "@/lib/api/cursor-page";
-=======
->>>>>>> origin/master
 import { variantDisplayName, variantSubtitle } from "@/lib/shop/variant-display";
 import { createAuditLog } from "./audit.service";
 import { scheduleShopInventoryAlertSync } from "./shop-notification.service";
 
-<<<<<<< HEAD
-/**
- * RET/26-27/0001 — fiscal-year scoped like sale bill numbers. Allocated with
- * the transaction client so concurrent returns race on the unique index
- * instead of silently duplicating; the caller retries on P2002.
- */
-async function nextReturnNumber(
-  tx: Prisma.TransactionClient,
-  organizationId: string,
-  type: ReturnTransactionType
-): Promise<string> {
-  const fy = fiscalYearLabel();
-  const prefix = type === "EXCHANGE" ? `EX/${fy}/` : `RET/${fy}/`;
-  const last = await tx.shopSaleReturn.findFirst({
-=======
 async function nextReturnNumber(
   organizationId: string,
   type: ReturnTransactionType
@@ -43,7 +22,6 @@ async function nextReturnNumber(
   const year = new Date().getFullYear();
   const prefix = type === "EXCHANGE" ? `EX-${year}-` : `RET-${year}-`;
   const last = await prisma.shopSaleReturn.findFirst({
->>>>>>> origin/master
     where: { organizationId, returnNumber: { startsWith: prefix } },
     orderBy: { returnNumber: "desc" },
     select: { returnNumber: true },
@@ -54,17 +32,6 @@ async function nextReturnNumber(
   return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 
-<<<<<<< HEAD
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    (err as { code?: string }).code === "P2002"
-  );
-}
-
-=======
->>>>>>> origin/master
 export type ReturnableLine = {
   lineKey: string;
   inventoryItemId: string | null;
@@ -226,21 +193,12 @@ export async function listSaleReturns(
     to?: Date;
     limit?: number;
     staffId?: string;
-<<<<<<< HEAD
-    cursor?: string;
-=======
->>>>>>> origin/master
   }
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopFeaturesSchema();
   await ensureCatalogSchema();
-<<<<<<< HEAD
-  const limit = Math.min(100, Math.max(1, options?.limit ?? 25));
-  const rows = await prisma.shopSaleReturn.findMany({
-=======
   return prisma.shopSaleReturn.findMany({
->>>>>>> origin/master
     where: {
       organizationId,
       ...(shopSaleId ? { shopSaleId } : {}),
@@ -257,15 +215,8 @@ export async function listSaleReturns(
     },
     include: returnInclude,
     orderBy: { createdAt: "desc" },
-<<<<<<< HEAD
-    take: limit + 1,
-    ...(options?.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
-  });
-  return toCursorPage(rows, limit);
-=======
     take: options?.limit ?? 200,
   });
->>>>>>> origin/master
 }
 
 /** Full receipt payload: original bill → returned items → replacements → money. */
@@ -364,24 +315,6 @@ export async function processReturn(input: {
   const returnableMap = new Map(returnable.map((l) => [l.lineKey, l]));
 
   // ── Returned goods ────────────────────────────────────────────────────────
-<<<<<<< HEAD
-  // Refunds are pro-rated by the bill's discount share so a discounted bill
-  // never refunds more than the customer actually paid for the line.
-  const salePricing = parsePricingJson(sale.pricingJson);
-  const discountRatio =
-    salePricing && salePricing.subtotalRupees > 0
-      ? Math.min(
-          1,
-          Math.max(
-            0,
-            (salePricing.subtotalRupees - salePricing.discountRupees) /
-              salePricing.subtotalRupees
-          )
-        )
-      : 1;
-
-=======
->>>>>>> origin/master
   let returnValuePaise = BigInt(0);
   const returnedLines: PreparedReturnLine[] = [];
   const seenKeys = new Set<string>();
@@ -404,13 +337,7 @@ export async function processReturn(input: {
     }
 
     const unitPaise = rupeesToPaise(meta.unitPriceRupees);
-<<<<<<< HEAD
-    const lineRefund = BigInt(
-      Math.round(req.returnQty * Number(unitPaise) * discountRatio)
-    );
-=======
     const lineRefund = BigInt(Math.round(req.returnQty * Number(unitPaise)));
->>>>>>> origin/master
     returnValuePaise += lineRefund;
     returnedLines.push({
       lineKey: req.lineKey,
@@ -477,17 +404,10 @@ export async function processReturn(input: {
       };
 
       const priceRupees =
-<<<<<<< HEAD
-        variant?.sellPaise != null
-          ? Number(variant.sellPaise) / 100
-          : item.priceRupees > 0
-            ? item.priceRupees
-=======
         item.priceRupees > 0
           ? item.priceRupees
           : variant?.sellPaise
             ? Number(variant.sellPaise) / 100
->>>>>>> origin/master
             : 0;
       if (priceRupees <= 0) {
         throw new Error(
@@ -525,10 +445,7 @@ export async function processReturn(input: {
     exchangeValuePaise > returnValuePaise ? exchangeValuePaise - returnValuePaise : BigInt(0);
 
   const type: ReturnTransactionType = isExchange ? "EXCHANGE" : "RETURN";
-<<<<<<< HEAD
-=======
   const returnNumber = await nextReturnNumber(input.organizationId, type);
->>>>>>> origin/master
 
   const staff = await resolveReturnStaff(input.organizationId, {
     staffId: input.staffId,
@@ -543,42 +460,7 @@ export async function processReturn(input: {
     );
   }
 
-<<<<<<< HEAD
-  const processInTransaction = async () =>
-    prisma.$transaction(async (tx) => {
-    const returnNumber = await nextReturnNumber(tx, input.organizationId, type);
-
-    // Re-check returnable qty inside the transaction to close concurrent-return races.
-    const liveReturnLines = await tx.shopSaleReturnLine.findMany({
-      where: {
-        returnRecord: { organizationId: input.organizationId, shopSaleId: input.shopSaleId },
-        isExchangeOut: true,
-      },
-    });
-    const liveReturnedByKey = new Map<string, number>();
-    for (const line of liveReturnLines) {
-      liveReturnedByKey.set(
-        line.lineKey,
-        (liveReturnedByKey.get(line.lineKey) ?? 0) + line.returnQty
-      );
-    }
-    for (const line of returnedLines) {
-      const meta = returnableMap.get(line.lineKey);
-      if (!meta) continue;
-      const alreadyReturned = liveReturnedByKey.get(line.lineKey) ?? 0;
-      const liveRemaining = Math.max(0, meta.originalQty - alreadyReturned);
-      if (line.returnQty > liveRemaining + 1e-9) {
-        throw new Error(
-          liveRemaining <= 0
-            ? `"${meta.displayName}" has already been fully returned`
-            : `Cannot return ${line.returnQty} of "${meta.displayName}" — only ${liveRemaining} left on this bill`
-        );
-      }
-    }
-
-=======
   const returnRecord = await prisma.$transaction(async (tx) => {
->>>>>>> origin/master
     // Returned goods come back into stock, on the exact variant that was sold.
     for (const line of returnedLines) {
       if (!line.inventoryItemId) continue;
@@ -602,23 +484,6 @@ export async function processReturn(input: {
       });
       if (!inv) throw new Error("Replacement product was not found in stock");
       if (isInfiniteStock(inv.quantity)) continue;
-<<<<<<< HEAD
-      // Atomic conditional decrement — evaluated at write time, so two
-      // simultaneous exchanges can't both take the last piece.
-      const deducted = await tx.inventoryItem.updateMany({
-        where: {
-          id: inv.id,
-          organizationId: input.organizationId,
-          quantity: { gte: line.returnQty },
-        },
-        data: { quantity: { decrement: line.returnQty } },
-      });
-      if (deducted.count === 0) {
-        throw new Error(
-          `Not enough stock for "${variantDisplayName({ productName: line.productName, size: line.size, variantLabel: line.variantLabel })}" (need ${line.returnQty})`
-        );
-      }
-=======
       if (inv.quantity < line.returnQty) {
         throw new Error(
           `Not enough stock for "${variantDisplayName({ productName: line.productName, size: line.size, variantLabel: line.variantLabel })}" (have ${inv.quantity}, need ${line.returnQty})`
@@ -628,7 +493,6 @@ export async function processReturn(input: {
         where: { id: inv.id },
         data: { quantity: inv.quantity - line.returnQty },
       });
->>>>>>> origin/master
     }
 
     const created = await tx.shopSaleReturn.create({
@@ -704,25 +568,7 @@ export async function processReturn(input: {
     });
 
     return created;
-<<<<<<< HEAD
-    });
-
-  // Two concurrent returns can pick the same number; the unique index rejects
-  // one, so retry with a freshly computed number.
-  let returnRecord: Awaited<ReturnType<typeof processInTransaction>> | null = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      returnRecord = await processInTransaction();
-      break;
-    } catch (err) {
-      if (isUniqueViolation(err) && attempt < 2) continue;
-      throw err;
-    }
-  }
-  if (!returnRecord) throw new Error("Could not allocate a return number");
-=======
   });
->>>>>>> origin/master
 
   await createAuditLog({
     organizationId: input.organizationId,
@@ -731,11 +577,7 @@ export async function processReturn(input: {
     entityType: "ShopSaleReturn",
     entityId: returnRecord.id,
     after: {
-<<<<<<< HEAD
-      returnNumber: returnRecord.returnNumber,
-=======
       returnNumber,
->>>>>>> origin/master
       originalBill: sale.billNumber,
       returnValuePaise: returnValuePaise.toString(),
       exchangeValuePaise: exchangeValuePaise.toString(),

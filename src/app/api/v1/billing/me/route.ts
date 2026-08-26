@@ -31,17 +31,10 @@ export async function GET(request: Request) {
         monthlyPaise: planDef.monthlyPaise,
         monthlyLabel: formatINRFromPaise(planDef.monthlyPaise),
         subscriptionStatus: org.subscriptionStatus,
-<<<<<<< HEAD
-        storageQuotaBytes: storage.quotaBytes,
-        storageUsedBytes: storage.usedBytes,
-        storageQuotaLabel: formatStorageBytes(storage.quotaBytes),
-        storageUsedLabel: formatStorageBytes(storage.usedBytes),
-=======
         storageQuotaBytes: org.storageQuotaBytes,
         storageUsedBytes: org.storageUsedBytes,
         storageQuotaLabel: formatStorageBytes(org.storageQuotaBytes),
         storageUsedLabel: formatStorageBytes(org.storageUsedBytes),
->>>>>>> origin/master
         storageBreakdown: storage,
         billingCycle: org.billingCycle,
         currentPeriodEnd: org.currentPeriodEnd,

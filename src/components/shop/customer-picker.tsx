@@ -1,18 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-<<<<<<< HEAD
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "@/stores/auth-store";
-import { apiFetch } from "@/lib/api/client";
-import { queryKeys } from "@/lib/query/keys";
-import { buildCursorListUrl } from "@/lib/api/list-url";
-import type { CursorPage } from "@/lib/api/cursor-page";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { formatCustomerLabel } from "@/lib/shop/customer";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
-=======
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiFetch } from "@/lib/api/client";
@@ -20,7 +8,6 @@ import { queryKeys } from "@/lib/query/keys";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCustomerLabel } from "@/lib/shop/customer";
->>>>>>> origin/master
 import { cn } from "@/lib/utils";
 import { UserRound } from "lucide-react";
 
@@ -65,27 +52,6 @@ export function CustomerPicker({
     return parts.join(" ").trim();
   }, [customerName, customerPhone, search]);
 
-<<<<<<< HEAD
-  const debouncedTerm = useDebouncedValue(queryTerm);
-
-  const { data: suggestionsPage } = useQuery({
-    queryKey: orgId
-      ? queryKeys.modules.shop.customerRegistry(orgId, debouncedTerm)
-      : ["disabled"],
-    queryFn: () =>
-      apiFetch<CursorPage<ShopCustomerOption>>(
-        buildCursorListUrl("/api/v1/shop/customers", {
-          q: debouncedTerm || undefined,
-          limit: 10,
-        })
-      ),
-    enabled: !!orgId && open && debouncedTerm.length >= 1,
-    placeholderData: keepPreviousData,
-  });
-
-  const suggestions = suggestionsPage?.items ?? [];
-
-=======
   const { data: suggestions = [] } = useQuery({
     queryKey: orgId
       ? queryKeys.modules.shop.customerRegistry(orgId, queryTerm)
@@ -97,7 +63,6 @@ export function CustomerPicker({
     enabled: !!orgId && open && queryTerm.length >= 1,
   });
 
->>>>>>> origin/master
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
@@ -171,11 +136,7 @@ export function CustomerPicker({
           />
         </div>
 
-<<<<<<< HEAD
-        {open && debouncedTerm.length >= 1 && suggestions.length > 0 ? (
-=======
         {open && queryTerm.length >= 1 && suggestions.length > 0 ? (
->>>>>>> origin/master
           <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border bg-popover shadow-lg sm:col-span-2">
             {suggestions.map((customer) => (
               <button

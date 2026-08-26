@@ -134,7 +134,6 @@ export default function StorageSyncPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <StorageUsageBar
-            label="File quota"
             usedLabel={formatBytes(String(used))}
             quotaLabel={formatBytes(String(quota))}
             percent={pct}

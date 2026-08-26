@@ -13,16 +13,7 @@ import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { formatINR, paiseToRupees } from "@/lib/finance/money";
-<<<<<<< HEAD
-import {
-  availableQtyForInventoryLine,
-  formatStockLabel,
-  stockLimitMessage,
-  validateCartStock,
-} from "@/lib/shop/inventory";
-=======
 import { formatStockLabel, isInfiniteStock } from "@/lib/shop/inventory";
->>>>>>> origin/master
 import {
   type SaleLine,
   PAYMENT_METHODS,
@@ -39,12 +30,6 @@ import {
   type ShopCustomerOption,
 } from "@/components/shop/customer-picker";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
-<<<<<<< HEAD
-import { usePaymentTerminalCollect } from "@/hooks/use-payment-terminal-collect";
-import { isTerminalConfigured } from "@/lib/shop/payment-terminal";
-import type { TerminalCollectOutcome } from "@/hooks/use-payment-terminal-collect";
-=======
->>>>>>> origin/master
 import {
   computeInvoicePricing,
   formatInvoiceMoney,
@@ -54,12 +39,7 @@ import {
 } from "@/lib/shop/invoice-pricing";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-<<<<<<< HEAD
-import { CameraScanButton } from "@/components/shop/camera-scan-button";
-import { Banknote, CreditCard, Loader2, Minus, PauseCircle, Plus, Printer, Receipt, ScanLine, ShoppingBag, Smartphone, Tag } from "lucide-react";
-=======
 import { Banknote, CreditCard, PauseCircle, Plus, Printer, Receipt, ScanLine, Smartphone, Tag } from "lucide-react";
->>>>>>> origin/master
 import Link from "next/link";
 import { OfferPickerDialog } from "@/components/shop/offer-picker-dialog";
 import {
@@ -67,14 +47,6 @@ import {
   buildCashTender,
 } from "@/components/shop/cash-tender-panel";
 import type { CashTender } from "@/lib/shop/invoice-receipt-print";
-<<<<<<< HEAD
-import { useKeepAwake } from "@/hooks/use-keep-awake";
-import { useToast } from "@/hooks/use-toast";
-
-const SCAN_ADD_ITEM_KEY = "project-z:scan-add-item";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-=======
->>>>>>> origin/master
 import {
   clearInvoiceDraft,
   loadInvoiceDraft,
@@ -124,40 +96,16 @@ const PAYMENT_OPTIONS: Array<{
 type ShopSaleResult = {
   id: string;
   billNumber: string | null;
-<<<<<<< HEAD
-  customerId?: string | null;
   customerName: string | null;
   customerPhone: string | null;
   customerGstin: string | null;
-  staffId?: string | null;
-=======
-  customerName: string | null;
-  customerPhone: string | null;
-  customerGstin: string | null;
->>>>>>> origin/master
   salesBoyName: string | null;
   notes: string | null;
   totalPaise: string;
   gstPaise?: string;
   paymentMethod: string;
   createdAt: string;
-<<<<<<< HEAD
-  itemsJson: {
-    name: string;
-    qty: number;
-    priceRupees: number;
-    inventoryItemId?: string;
-    productId?: string;
-    barcode?: string;
-    sku?: string;
-    size?: string;
-    color?: string;
-    variantLabel?: string;
-    unit?: string;
-  }[];
-=======
   itemsJson: { name: string; qty: number; priceRupees: number }[];
->>>>>>> origin/master
   pricingJson?: unknown;
   organization: { name: string };
   createdBy: { name: string };
@@ -185,27 +133,15 @@ type InvoiceEntryFormProps = {
   onSaved: (
     sale: ShopSaleResult,
     invoice: ShopInvoiceData,
-<<<<<<< HEAD
-    cashTender?: CashTender | null,
-    options?: { print?: boolean }
-  ) => void;
-  resetKey?: number;
-  duplicateSaleId?: string | null;
-=======
     cashTender?: CashTender | null
   ) => void;
   resetKey?: number;
->>>>>>> origin/master
 };
 
 export function InvoiceEntryForm({
   onDraftChange,
   onSaved,
   resetKey = 0,
-<<<<<<< HEAD
-  duplicateSaleId = null,
-=======
->>>>>>> origin/master
 }: InvoiceEntryFormProps) {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
   const orgName = useAuthStore((s) => s.activeOrganizationName);
@@ -215,20 +151,6 @@ export function InvoiceEntryForm({
   const udhaarEnabled = isModuleEnabled(enabledModules, "shop_udhaar");
   const staffEnabled = isModuleEnabled(enabledModules, "staff");
   const invoiceTemplate = useShopInvoiceTemplate();
-<<<<<<< HEAD
-  const terminalConfig = invoiceTemplate.paymentTerminal;
-  const terminalReady = isTerminalConfigured(terminalConfig);
-  const {
-    collecting: terminalCollecting,
-    hint: terminalHint,
-    collectPayment,
-    cancelCollect,
-  } = usePaymentTerminalCollect();
-  useKeepAwake(true);
-  const { toast } = useToast();
-  const printAfterSaveRef = useRef(true);
-=======
->>>>>>> origin/master
 
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const qc = useQueryClient();
@@ -254,15 +176,7 @@ export function InvoiceEntryForm({
   const [scanInput, setScanInput] = useState("");
   const [selectedInventoryId, setSelectedInventoryId] = useState("");
   const [showStockSearch, setShowStockSearch] = useState(false);
-<<<<<<< HEAD
-  const [cartSheetOpen, setCartSheetOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
-  const [splitPayment, setSplitPayment] = useState(false);
-  const [splitCashRupees, setSplitCashRupees] = useState("");
-  const [splitUpiRupees, setSplitUpiRupees] = useState("");
-=======
-  const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
->>>>>>> origin/master
   const [paidRupees, setPaidRupees] = useState("");
   const [cashReceivedRupees, setCashReceivedRupees] = useState("");
   const [discountMode, setDiscountMode] = useState<"rupees" | "percent">("rupees");
@@ -328,99 +242,6 @@ export function InvoiceEntryForm({
   }, [orgId]);
 
   useEffect(() => {
-<<<<<<< HEAD
-    if (!orgId) return;
-    try {
-      const raw = sessionStorage.getItem(SCAN_ADD_ITEM_KEY);
-      if (!raw) return;
-      sessionStorage.removeItem(SCAN_ADD_ITEM_KEY);
-      const item = JSON.parse(raw) as Omit<SaleLine, "id">;
-      setCart((prev) =>
-        mergeLineIntoCart(prev, {
-          name: item.name,
-          qty: item.qty,
-          priceRupees: item.priceRupees,
-          inventoryItemId: item.inventoryItemId,
-          productId: item.productId,
-          barcode: item.barcode,
-          sku: item.sku,
-          size: item.size,
-          color: item.color,
-          variantLabel: item.variantLabel,
-          unit: item.unit,
-        })
-      );
-      toast({
-        title: "Added from scan",
-        description: item.name,
-        variant: "success",
-      });
-    } catch {
-      /* ignore malformed scan payload */
-    }
-  }, [orgId, toast]);
-
-  useEffect(() => {
-    if (!orgId || !duplicateSaleId) return;
-    let cancelled = false;
-    void apiFetch<ShopSaleResult>(`/api/v1/shop/sales/${duplicateSaleId}`)
-      .then((sale) => {
-        if (cancelled) return;
-        setCustomerName(sale.customerName ?? "");
-        setCustomerPhone(sale.customerPhone ?? "");
-        setCustomerGstin(sale.customerGstin ?? "");
-        setSelectedCustomerId(sale.customerId ?? null);
-        setSalesBoyName(sale.salesBoyName ?? "");
-        setSelectedStaffId(sale.staffId ?? "");
-        setPaymentMethod(sale.paymentMethod ?? "CASH");
-        const pricing = parsePricingJson(sale.pricingJson);
-        if (pricing) {
-          if ((pricing.discountPercent ?? 0) > 0) {
-            setDiscountMode("percent");
-            setDiscountPercent(String(pricing.discountPercent));
-          } else if ((pricing.discountRupees ?? 0) > 0) {
-            setDiscountMode("rupees");
-            setDiscountRupees(String(pricing.discountRupees));
-          }
-          setTaxRatePercent(String(pricing.taxRatePercent ?? ""));
-          setTaxIncluded(Boolean(pricing.taxIncluded));
-        }
-        setCart(
-          (sale.itemsJson ?? []).map((line) => ({
-            id: newLineId(),
-            name: line.name,
-            qty: line.qty,
-            priceRupees: line.priceRupees,
-            inventoryItemId: line.inventoryItemId,
-            productId: line.productId,
-            barcode: line.barcode,
-            sku: line.sku,
-            size: line.size,
-            color: line.color,
-            variantLabel: line.variantLabel,
-            unit: line.unit,
-          }))
-        );
-        toast({
-          title: "Bill duplicated",
-          description: "Review items and save as a new invoice",
-          variant: "success",
-        });
-      })
-      .catch(() => {
-        toast({
-          title: "Could not duplicate bill",
-          variant: "destructive",
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [orgId, duplicateSaleId, toast]);
-
-  useEffect(() => {
-=======
->>>>>>> origin/master
     if (!orgId || draftRestoredRef.current) return;
     draftRestoredRef.current = true;
     const saved = loadInvoiceDraft(orgId);
@@ -729,57 +550,10 @@ export function InvoiceEntryForm({
         createdAt: sale.createdAt,
         cashierName: sale.createdBy?.name ?? null,
       };
-<<<<<<< HEAD
-      onSaved(
-        sale,
-        invoice,
-        paymentMethod === "CASH" ? buildCashTender(cartTotal, cashReceivedRupees) : null,
-        { print: printAfterSaveRef.current }
-      );
-      toast({
-        title: sale.billNumber ? `Invoice ${sale.billNumber} saved` : "Invoice saved",
-        variant: "success",
-      });
-    },
-  });
-
-  function updateCartLineQty(lineId: string, delta: number) {
-    const line = cart.find((l) => l.id === lineId);
-    if (!line) return;
-    const nextQty = Math.round((line.qty + delta) * 1000) / 1000;
-    if (nextQty <= 0) {
-      setCart((prev) => prev.filter((l) => l.id !== lineId));
-      return;
-    }
-    if (line.inventoryItemId) {
-      const label = saleLineVariantSubtitle(line) || line.name;
-      const available = availableQtyForInventoryLine(
-        line.inventoryItemId,
-        cart,
-        inventoryQuery.data ?? [],
-        lineId
-      );
-      if (available === "unknown") {
-        showWarning(`${label} is no longer in inventory`);
-        return;
-      }
-      if (available !== "infinite" && nextQty > available) {
-        const inv = (inventoryQuery.data ?? []).find((i) => i.id === line.inventoryItemId);
-        showWarning(stockLimitMessage(label, available, inv?.unit ?? line.unit ?? "pcs"));
-        return;
-      }
-    }
-    setCart((prev) =>
-      prev.map((l) => (l.id === lineId ? { ...l, qty: nextQty } : l))
-    );
-  }
-
-=======
       onSaved(sale, invoice, paymentMethod === "CASH" ? buildCashTender(cartTotal, cashReceivedRupees) : null);
     },
   });
 
->>>>>>> origin/master
   const pricing = useMemo(
     () => {
       const subtotalRupees = cart.reduce((s, l) => s + l.qty * l.priceRupees, 0);
@@ -883,21 +657,6 @@ export function InvoiceEntryForm({
     nameForError: string,
     cartSource: SaleLine[] = cart
   ) {
-<<<<<<< HEAD
-    const available = availableQtyForInventoryLine(
-      inventoryItemId,
-      cartSource,
-      inventoryQuery.data ?? []
-    );
-    if (available === "unknown") {
-      showWarning(`${nameForError} is no longer in inventory`);
-      return false;
-    }
-    if (available === "infinite") return true;
-    if (addQty > available) {
-      const inv = (inventoryQuery.data ?? []).find((i) => i.id === inventoryItemId);
-      showWarning(stockLimitMessage(nameForError, available, inv?.unit ?? "pcs"));
-=======
     const inv = (inventoryQuery.data ?? []).find((i) => i.id === inventoryItemId);
     if (!inv || isInfiniteStock(inv.quantity)) return true;
     const inCart = cartSource
@@ -910,7 +669,6 @@ export function InvoiceEntryForm({
           ? `No stock left for ${nameForError}`
           : `Only ${remaining} ${inv.unit} left for ${nameForError}`
       );
->>>>>>> origin/master
       return false;
     }
     return true;
@@ -1021,20 +779,7 @@ export function InvoiceEntryForm({
 
   async function holdCurrentBill() {
     if (cart.length === 0) return showWarning("Nothing on the bill to hold");
-<<<<<<< HEAD
-    const snapshot = [...cart];
-    const pricingSnapshot = {
-      discountMode,
-      discountRupees,
-      discountPercent,
-      taxRatePercent,
-      taxIncluded,
-      selectedOfferId,
-      offerSelectionSettled,
-    };
-=======
     clear();
->>>>>>> origin/master
     try {
       await holdBillMutation.mutateAsync({
         customerId: selectedCustomerId,
@@ -1042,12 +787,6 @@ export function InvoiceEntryForm({
         customerPhone: customerPhone.trim() || null,
         customerGstin: customerGstin.trim() || null,
         salesBoyName: salesBoyName.trim() || null,
-<<<<<<< HEAD
-        cartJson: snapshot,
-        pricingJson: pricingSnapshot,
-      });
-      clear();
-=======
         cartJson: cart,
         pricingJson: {
           discountMode,
@@ -1059,7 +798,6 @@ export function InvoiceEntryForm({
           offerSelectionSettled,
         },
       });
->>>>>>> origin/master
     } catch (err) {
       applyError(err, "Failed to hold bill");
     }
@@ -1074,17 +812,6 @@ export function InvoiceEntryForm({
   }
 
   async function resumeHeldBill(heldId: string) {
-<<<<<<< HEAD
-    if (
-      cart.length > 0 &&
-      !window.confirm(
-        "This will add the held items to your current bill. Continue?"
-      )
-    ) {
-      return;
-    }
-=======
->>>>>>> origin/master
     clear();
     try {
       await resumeHoldMutation.mutateAsync(heldId);
@@ -1121,33 +848,8 @@ export function InvoiceEntryForm({
     applyOfferChoice(null);
   }
 
-<<<<<<< HEAD
-  async function collectOnTerminal(): Promise<TerminalCollectOutcome | null> {
-    if (!terminalReady) {
-      showWarning("Configure a card machine in Invoice Settings first");
-      return null;
-    }
-    if (paymentMethod !== "CARD" && paymentMethod !== "UPI") {
-      showWarning("Select Card or UPI to collect on the machine");
-      return null;
-    }
-    if (cartTotal <= 0) return null;
-    try {
-      const amountPaise = BigInt(Math.round(cartTotal * 100));
-      return await collectPayment(amountPaise, paymentMethod as "CARD" | "UPI");
-    } catch (err) {
-      applyError(err, "Card machine payment failed");
-      return null;
-    }
-  }
-
-  async function completeSale(e: React.FormEvent, printAfterSave = true) {
-    e.preventDefault();
-    printAfterSaveRef.current = printAfterSave;
-=======
   async function completeSale(e: React.FormEvent) {
     e.preventDefault();
->>>>>>> origin/master
     clear();
     if (cart.length === 0) {
       return showWarning("Add at least one item to the invoice");
@@ -1168,63 +870,12 @@ export function InvoiceEntryForm({
       }
       return showWarning("Invoice total must be greater than zero");
     }
-<<<<<<< HEAD
-    if (paymentMethod === "CASH" && !splitPayment) {
-=======
     if (paymentMethod === "CASH") {
->>>>>>> origin/master
       const received = Number(cashReceivedRupees) || 0;
       if (received < cartTotal - 0.005) {
         return showWarning(`Enter cash received — at least ₹${cartTotal.toFixed(2)}`);
       }
     }
-<<<<<<< HEAD
-    if (splitPayment) {
-      const cash = Number(splitCashRupees) || 0;
-      const upi = Number(splitUpiRupees) || 0;
-      if (Math.abs(cash + upi - cartTotal) > 0.02) {
-        return showWarning(
-          `Split payment must equal bill total (₹${cartTotal.toFixed(2)})`
-        );
-      }
-    }
-    if (inventoryEnabled && (inventoryQuery.data ?? []).length > 0) {
-      const stockCheck = validateCartStock(cart, inventoryQuery.data ?? []);
-      if (!stockCheck.ok) {
-        return showWarning(stockCheck.message);
-      }
-    }
-
-    let resolvedPaymentMethod = splitPayment ? "UPI" : paymentMethod;
-    let terminalPayment:
-      | {
-          provider: string;
-          externalId: string;
-          merchantTxnId: string;
-          reference?: string;
-        }
-      | undefined;
-
-    const shouldAutoTerminal =
-      terminalReady &&
-      terminalConfig.autoCollect &&
-      !splitPayment &&
-      (paymentMethod === "CARD" || paymentMethod === "UPI");
-
-    if (shouldAutoTerminal) {
-      const outcome = await collectOnTerminal();
-      if (!outcome) return;
-      resolvedPaymentMethod = outcome.paymentMethod;
-      terminalPayment = {
-        provider: outcome.collect.provider,
-        externalId: outcome.collect.externalId,
-        merchantTxnId: outcome.collect.merchantTxnId,
-        reference: outcome.reference,
-      };
-    }
-
-=======
->>>>>>> origin/master
     try {
       await createMutation.mutateAsync({
         customerId: selectedCustomerId,
@@ -1239,26 +890,10 @@ export function InvoiceEntryForm({
           : { discountRupees: Number(discountRupees) || 0 }),
         taxRatePercent: Number(taxRatePercent) || 0,
         taxIncluded,
-<<<<<<< HEAD
-        paymentMethod: resolvedPaymentMethod,
-        selectedOfferId: offerSelectionSettled ? selectedOfferId : undefined,
-        skipOffer: offerSelectionSettled && selectedOfferId === null,
-        ...(paidRupees.trim() ? { paidRupees: Number(paidRupees) } : {}),
-        ...(terminalPayment ? { terminalPayment } : {}),
-        ...(splitPayment
-          ? {
-              splitPayments: [
-                { method: "CASH", amountRupees: Number(splitCashRupees) || 0 },
-                { method: "UPI", amountRupees: Number(splitUpiRupees) || 0 },
-              ],
-            }
-          : {}),
-=======
         paymentMethod,
         selectedOfferId: offerSelectionSettled ? selectedOfferId : undefined,
         skipOffer: offerSelectionSettled && selectedOfferId === null,
         ...(paidRupees.trim() ? { paidRupees: Number(paidRupees) } : {}),
->>>>>>> origin/master
         // Variant attributes go with each line so the stored invoice, receipt
         // and any later return all identify the exact size that was sold.
         items: cart.map((line) => ({
@@ -1280,69 +915,7 @@ export function InvoiceEntryForm({
     }
   }
 
-<<<<<<< HEAD
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      const typing =
-        tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        if (cart.length > 0) {
-          void completeSale(
-            { preventDefault: () => {} } as React.FormEvent,
-            false
-          );
-        }
-        return;
-      }
-      if (!typing && e.key === "F2") {
-        e.preventDefault();
-        scanRef.current?.focus();
-      }
-      if (!typing && e.key === "F9") {
-        e.preventDefault();
-        if (cart.length > 0) {
-          void completeSale(
-            { preventDefault: () => {} } as React.FormEvent,
-            true
-          );
-        }
-        return;
-      }
-      if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && !splitPayment) {
-        if (e.key === "1") setPaymentMethod("CASH");
-        if (e.key === "2") setPaymentMethod("UPI");
-        if (e.key === "3") setPaymentMethod("CARD");
-        if (e.key === "4") setPaymentMethod("BANK");
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
-
   return (
-    <>
-      {terminalCollecting ? (
-        <div className="print-hidden fixed inset-0 z-[110] flex items-center justify-center bg-background/90 backdrop-blur-sm">
-          <div className="mx-4 max-w-sm rounded-2xl border bg-card p-6 text-center shadow-xl">
-            <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-primary" />
-            <p className="font-semibold">Waiting for card machine…</p>
-            <p className="mt-2 text-sm text-muted-foreground">{terminalHint}</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-4 rounded-xl"
-              onClick={cancelCollect}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : null}
-=======
-  return (
->>>>>>> origin/master
     <div className="min-w-0 max-w-full space-y-3">
       <FormFeedback warning={warning} error={error} />
 
@@ -1403,11 +976,7 @@ export function InvoiceEntryForm({
       )}
 
       <form
-<<<<<<< HEAD
-        onSubmit={(e) => void completeSale(e, true)}
-=======
         onSubmit={completeSale}
->>>>>>> origin/master
         className="overflow-hidden rounded-2xl border bg-card shadow-sm"
       >
         <div className="space-y-5 p-4 sm:p-5">
@@ -1481,23 +1050,11 @@ export function InvoiceEntryForm({
                         void handleBarcodeScan(scanInput);
                       }
                     }}
-<<<<<<< HEAD
-                    className="h-11 rounded-lg pl-9 font-mono text-sm"
-=======
                     className="h-10 rounded-lg pl-9 font-mono text-sm"
->>>>>>> origin/master
                     placeholder="Scan barcode"
                     autoComplete="off"
                   />
                 </div>
-<<<<<<< HEAD
-                <CameraScanButton
-                  onCode={(code) => {
-                    if (code) void handleBarcodeScan(code);
-                  }}
-                />
-=======
->>>>>>> origin/master
               </div>
             )}
 
@@ -1583,27 +1140,6 @@ export function InvoiceEntryForm({
                 No items yet — add above or scan a barcode
               </p>
             ) : (
-<<<<<<< HEAD
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-12 w-full rounded-xl text-base sm:hidden"
-                  onClick={() => setCartSheetOpen(true)}
-                >
-                  <ShoppingBag className="mr-2 h-4 w-4" />
-                  Cart · {cart.length} · ₹{cartTotal.toFixed(2)}
-                </Button>
-                <div className="hidden overflow-x-auto rounded-lg border sm:block">
-                  <table className="w-full min-w-[320px] text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
-                      <th className="px-3 py-2.5 font-medium">Item</th>
-                      <th className="px-2 py-2.5 text-center font-medium">Qty</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Rate</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Amount</th>
-                      <th className="w-9" />
-=======
               <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full min-w-[280px] text-sm">
                   <thead>
@@ -1613,7 +1149,6 @@ export function InvoiceEntryForm({
                       <th className="px-3 py-2 font-medium">Rate</th>
                       <th className="px-3 py-2 text-right font-medium">Amount</th>
                       <th className="w-10" />
->>>>>>> origin/master
                     </tr>
                   </thead>
                   <tbody>
@@ -1622,88 +1157,23 @@ export function InvoiceEntryForm({
                       const hasLineDiscount =
                         allocated != null && allocated.lineDiscountRupees > 0.004;
                       const unitRate = line.priceRupees;
-<<<<<<< HEAD
-                      const listAmount = lineTotal(line);
-                      const amount = hasLineDiscount
-                        ? allocated.discountedLineRupees
-                        : listAmount;
-=======
                       const amount = hasLineDiscount
                         ? allocated.discountedLineRupees
                         : lineTotal(line);
->>>>>>> origin/master
                       const hint = hasLineDiscount
                         ? formatLineDiscountHint(allocated, invoiceTemplate)
                         : null;
                       const fmt = (n: number) => formatInvoiceMoney(n, invoiceTemplate);
                       return (
-<<<<<<< HEAD
-                      <tr key={line.id} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="px-3 py-2.5">
-                          <span className="block font-medium leading-snug">{line.name}</span>
-                          {saleLineVariantSubtitle(line) ? (
-                            <span className="mt-1 inline-block rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-=======
                       <tr key={line.id} className="border-b last:border-0">
                         <td className="max-w-[8rem] px-3 py-2 break-words sm:max-w-none">
                           <span className="block">{line.name}</span>
                           {saleLineVariantSubtitle(line) ? (
                             <span className="mt-0.5 block text-xs font-medium text-primary">
->>>>>>> origin/master
                               {saleLineVariantSubtitle(line)}
                             </span>
                           ) : null}
                           {hint ? (
-<<<<<<< HEAD
-                            <span className="mt-1 block text-xs font-medium text-emerald-700">
-                              {hint}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="px-2 py-2.5">
-                          <div className="mx-auto flex w-fit items-center rounded-lg border bg-background">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 shrink-0 rounded-none rounded-l-lg p-0 min-h-0"
-                              onClick={() => updateCartLineQty(line.id, -1)}
-                              aria-label={`Decrease ${line.name} quantity`}
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <span className="min-w-[2.5rem] border-x px-2 text-center text-sm font-semibold tabular-nums">
-                              {line.qty}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 shrink-0 rounded-none rounded-r-lg p-0 min-h-0"
-                              onClick={() => updateCartLineQty(line.id, 1)}
-                              aria-label={`Increase ${line.name} quantity`}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                          {fmt(unitRate)}
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          {hasLineDiscount ? (
-                            <div className="tabular-nums">
-                              <span className="block text-xs text-muted-foreground line-through">
-                                {fmt(listAmount)}
-                              </span>
-                              <span className="block font-semibold">{fmt(amount)}</span>
-                            </div>
-                          ) : (
-                            <span className="font-semibold tabular-nums">{fmt(amount)}</span>
-                          )}
-                        </td>
-                        <td className="px-1 py-2.5">
-=======
                             <span className="mt-0.5 block text-xs text-emerald-700">{hint}</span>
                           ) : null}
                           {line.barcode ? (
@@ -1716,7 +1186,6 @@ export function InvoiceEntryForm({
                         <td className="px-3 py-2 tabular-nums">{fmt(unitRate)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{fmt(amount)}</td>
                         <td className="px-2 py-2">
->>>>>>> origin/master
                           <DeleteIconButton
                             variant="ghost"
                             onClick={() =>
@@ -1729,41 +1198,8 @@ export function InvoiceEntryForm({
                     );
                     })}
                   </tbody>
-<<<<<<< HEAD
-                  </table>
-                </div>
-                <Sheet open={cartSheetOpen} onOpenChange={setCartSheetOpen}>
-                  <SheetContent>
-                    <SheetTitle>Cart</SheetTitle>
-                    <ul className="mt-3 space-y-2">
-                      {cart.map((line) => (
-                        <li
-                          key={line.id}
-                          className="flex items-start justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
-                        >
-                          <div className="min-w-0">
-                            <p className="font-medium">{line.name}</p>
-                            <p className="text-xs text-muted-foreground tabular-nums">
-                              {line.qty} × ₹{line.priceRupees.toFixed(2)}
-                            </p>
-                          </div>
-                          <DeleteIconButton
-                            variant="ghost"
-                            onClick={() =>
-                              setCart((prev) => prev.filter((l) => l.id !== line.id))
-                            }
-                            aria-label={`Remove ${line.name}`}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </SheetContent>
-                </Sheet>
-              </>
-=======
                 </table>
               </div>
->>>>>>> origin/master
             )}
           </FormSection>
 
@@ -2084,85 +1520,14 @@ export function InvoiceEntryForm({
               under Features.
             </p>
           ) : null}
-<<<<<<< HEAD
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={splitPayment}
-              onChange={(e) => {
-                setSplitPayment(e.target.checked);
-                if (e.target.checked) {
-                  setSplitCashRupees(String((cartTotal / 2).toFixed(2)));
-                  setSplitUpiRupees(String((cartTotal / 2).toFixed(2)));
-                }
-              }}
-              className="rounded border-border"
-            />
-            Split payment (cash + UPI)
-          </label>
-          {splitPayment ? (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Cash ₹</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={splitCashRupees}
-                  onChange={(e) => setSplitCashRupees(e.target.value)}
-                  className="h-10 rounded-lg"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">UPI ₹</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={splitUpiRupees}
-                  onChange={(e) => setSplitUpiRupees(e.target.value)}
-                  className="h-10 rounded-lg"
-                />
-              </div>
-              <p className="col-span-2 text-xs text-muted-foreground">
-                Total must equal ₹{cartTotal.toFixed(2)} · F2 scan · F9 complete · 1–4 payment · Ctrl+S save
-              </p>
-            </div>
-          ) : null}
-          {paymentMethod === "CASH" && !splitPayment ? (
-=======
           {paymentMethod === "CASH" ? (
->>>>>>> origin/master
             <CashTenderPanel
               totalRupees={cartTotal}
               receivedRupees={cashReceivedRupees}
               onReceivedChange={setCashReceivedRupees}
             />
           ) : null}
-<<<<<<< HEAD
-          {terminalReady &&
-          !splitPayment &&
-          (paymentMethod === "CARD" || paymentMethod === "UPI") &&
-          !terminalConfig.autoCollect ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 w-full rounded-xl"
-              disabled={terminalCollecting || cart.length === 0}
-              onClick={() => void collectOnTerminal()}
-            >
-              {terminalCollecting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CreditCard className="mr-2 h-4 w-4" />
-              )}
-              Collect ₹{cartTotal.toFixed(2)} on machine
-            </Button>
-          ) : null}
-          {udhaarEnabled && paymentMethod !== "CREDIT" && paymentMethod !== "CASH" && !splitPayment && (
-=======
           {udhaarEnabled && paymentMethod !== "CREDIT" && paymentMethod !== "CASH" && (
->>>>>>> origin/master
             <div className="space-y-1.5">
               <Label className="text-sm">Paid now (₹) — leave blank for full payment</Label>
               <Input
@@ -2178,19 +1543,11 @@ export function InvoiceEntryForm({
           )}
         </div>
 
-<<<<<<< HEAD
-        <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-20 grid grid-cols-1 gap-2 border-t bg-card p-4 sm:static sm:grid-cols-3 sm:p-5">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-12 w-full rounded-xl sm:h-11 sm:flex-1"
-=======
         <div className="flex flex-col gap-2 border-t p-4 sm:flex-row sm:p-5">
           <Button
             type="button"
             variant="outline"
             className="h-11 w-full rounded-xl sm:flex-1"
->>>>>>> origin/master
             onClick={holdCurrentBill}
             disabled={cart.length === 0}
           >
@@ -2198,35 +1555,16 @@ export function InvoiceEntryForm({
             Hold
           </Button>
           <Button
-<<<<<<< HEAD
-            type="button"
-            variant="outline"
-            className="h-12 w-full rounded-xl sm:h-11 sm:flex-1"
-            onClick={(e) => void completeSale(e, false)}
-            disabled={createMutation.isPending || terminalCollecting || cart.length === 0}
-          >
-            Save only
-          </Button>
-          <Button
-            type="submit"
-            className="h-12 w-full rounded-xl text-base sm:h-11 sm:flex-[2]"
-            disabled={createMutation.isPending || terminalCollecting || cart.length === 0}
-=======
             type="submit"
             className="h-11 w-full rounded-xl sm:flex-[2]"
             disabled={createMutation.isPending || cart.length === 0}
->>>>>>> origin/master
           >
             <Printer className="mr-2 h-4 w-4 shrink-0" />
             {createMutation.isPending ? (
               "Saving…"
             ) : (
               <>
-<<<<<<< HEAD
-                <span className="sm:hidden">Complete bill · ₹{cartTotal.toFixed(2)}</span>
-=======
                 <span className="sm:hidden">Save · ₹{cartTotal.toFixed(2)}</span>
->>>>>>> origin/master
                 <span className="hidden sm:inline">
                   {`Save & print · ₹${cartTotal.toFixed(2)}`}
                 </span>
@@ -2236,9 +1574,5 @@ export function InvoiceEntryForm({
         </div>
       </form>
     </div>
-<<<<<<< HEAD
-    </>
-=======
->>>>>>> origin/master
   );
 }

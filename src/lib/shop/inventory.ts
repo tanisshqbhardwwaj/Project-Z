@@ -5,7 +5,6 @@ export function isInfiniteStock(quantity: number): boolean {
   return quantity >= INFINITE_STOCK_QTY;
 }
 
-<<<<<<< HEAD
 export type StockCheckLine = {
   id?: string;
   inventoryItemId?: string;
@@ -77,8 +76,6 @@ export function validateCartStock(
   return { ok: true };
 }
 
-=======
->>>>>>> origin/master
 export function formatStockLabel(quantity: number, unit = "pcs"): string {
   if (isInfiniteStock(quantity)) return "∞ unlimited";
   return `${quantity} ${unit} left`;

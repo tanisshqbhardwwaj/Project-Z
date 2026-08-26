@@ -1,20 +1,14 @@
 "use client";
 
 import Link from "next/link";
-<<<<<<< HEAD
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Search, X } from "lucide-react";
-=======
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, X } from "lucide-react";
->>>>>>> origin/master
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { useAuthStore } from "@/stores/auth-store";
 import { formatINR } from "@/lib/finance/money";
 import { formatCustomerLabel } from "@/lib/shop/customer";
-<<<<<<< HEAD
 import type { ShopDashboardPeriod } from "@/lib/shop/dashboard-period";
 import {
   filterSortInvoices,
@@ -27,13 +21,6 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { DashboardInvoiceFilters } from "@/components/shop/dashboard-invoice-filters";
 
 type DashboardPeriod = ShopDashboardPeriod;
-=======
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { PageLoader } from "@/components/ui/page-loader";
-
-type DashboardPeriod = "today" | "month";
->>>>>>> origin/master
 
 type StaffSummary = {
   name: string;
@@ -62,15 +49,10 @@ type StaffInvoicesData = {
 type StaffSalesSidebarProps = {
   open: boolean;
   period: DashboardPeriod;
-<<<<<<< HEAD
   exactDate: string;
   periodLabel: string;
   staffList: StaffSummary[];
   paymentMethods: string[];
-=======
-  periodLabel: string;
-  staffList: StaffSummary[];
->>>>>>> origin/master
   selectedStaff: string | null;
   onClose: () => void;
   onSelectStaff: (name: string | null) => void;
@@ -79,32 +61,23 @@ type StaffSalesSidebarProps = {
 export function StaffSalesSidebar({
   open,
   period,
-<<<<<<< HEAD
   exactDate,
   periodLabel,
   staffList,
   paymentMethods,
-=======
-  periodLabel,
-  staffList,
->>>>>>> origin/master
   selectedStaff,
   onClose,
   onSelectStaff,
 }: StaffSalesSidebarProps) {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
-<<<<<<< HEAD
   const [staffSearch, setStaffSearch] = useState("");
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoicePayment, setInvoicePayment] = useState("all");
   const [invoiceSort, setInvoiceSort] = useState<InvoiceSort>("newest");
-=======
->>>>>>> origin/master
 
   const detailQuery = useQuery({
     queryKey:
       orgId && selectedStaff
-<<<<<<< HEAD
         ? [
             ...queryKeys.modules.shop.staffInvoices(orgId, period, selectedStaff),
             period === "date" ? exactDate : "",
@@ -139,17 +112,6 @@ export function StaffSalesSidebar({
     [detailQuery.data?.invoices, invoiceSearch, invoicePayment, invoiceSort]
   );
 
-=======
-        ? queryKeys.modules.shop.staffInvoices(orgId, period, selectedStaff)
-        : ["disabled"],
-    queryFn: () =>
-      apiFetch<StaffInvoicesData>(
-        `/api/v1/shop/dashboard/staff-invoices?period=${period}&staffName=${encodeURIComponent(selectedStaff!)}`
-      ),
-    enabled: open && !!orgId && !!selectedStaff,
-  });
-
->>>>>>> origin/master
   if (!open) return null;
 
   const selectedSummary = selectedStaff
@@ -172,16 +134,12 @@ export function StaffSalesSidebar({
               variant="ghost"
               size="icon"
               className="shrink-0 rounded-lg"
-<<<<<<< HEAD
               onClick={() => {
                 onSelectStaff(null);
                 setInvoiceSearch("");
                 setInvoicePayment("all");
                 setInvoiceSort("newest");
               }}
-=======
-              onClick={() => onSelectStaff(null)}
->>>>>>> origin/master
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -210,7 +168,6 @@ export function StaffSalesSidebar({
 
         <div className="flex-1 overflow-y-auto">
           {!selectedStaff ? (
-<<<<<<< HEAD
             <>
               <div className="border-b px-4 py-3">
                 <div className="relative">
@@ -269,49 +226,6 @@ export function StaffSalesSidebar({
                 </ul>
               )}
             </>
-=======
-            <ul className="divide-y">
-              {staffList.map((staff) => (
-                <li key={staff.name}>
-                  <button
-                    type="button"
-                    onClick={() => onSelectStaff(staff.name)}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium">{staff.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {staff.invoiceCount} bill
-                        {staff.invoiceCount === 1 ? "" : "s"}
-                        {period === "month" && staff.targetRupees > 0
-                          ? ` · ${staff.progressPercent ?? 0}% of target`
-                          : ""}
-                      </p>
-                      {period === "month" && staff.targetRupees > 0 ? (
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className={cn(
-                              "h-full rounded-full",
-                              (staff.progressPercent ?? 0) >= 100
-                                ? "bg-emerald-500"
-                                : "bg-primary"
-                            )}
-                            style={{ width: `${staff.progressPercent ?? 0}%` }}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-sm font-semibold tabular-nums">
-                        {formatINR(staff.salesPaise)}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
->>>>>>> origin/master
           ) : detailQuery.isLoading ? (
             <PageLoader label="Loading invoices…" />
           ) : detailQuery.error ? (
@@ -320,7 +234,6 @@ export function StaffSalesSidebar({
                 ? detailQuery.error.message
                 : "Failed to load invoices"}
             </p>
-<<<<<<< HEAD
           ) : (
             <>
               <DashboardInvoiceFilters
@@ -376,45 +289,6 @@ export function StaffSalesSidebar({
                 </ul>
               )}
             </>
-=======
-          ) : (detailQuery.data?.invoices.length ?? 0) === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">No invoices found.</p>
-          ) : (
-            <ul className="divide-y">
-              {detailQuery.data!.invoices.map((inv) => (
-                <li key={inv.id}>
-                  <Link
-                    href={`/shop/invoices/${inv.id}`}
-                    className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
-                    onClick={onClose}
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium">
-                        {inv.customerName
-                          ? formatCustomerLabel({
-                              name: inv.customerName,
-                              phone: inv.customerPhone,
-                            })
-                          : "Walk-in"}
-                        {inv.billNumber ? (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            #{inv.billNumber}
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(inv.createdAt).toLocaleString("en-IN")} ·{" "}
-                        {inv.paymentMethod}
-                      </p>
-                    </div>
-                    <span className="shrink-0 font-semibold tabular-nums">
-                      {formatINR(inv.totalPaise)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
->>>>>>> origin/master
           )}
         </div>
       </aside>

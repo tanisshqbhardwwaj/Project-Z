@@ -1,23 +1,15 @@
 import { z } from "zod";
 import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
 import { requirePlatformAdmin } from "@/lib/billing/platform-admin";
-<<<<<<< HEAD
-import { serializeBigInt } from "@/lib/db/prisma";
-=======
 import { prisma, serializeBigInt } from "@/lib/db/prisma";
->>>>>>> origin/master
 import {
   activatePlanAfterPayment,
   markSetupFeePaid,
   reactivateOrganization,
   updateOrgBillingFromOps,
 } from "@/services/billing.service";
-<<<<<<< HEAD
-import { getOpsOrganizationDetail } from "@/services/ops.service";
-=======
 import { getStorageUsageBreakdown } from "@/services/storage-quota.service";
 import { getPlanDefinition } from "@/lib/billing/plans";
->>>>>>> origin/master
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -25,10 +17,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
   return handleApi(async () => {
     await requirePlatformAdmin();
     const { id } = await params;
-<<<<<<< HEAD
-    const detail = await getOpsOrganizationDetail(id);
-    return apiSuccess(serializeBigInt(detail));
-=======
     const org = await prisma.organization.findUnique({
       where: { id },
       include: {
@@ -49,7 +37,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
         storage,
       })
     );
->>>>>>> origin/master
   });
 }
 

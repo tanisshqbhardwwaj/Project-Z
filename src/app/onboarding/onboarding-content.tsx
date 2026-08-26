@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, setActiveOrganizationId } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
-import { logoutUser } from "@/lib/auth/logout-client";
 import { AppLogo } from "@/components/brand/app-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,13 +122,9 @@ export default function OnboardingContent() {
   }
 
   async function handleLogout() {
-<<<<<<< HEAD
-    await logoutUser();
-=======
     await fetch("/api/v1/auth/logout", { method: "POST" });
     logout();
     window.location.href = "/login";
->>>>>>> origin/master
   }
 
   if (!initialized) return <PageLoader label="Loading..." />;

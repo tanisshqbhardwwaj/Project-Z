@@ -41,32 +41,6 @@ async function assertUniqueCashierCode(
   }
 }
 
-<<<<<<< HEAD
-const CASHIER_CODE_LETTERS = ["R", "C", "S", "A", "B", "K", "M", "T"] as const;
-
-/**
- * Auto-assign a short 2-char cashier code (R1…R9, then C1…C9, …) so bill
- * numbers stay GST-safe (≤16 chars) without staff having to invent codes.
- */
-async function nextAutoCashierCode(organizationId: string): Promise<string> {
-  const rows = await prisma.staffMember.findMany({
-    where: { organizationId, cashierCode: { not: null } },
-    select: { cashierCode: true },
-  });
-  const used = new Set(
-    rows.map((r) => (r.cashierCode ?? "").trim().toUpperCase()).filter(Boolean)
-  );
-  for (const letter of CASHIER_CODE_LETTERS) {
-    for (let digit = 1; digit <= 9; digit++) {
-      const candidate = `${letter}${digit}`;
-      if (!used.has(candidate)) return candidate;
-    }
-  }
-  throw new Error("No cashier codes left — set one manually");
-}
-
-=======
->>>>>>> origin/master
 export async function listStaffMembers(
   organizationId: string,
   options?: { status?: StaffStatus; search?: string }
@@ -279,13 +253,7 @@ export async function createStaffMember(input: {
       ? rupeesToPaise(input.overtimeRateRupees)
       : null;
   const commission = resolveCommission(input);
-<<<<<<< HEAD
-  const cashierCode =
-    resolveCashierCodeInput(input.cashierCode) ??
-    (await nextAutoCashierCode(input.organizationId));
-=======
   const cashierCode = resolveCashierCodeInput(input.cashierCode);
->>>>>>> origin/master
   await assertUniqueCashierCode(input.organizationId, cashierCode);
 
   const staff = await prisma.staffMember.create({

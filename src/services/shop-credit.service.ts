@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import type { InvoicePaymentStatus, PaymentMethod, Prisma } from "@prisma/client";
-=======
-import type { InvoicePaymentStatus, PaymentMethod } from "@prisma/client";
->>>>>>> origin/master
 import { prisma } from "@/lib/db/prisma";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { ensureShopExtendedSchema } from "@/lib/shop/ensure-shop-extended-schema";
@@ -63,47 +59,29 @@ export async function resolveOrCreateCreditAccount(input: {
   customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
-<<<<<<< HEAD
   tx?: Prisma.TransactionClient;
 }) {
   await ensureShopExtendedSchema();
   await requireModule(input.organizationId, "shop_udhaar");
   const db = input.tx ?? prisma;
-=======
-}) {
-  await ensureShopExtendedSchema();
-  await requireModule(input.organizationId, "shop_udhaar");
->>>>>>> origin/master
 
   const phone = input.customerPhone?.trim() || null;
   const name = input.customerName?.trim() || "Walk-in customer";
 
   if (input.customerId) {
-<<<<<<< HEAD
     const byCustomer = await db.customerCredit.findFirst({
-=======
-    const byCustomer = await prisma.customerCredit.findFirst({
->>>>>>> origin/master
       where: { organizationId: input.organizationId, shopCustomerId: input.customerId },
     });
     if (byCustomer) return byCustomer;
   }
 
   if (phone) {
-<<<<<<< HEAD
     const byPhone = await db.customerCredit.findFirst({
-=======
-    const byPhone = await prisma.customerCredit.findFirst({
->>>>>>> origin/master
       where: { organizationId: input.organizationId, phone },
     });
     if (byPhone) {
       if (input.customerId && !byPhone.shopCustomerId) {
-<<<<<<< HEAD
         return db.customerCredit.update({
-=======
-        return prisma.customerCredit.update({
->>>>>>> origin/master
           where: { id: byPhone.id },
           data: { shopCustomerId: input.customerId },
         });
@@ -112,11 +90,7 @@ export async function resolveOrCreateCreditAccount(input: {
     }
   }
 
-<<<<<<< HEAD
   return db.customerCredit.create({
-=======
-  return prisma.customerCredit.create({
->>>>>>> origin/master
     data: {
       organizationId: input.organizationId,
       shopCustomerId: input.customerId ?? null,
@@ -137,20 +111,13 @@ export async function recordCreditFromSale(input: {
   totalPaise: bigint;
   paidPaise: bigint;
   paymentMethod?: PaymentMethod;
-<<<<<<< HEAD
   /** When provided, writes join the caller's transaction and audit is skipped (caller audits post-commit). */
   tx?: Prisma.TransactionClient;
-=======
->>>>>>> origin/master
 }) {
   const creditAmount = input.totalPaise - input.paidPaise;
   if (creditAmount <= BigInt(0)) return null;
 
-<<<<<<< HEAD
   const account = await resolveOrCreateCreditAccount({ ...input, tx: input.tx });
-=======
-  const account = await resolveOrCreateCreditAccount(input);
->>>>>>> origin/master
   const newBalance = account.balancePaise + creditAmount;
   const newPurchases = account.totalPurchasesPaise + input.totalPaise;
 
@@ -161,7 +128,6 @@ export async function recordCreditFromSale(input: {
     throw new Error("Credit limit exceeded for this customer");
   }
 
-<<<<<<< HEAD
   if (input.tx) {
     const updated = await input.tx.customerCredit.update({
       where: { id: account.id },
@@ -185,8 +151,6 @@ export async function recordCreditFromSale(input: {
     return updated;
   }
 
-=======
->>>>>>> origin/master
   const [updated] = await prisma.$transaction([
     prisma.customerCredit.update({
       where: { id: account.id },

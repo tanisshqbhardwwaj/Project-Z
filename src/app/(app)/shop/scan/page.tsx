@@ -224,36 +224,6 @@ export default function ShopScanPage() {
               </div>
             ) : null}
             <div className="flex flex-wrap gap-2 pt-2">
-<<<<<<< HEAD
-              <Button
-                type="button"
-                className="rounded-xl"
-                onClick={() => {
-                  sessionStorage.setItem(
-                    "project-z:scan-add-item",
-                    JSON.stringify({
-                      name: product.displayName ?? product.name,
-                      qty: 1,
-                      priceRupees: product.sellPaise
-                        ? Number(product.sellPaise) / 100
-                        : 0,
-                      inventoryItemId: product.id,
-                      productId: product.product?.id,
-                      barcode: product.barcode ?? undefined,
-                      sku: product.sku ?? undefined,
-                      size: product.size ?? undefined,
-                      color: product.color ?? undefined,
-                      variantLabel: product.variantLabel ?? undefined,
-                      unit: product.unit,
-                    })
-                  );
-                  router.push("/shop/invoices/new");
-                }}
-              >
-                Add to new bill
-              </Button>
-=======
->>>>>>> origin/master
               <Link href="/shop/inventory">
                 <Button variant="outline" className="rounded-xl">
                   Open inventory

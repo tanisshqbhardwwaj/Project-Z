@@ -7,10 +7,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-<<<<<<< HEAD
-=======
 import { formatINR } from "@/lib/finance/money";
->>>>>>> origin/master
 import { formatStorageBytes } from "@/lib/billing/plans";
 import { getShopSectorConfig } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
@@ -20,15 +17,10 @@ import {
   ClipboardList,
   Package,
   RefreshCw,
-<<<<<<< HEAD
-  Users,
-  UserCog,
-=======
   Receipt,
   RotateCcw,
   TrendingUp,
   UsersRound,
->>>>>>> origin/master
   Wallet,
 } from "lucide-react";
 
@@ -57,21 +49,6 @@ type Summary = {
     newOrgsThisWeek: number;
     newOrgsThisMonth: number;
     trialsExpiringSoon: number;
-<<<<<<< HEAD
-  };
-  totalUsers: number;
-  totalStaff: number;
-  activeUsers30d: number;
-  inactiveOrgs30d: number;
-  recentOrganizations: RecentOrg[];
-  platformFeed: Array<{
-    id: string;
-    type: string;
-    label: string;
-    at: string;
-    href: string | null;
-  }>;
-=======
     salesTodayPaise: string;
     salesThisMonthPaise: string;
     activeShopsToday: number;
@@ -85,7 +62,6 @@ type Summary = {
     idleShare: number;
   };
   recentOrganizations: RecentOrg[];
->>>>>>> origin/master
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -142,8 +118,6 @@ export default function OpsOverviewPage() {
       href: "/ops/customers",
       count: summary.setupOutstanding,
     },
-<<<<<<< HEAD
-=======
     {
       label: "recurring expenses overdue across shops",
       href: "/ops/customers",
@@ -154,7 +128,6 @@ export default function OpsOverviewPage() {
       href: "/ops/customers",
       count: activity.lowStockCount,
     },
->>>>>>> origin/master
   ].filter((item) => item.count > 0);
 
   return (
@@ -163,13 +136,8 @@ export default function OpsOverviewPage() {
         <div>
           <h2 className="text-2xl font-semibold">Overview</h2>
           <p className="text-sm text-muted-foreground">
-<<<<<<< HEAD
-            Billing and adoption across the platform. Shop sales and stock stay
-            inside each organization.
-=======
             Billing, adoption and day-to-day activity across every shop on the
             platform.
->>>>>>> origin/master
           </p>
         </div>
         <Button
@@ -243,66 +211,6 @@ export default function OpsOverviewPage() {
 
       <section className="space-y-3">
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-<<<<<<< HEAD
-          People
-        </h3>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            icon={Users}
-            title="Org members"
-            value={String(summary.totalUsers)}
-            hint={`${summary.activeUsers30d} logged in last 30 days`}
-            href="/ops/users"
-          />
-          <StatCard
-            icon={UserCog}
-            title="Staff records"
-            value={String(summary.totalStaff)}
-            hint="Payroll/cashier staff across all orgs"
-            href="/ops/users"
-          />
-          <StatCard
-            icon={Building2}
-            title="Inactive orgs (30d)"
-            value={String(summary.inactiveOrgs30d)}
-            hint="No platform activity in 30 days"
-            href="/ops/customers"
-          />
-        </div>
-      </section>
-
-      <Card className="rounded-2xl">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Platform activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {summary.platformFeed.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No recent events.</p>
-          ) : (
-            <ul className="space-y-2">
-              {summary.platformFeed.map((ev) => (
-                <li
-                  key={ev.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
-                >
-                  {ev.href ? (
-                    <Link href={ev.href} className="font-medium hover:underline">
-                      {ev.label}
-                    </Link>
-                  ) : (
-                    <span className="font-medium">{ev.label}</span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(ev.at).toLocaleString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-=======
           Live operations
         </h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -337,7 +245,6 @@ export default function OpsOverviewPage() {
         </p>
       </section>
 
->>>>>>> origin/master
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl lg:col-span-2">
           <CardHeader className="pb-2">

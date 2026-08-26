@@ -13,7 +13,6 @@ export function fiscalYearLabel(date = new Date()): string {
   return `${startShort}-${endShort}`;
 }
 
-<<<<<<< HEAD
 function toAlnumUpper(raw: string | null | undefined): string {
   return (raw ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
@@ -47,32 +46,15 @@ export function deriveStoreCode(orgName: string | null | undefined): string {
  */
 export function formatShopBillNumber(input: {
   storeCode: string | null | undefined;
-=======
-export function normalizeCashierCode(raw: string | null | undefined): string {
-  const trimmed = (raw ?? "").trim().toUpperCase();
-  if (!trimmed) return "00";
-  return trimmed.replace(/[^A-Z0-9]/g, "").slice(0, 10) || "00";
-}
-
-export function formatShopBillNumber(input: {
-  prefix: string;
->>>>>>> origin/master
   cashierCode: string | null | undefined;
   fiscalYear: string;
   sequence: number;
 }): string {
-<<<<<<< HEAD
   const cashier = normalizeCashierCode(input.cashierCode).slice(0, 2) || "00";
   const seq = String(Math.max(1, Math.floor(input.sequence))).padStart(4, "0");
   const maxStore = Math.max(1, 16 - (cashier.length + seq.length + 8));
   const store = (toAlnumUpper(input.storeCode) || "Z").slice(0, Math.min(4, maxStore));
   return `${store}/${input.fiscalYear}/${cashier}/${seq}`;
-=======
-  const prefix = input.prefix.trim().toUpperCase() || "INV";
-  const code = normalizeCashierCode(input.cashierCode);
-  const seq = Math.max(1, Math.floor(input.sequence));
-  return `${prefix}-${code}-${input.fiscalYear}-${String(seq).padStart(5, "0")}`;
->>>>>>> origin/master
 }
 
 function readBillSeqByFy(
@@ -92,7 +74,6 @@ function readBillSeqByFy(
   return 0;
 }
 
-<<<<<<< HEAD
 function isUniqueViolation(err: unknown): boolean {
   return (
     typeof err === "object" &&
@@ -161,8 +142,6 @@ export function resolveStoreCode(
   return deriveStoreCode(orgName);
 }
 
-=======
->>>>>>> origin/master
 export async function nextShopBillNumber(
   tx: Tx,
   organizationId: string,
@@ -170,16 +149,11 @@ export async function nextShopBillNumber(
 ): Promise<string> {
   const org = await tx.organization.findUnique({
     where: { id: organizationId },
-<<<<<<< HEAD
     select: { name: true, settings: true },
-=======
-    select: { settings: true },
->>>>>>> origin/master
   });
   const settings = (org?.settings ?? {}) as Record<string, unknown>;
   const shop = (settings.shop ?? {}) as Record<string, unknown>;
   const invoice = (shop.invoice ?? {}) as Record<string, unknown>;
-<<<<<<< HEAD
   const storeCode = resolveStoreCode(invoice, org?.name);
 
   const fiscalYear = fiscalYearLabel();
@@ -192,35 +166,6 @@ export async function nextShopBillNumber(
 
   return formatShopBillNumber({
     storeCode,
-=======
-  const prefix =
-    typeof invoice.billPrefix === "string" && invoice.billPrefix.trim()
-      ? invoice.billPrefix.trim().toUpperCase()
-      : "INV";
-
-  const fiscalYear = fiscalYearLabel();
-  const prevSeq = readBillSeqByFy(shop, fiscalYear);
-  const seq = prevSeq + 1;
-
-  const billSeqByFy = {
-    ...(shop.billSeqByFy && typeof shop.billSeqByFy === "object"
-      ? (shop.billSeqByFy as Record<string, number>)
-      : {}),
-    [fiscalYear]: seq,
-  };
-
-  const nextSettings = {
-    ...settings,
-    shop: { ...shop, billSeqByFy, nextBillSeq: seq },
-  };
-  await tx.organization.update({
-    where: { id: organizationId },
-    data: { settings: nextSettings },
-  });
-
-  return formatShopBillNumber({
-    prefix,
->>>>>>> origin/master
     cashierCode,
     fiscalYear,
     sequence: seq,

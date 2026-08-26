@@ -391,16 +391,12 @@ export async function updateOrganization(input: {
     input.shopSector !== before.shopSector;
 
   if (typeChanged || sectorChanged) {
-<<<<<<< HEAD
-    await seedExpenseCategories(prisma, input.organizationId);
-=======
     await seedExpenseCategories(
       prisma,
       input.organizationId,
       updated.businessType,
       updated.shopSector
     );
->>>>>>> origin/master
   }
 
   await createAuditLog({

@@ -35,22 +35,6 @@ export type ShopInvoiceDocumentKind =
   | "CREDIT_NOTE"
   | "EXCHANGE_INVOICE";
 
-<<<<<<< HEAD
-function formatPaymentLabel(invoice: ShopInvoiceData): string {
-  const splits = invoice.pricing?.splitPayments;
-  if (splits?.length) {
-    return splits
-      .map(
-        (s) =>
-          `${String(s.method).replace(/_/g, " ")} ₹${Number(s.amountRupees).toFixed(2)}`
-      )
-      .join(" + ");
-  }
-  return String(invoice.paymentMethod).replace(/_/g, " ");
-}
-
-=======
->>>>>>> origin/master
 export type ShopInvoiceData = {
   orgName: string;
   billNumber: string | null;
@@ -163,13 +147,6 @@ export function ShopInvoicePrint({
         storedLineDiscountRupees: p?.lineDiscountRupees,
         manualDiscountRupees: manualDiscount,
         manualDiscountMode: p?.manualDiscountMode,
-<<<<<<< HEAD
-        offerLineDiscountRupees:
-          offerDiscount > 0 && p?.lineDiscountRupees?.length === invoice.items.length
-            ? p.lineDiscountRupees
-            : undefined,
-=======
->>>>>>> origin/master
       })
     : null;
   const showRoundOff = t.useDecimalPlaces && roundOff < -0.004;
@@ -241,13 +218,8 @@ export function ShopInvoicePrint({
 
   return (
     <article
-<<<<<<< HEAD
-      className={`box-border w-full bg-white font-sans text-black ${
-        compact ? "p-3 text-[11px] leading-snug" : "mx-auto max-w-[210mm] p-6 text-sm leading-normal"
-=======
       className={`box-border w-full bg-white text-black ${
         compact ? "p-3 text-[11px]" : "mx-auto max-w-[210mm] p-6 text-sm"
->>>>>>> origin/master
       }`}
     >
       <div className="invoice-header border-b border-neutral-300 pb-3 text-center">
@@ -259,22 +231,6 @@ export function ShopInvoicePrint({
             className="mx-auto mb-2 h-12 max-w-[160px] object-contain"
           />
         ) : null}
-<<<<<<< HEAD
-        <h1 className="text-base font-bold uppercase tracking-[0.12em]">{t.displayName}</h1>
-        <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-neutral-500">
-          {documentTitle}
-        </p>
-        {t.gstin ? (
-          <p className="mt-2 font-mono text-[10px] text-neutral-600">GSTIN {t.gstin}</p>
-        ) : null}
-        {t.address ? (
-          <p className="mt-1 whitespace-pre-line text-[10px] leading-relaxed text-neutral-600">
-            {t.address}
-          </p>
-        ) : null}
-        {t.phone || t.email ? (
-          <p className="mt-1 text-[10px] text-neutral-600">
-=======
         <h1 className="text-lg font-bold uppercase tracking-wide">{t.displayName}</h1>
         <p className="mt-1 text-xs text-neutral-600">{documentTitle}</p>
         {t.gstin ? (
@@ -285,7 +241,6 @@ export function ShopInvoicePrint({
         ) : null}
         {t.phone || t.email ? (
           <p className="mt-1 text-[11px] text-neutral-600">
->>>>>>> origin/master
             {[t.phone, t.email].filter(Boolean).join(" · ")}
           </p>
         ) : null}
@@ -331,11 +286,7 @@ export function ShopInvoicePrint({
         {t.showPaymentMethod ? (
           <div className="flex justify-between gap-4">
             <span className="text-neutral-600">Payment</span>
-<<<<<<< HEAD
-            <span className="text-right">{formatPaymentLabel(invoice)}</span>
-=======
             <span>{invoice.paymentMethod}</span>
->>>>>>> origin/master
           </div>
         ) : null}
         {t.showCashier && invoice.cashierName ? (
@@ -346,11 +297,7 @@ export function ShopInvoicePrint({
         ) : null}
       </section>
 
-<<<<<<< HEAD
-      <table className="mt-3 w-full table-fixed border-collapse text-[11px]">
-=======
       <table className="mt-4 w-full table-fixed border-collapse text-xs">
->>>>>>> origin/master
         <colgroup>
           <col className="w-[44%]" />
           <col className="w-[12%]" />
@@ -358,27 +305,11 @@ export function ShopInvoicePrint({
           <col className="w-[22%]" />
         </colgroup>
         <thead>
-<<<<<<< HEAD
-          <tr className="border-b-2 border-neutral-800">
-            <th className="py-1.5 text-left text-[10px] font-bold uppercase tracking-wide">
-              Item
-            </th>
-            <th className="py-1.5 text-right text-[10px] font-bold uppercase tracking-wide">
-              Qty
-            </th>
-            <th className="py-1.5 text-right text-[10px] font-bold uppercase tracking-wide">
-              Rate
-            </th>
-            <th className="py-1.5 text-right text-[10px] font-bold uppercase tracking-wide">
-              Amt
-            </th>
-=======
           <tr className="border-b border-neutral-300">
             <th className="py-1 text-left font-semibold">Item</th>
             <th className="py-1 text-right font-semibold">Qty</th>
             <th className="py-1 text-right font-semibold">Rate</th>
             <th className="py-1 text-right font-semibold">Amt</th>
->>>>>>> origin/master
           </tr>
         </thead>
         <tbody>
@@ -433,27 +364,11 @@ export function ShopInvoicePrint({
               <col className="w-[22%]" />
             </colgroup>
             <thead>
-<<<<<<< HEAD
-              <tr className="border-b-2 border-neutral-800">
-                <th className="py-1.5 text-left text-[10px] font-bold uppercase tracking-wide">
-                  Item
-                </th>
-                <th className="py-1.5 text-right text-[10px] font-bold uppercase tracking-wide">
-                  Qty
-                </th>
-                <th className="py-1.5 text-right text-[10px] font-bold uppercase tracking-wide">
-                  Rate
-                </th>
-                <th className="py-1.5 text-right text-[10px] font-bold uppercase tracking-wide">
-                  Amt
-                </th>
-=======
               <tr className="border-b border-neutral-300">
                 <th className="py-1 text-left font-semibold">Item</th>
                 <th className="py-1 text-right font-semibold">Qty</th>
                 <th className="py-1 text-right font-semibold">Rate</th>
                 <th className="py-1 text-right font-semibold">Amt</th>
->>>>>>> origin/master
               </tr>
             </thead>
             <tbody>
@@ -484,11 +399,7 @@ export function ShopInvoicePrint({
         </>
       ) : null}
 
-<<<<<<< HEAD
-      <footer className="invoice-totals mt-3 space-y-1 border-t-2 border-neutral-800 pt-2 text-[11px]">
-=======
       <footer className="invoice-totals mt-4 space-y-1 border-t border-neutral-300 pt-3 text-xs">
->>>>>>> origin/master
         {isReturnDoc && invoice.returnMeta ? (
           <>
             <div className="flex justify-between">
@@ -529,11 +440,7 @@ export function ShopInvoicePrint({
             </div>
             <div className="flex justify-between text-[11px] text-neutral-600">
               <span>Settlement</span>
-<<<<<<< HEAD
-              <span>{formatPaymentLabel(invoice)}</span>
-=======
               <span>{invoice.paymentMethod}</span>
->>>>>>> origin/master
             </div>
             {invoice.returnMeta.reason ? (
               <div className="flex justify-between text-[11px] text-neutral-600">
@@ -561,11 +468,7 @@ export function ShopInvoicePrint({
             <span className="tabular-nums">− {fmt(Math.abs(roundOff))}</span>
           </div>
         ) : null}
-<<<<<<< HEAD
-        <div className="flex justify-between pt-1 text-sm font-bold">
-=======
         <div className="flex justify-between text-base font-bold">
->>>>>>> origin/master
           <span>Total</span>
           <span className="tabular-nums">{fmt(Number(invoice.totalPaise) / 100)}</span>
         </div>
@@ -597,22 +500,11 @@ export function ShopInvoicePrint({
             value={invoice.billNumber.replace(/\D/g, "").slice(-12).padStart(12, "0")}
             height={barcodeHeight}
           />
-<<<<<<< HEAD
-          <p className="mt-1 font-mono text-[10px] font-medium">{invoice.billNumber}</p>
-          <p className="text-[9px] text-neutral-500">Scan for bill reference</p>
-        </div>
-      ) : null}
-
-      <p className="mt-4 text-center text-[10px] font-medium tracking-wide text-neutral-600">
-        {t.footerText}
-      </p>
-=======
           <p className="mt-1 text-[10px] text-neutral-500">Scan for bill reference</p>
         </div>
       ) : null}
 
       <p className="mt-4 text-center text-[10px] text-neutral-500">{t.footerText}</p>
->>>>>>> origin/master
     </article>
   );
 }

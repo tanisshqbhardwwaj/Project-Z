@@ -84,22 +84,6 @@ describe("shouldShowLineDiscountHints", () => {
     expect(shouldShowLineDiscountHints(pricing)).toBe(false);
   });
 
-<<<<<<< HEAD
-  it("returns false for legacy flat rupee discount without manualDiscountMode", () => {
-    const pricing: StoredInvoicePricing = {
-      subtotalRupees: 800,
-      discountRupees: 100,
-      taxIncluded: false,
-      taxRatePercent: 0,
-      roundOffRupees: 0,
-      taxableRupees: 700,
-      gstRupees: 0,
-    };
-    expect(shouldShowLineDiscountHints(pricing)).toBe(false);
-  });
-
-=======
->>>>>>> origin/master
   it("respects live discount mode during billing", () => {
     expect(shouldShowLineDiscountHints(null, "percent")).toBe(true);
     expect(shouldShowLineDiscountHints(null, "rupees", 0)).toBe(false);
@@ -189,29 +173,6 @@ describe("resolveInvoiceLineAllocations", () => {
     expect(result?.[0].lineDiscountRupees).toBeGreaterThan(160);
     expect(result?.[1].lineDiscountRupees).toBeGreaterThan(0);
   });
-<<<<<<< HEAD
-
-  it("returns null for flat rupee cart discount (totals only)", () => {
-    const result = resolveInvoiceLineAllocations(items, {
-      showLineHints: false,
-      totalDiscountRupees: 100,
-      manualDiscountRupees: 100,
-      manualDiscountMode: "rupees",
-    });
-    expect(result).toBeNull();
-  });
-
-  it("does not spread flat rupee discount across lines even when showLineHints is true", () => {
-    const result = resolveInvoiceLineAllocations(items, {
-      showLineHints: true,
-      totalDiscountRupees: 100,
-      manualDiscountRupees: 100,
-      manualDiscountMode: "rupees",
-    });
-    expect(result).toBeNull();
-  });
-=======
->>>>>>> origin/master
 });
 
 describe("percent vs flat line display totals", () => {

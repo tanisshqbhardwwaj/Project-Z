@@ -261,10 +261,6 @@ export default function PurchaseDetailPage() {
       <Card className="rounded-2xl border-0 shadow-md">
         <CardHeader><CardTitle className="text-lg">Items</CardTitle></CardHeader>
         <CardContent>
-<<<<<<< HEAD
-          <div className="overflow-x-auto">
-=======
->>>>>>> origin/master
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">
@@ -285,10 +281,6 @@ export default function PurchaseDetailPage() {
               ))}
             </tbody>
           </table>
-<<<<<<< HEAD
-          </div>
-=======
->>>>>>> origin/master
         </CardContent>
       </Card>
 

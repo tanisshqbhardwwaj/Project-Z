@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-<<<<<<< HEAD
   deriveStoreCode,
-=======
->>>>>>> origin/master
   fiscalYearLabel,
   formatShopBillNumber,
   normalizeCashierCode,
@@ -17,7 +14,6 @@ describe("fiscalYearLabel", () => {
   });
 });
 
-<<<<<<< HEAD
 describe("deriveStoreCode", () => {
   it("uses word initials", () => {
     expect(deriveStoreCode("Bharatdarsh Fashion")).toBe("BF");
@@ -41,33 +37,16 @@ describe("formatShopBillNumber", () => {
         sequence: 42,
       })
     ).toBe("BF/26-27/R2/0042");
-=======
-describe("formatShopBillNumber", () => {
-  it("formats INV-(cashier code)-FY-seq", () => {
-    expect(
-      formatShopBillNumber({
-        prefix: "inv",
-        cashierCode: "4",
-        fiscalYear: "26-27",
-        sequence: 18,
-      })
-    ).toBe("INV-4-26-27-00018");
->>>>>>> origin/master
   });
 
   it("falls back to 00 when cashier code is missing", () => {
     expect(
       formatShopBillNumber({
-<<<<<<< HEAD
         storeCode: "BF",
-=======
-        prefix: "INV",
->>>>>>> origin/master
         cashierCode: null,
         fiscalYear: "26-27",
         sequence: 1,
       })
-<<<<<<< HEAD
     ).toBe("BF/26-27/00/0001");
   });
 
@@ -80,9 +59,6 @@ describe("formatShopBillNumber", () => {
     });
     expect(bill.length).toBeLessThanOrEqual(16);
     expect(bill).toBe("LO/26-27/R9/9999");
-=======
-    ).toBe("INV-00-26-27-00001");
->>>>>>> origin/master
   });
 });
 

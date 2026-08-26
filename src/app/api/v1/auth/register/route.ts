@@ -16,7 +16,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   return handleApi(async () => {
-    await enforceRateLimit(request, "auth:register", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
+    enforceRateLimit(request, "auth:register", RATE_LIMITS.auth.limit, RATE_LIMITS.auth.windowMs);
     const body = await request.json();
     const data = schema.parse(body);
 
@@ -60,8 +60,6 @@ export async function POST(request: Request) {
     } catch (e) {
       // Keep the account in development so local setup works when Resend blocks the recipient.
       if (process.env.NODE_ENV === "development") {
-<<<<<<< HEAD
-=======
         const token = await prisma.verificationToken.findFirst({
           where: { identifier: user.email },
           orderBy: { expires: "desc" },
@@ -69,18 +67,13 @@ export async function POST(request: Request) {
         const verifyUrl = token
           ? `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token.token}`
           : null;
->>>>>>> origin/master
         return NextResponse.json({
           data: {
             id: user.id,
             email: user.email,
             message:
-<<<<<<< HEAD
-              "Account created. Resend could not deliver email in development — use the verification link from the server console.",
-=======
               "Account created. Resend could not deliver email in development — use the verification link from the server console (or verifyUrl below).",
             verifyUrl,
->>>>>>> origin/master
             emailWarning:
               e instanceof Error ? e.message : "Failed to send verification email",
           },

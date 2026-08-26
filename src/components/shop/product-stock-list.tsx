@@ -6,10 +6,6 @@ import { Button } from "@/components/ui/button";
 import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { PageLoader } from "@/components/ui/page-loader";
-<<<<<<< HEAD
-import { EmptyState } from "@/components/ui/empty-state";
-=======
->>>>>>> origin/master
 import { formatINR } from "@/lib/finance/money";
 import { formatStockDisplay } from "@/lib/shop/inventory";
 import {
@@ -197,16 +193,6 @@ function VariantRow({
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
-<<<<<<< HEAD
-      <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
-        {variant.costPaise ? (
-          formatINR(variant.costPaise)
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </td>
-=======
->>>>>>> origin/master
       <td className="py-2 pr-3 text-right">
         <div className="flex justify-end gap-0.5">
           <Button
@@ -253,10 +239,6 @@ export function ProductStockList({
   categories,
   lookup,
   isLoading,
-<<<<<<< HEAD
-  isInitialLoading,
-=======
->>>>>>> origin/master
   isUpdating,
   onAddVariant,
   onEditProduct,
@@ -267,21 +249,9 @@ export function ProductStockList({
   onDeleteVariant,
 }: {
   products: ProductRow[];
-<<<<<<< HEAD
-  categories: Array<{
-    key: string;
-    label: string;
-    subcategories?: Array<{ key: string; label: string }>;
-  }>;
-  lookup: CategoryLookup;
-  isLoading: boolean;
-  /** True only before the first product load — keeps search mounted during refetch. */
-  isInitialLoading?: boolean;
-=======
   categories: Array<{ key: string; label: string }>;
   lookup: CategoryLookup;
   isLoading: boolean;
->>>>>>> origin/master
   isUpdating: boolean;
   onAddVariant: (product: ProductRow) => void;
   onEditProduct: (product: ProductRow) => void;
@@ -294,10 +264,6 @@ export function ProductStockList({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StockFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-<<<<<<< HEAD
-  const [subCategoryFilter, setSubCategoryFilter] = useState("all");
-=======
->>>>>>> origin/master
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const indexed = useMemo(
@@ -338,15 +304,6 @@ export function ProductStockList({
         if (categoryFilter !== "all" && product.categoryKey !== categoryFilter) {
           return false;
         }
-<<<<<<< HEAD
-        if (
-          subCategoryFilter !== "all" &&
-          product.subCategoryKey !== subCategoryFilter
-        ) {
-          return false;
-        }
-=======
->>>>>>> origin/master
         if (filter === "low" && product.lowStockCount === 0) return false;
         if (
           filter === "no-barcode" &&
@@ -358,11 +315,7 @@ export function ProductStockList({
         return true;
       })
       .map((entry) => entry.product);
-<<<<<<< HEAD
-  }, [indexed, search, categoryFilter, subCategoryFilter, filter]);
-=======
   }, [indexed, search, categoryFilter, filter]);
->>>>>>> origin/master
 
   const stats = useMemo(() => {
     const variantCount = products.reduce((sum, p) => sum + p.variants.length, 0);
@@ -384,19 +337,10 @@ export function ProductStockList({
     });
   }
 
-<<<<<<< HEAD
-  if (isInitialLoading ?? (isLoading && products.length === 0)) {
-    return <PageLoader label="Loading stock..." />;
-  }
-
-  return (
-    <div className={cn("space-y-4", isLoading && products.length > 0 && "opacity-80")}>
-=======
   if (isLoading) return <PageLoader label="Loading stock..." />;
 
   return (
     <div className="space-y-4">
->>>>>>> origin/master
       <div className="space-y-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -412,14 +356,7 @@ export function ProductStockList({
           <div className="flex gap-1.5 overflow-x-auto pb-1">
             <FilterChip
               active={categoryFilter === "all"}
-<<<<<<< HEAD
-                  onClick={() => {
-                    setCategoryFilter("all");
-                    setSubCategoryFilter("all");
-                  }}
-=======
               onClick={() => setCategoryFilter("all")}
->>>>>>> origin/master
             >
               All categories ({products.length})
             </FilterChip>
@@ -430,14 +367,7 @@ export function ProductStockList({
                 <FilterChip
                   key={cat.key}
                   active={categoryFilter === cat.key}
-<<<<<<< HEAD
-                  onClick={() => {
-                    setCategoryFilter(cat.key);
-                    setSubCategoryFilter("all");
-                  }}
-=======
                   onClick={() => setCategoryFilter(cat.key)}
->>>>>>> origin/master
                 >
                   {cat.label} ({count})
                 </FilterChip>
@@ -446,39 +376,6 @@ export function ProductStockList({
           </div>
         ) : null}
 
-<<<<<<< HEAD
-        {categoryFilter !== "all" ? (
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            <FilterChip
-              active={subCategoryFilter === "all"}
-              onClick={() => setSubCategoryFilter("all")}
-            >
-              All sub-categories
-            </FilterChip>
-            {(categories.find((c) => c.key === categoryFilter)?.subcategories ??
-              []
-            ).map((sub) => {
-              const count = products.filter(
-                (p) =>
-                  p.categoryKey === categoryFilter &&
-                  p.subCategoryKey === sub.key
-              ).length;
-              if (count === 0 && subCategoryFilter !== sub.key) return null;
-              return (
-                <FilterChip
-                  key={sub.key}
-                  active={subCategoryFilter === sub.key}
-                  onClick={() => setSubCategoryFilter(sub.key)}
-                >
-                  {sub.label} ({count})
-                </FilterChip>
-              );
-            })}
-          </div>
-        ) : null}
-
-=======
->>>>>>> origin/master
         <div className="flex flex-wrap gap-1.5">
           {(
             [
@@ -500,21 +397,6 @@ export function ProductStockList({
       </div>
 
       {filtered.length === 0 ? (
-<<<<<<< HEAD
-        <EmptyState
-          icon={Package}
-          title={
-            products.length === 0
-              ? "No products yet"
-              : "No product matches your search"
-          }
-          description={
-            products.length === 0
-              ? "Add your first product above. If it comes in several sizes, add them all in one go and each size gets its own barcode."
-              : "Try a different search term or clear the filters."
-          }
-        />
-=======
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-12 text-center">
           <Package className="mb-3 h-10 w-10 text-muted-foreground/50" />
           <p className="font-medium">
@@ -528,7 +410,6 @@ export function ProductStockList({
               : "Try a different search term or clear the filters."}
           </p>
         </div>
->>>>>>> origin/master
       ) : (
         <div className="overflow-hidden rounded-2xl border bg-card">
           <div className="overflow-x-auto">
@@ -537,12 +418,7 @@ export function ProductStockList({
                 <tr className="border-b bg-muted/50 text-left text-xs text-foreground/70">
                   <th className="p-3 font-medium">Product</th>
                   <th className="p-3 font-medium">Stock</th>
-<<<<<<< HEAD
-                  <th className="p-3 text-right font-medium">Sell</th>
-                  <th className="p-3 text-right font-medium">Cost</th>
-=======
                   <th className="p-3 text-right font-medium">Price</th>
->>>>>>> origin/master
                   <th className="p-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
@@ -669,28 +545,6 @@ export function ProductStockList({
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </td>
-<<<<<<< HEAD
-                        <td className="p-3 text-right align-middle tabular-nums text-muted-foreground">
-                          {(() => {
-                            const costs = product.variants
-                              .map((v) =>
-                                v.costPaise ? Number(v.costPaise) : null
-                              )
-                              .filter((p): p is number => p != null);
-                            if (costs.length === 0) {
-                              return (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              );
-                            }
-                            const min = Math.min(...costs);
-                            const max = Math.max(...costs);
-                            return min === max
-                              ? formatINR(String(min))
-                              : `${formatINR(String(min))} – ${formatINR(String(max))}`;
-                          })()}
-                        </td>
-=======
->>>>>>> origin/master
                         <td className="p-3 align-middle">
                           <div className="flex justify-end gap-0.5">
                             {product.id ? (

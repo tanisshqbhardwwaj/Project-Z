@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import {
   mergePaymentTerminalConfig,
   parsePaymentTerminalConfig,
@@ -7,8 +6,6 @@ import {
   type PaymentTerminalConfigPublic,
 } from "@/lib/shop/payment-terminal";
 
-=======
->>>>>>> origin/master
 export type DiscountBasis = "subtotal" | "total";
 
 export type InvoicePaperSize = "58mm" | "80mm" | "A4";
@@ -30,11 +27,8 @@ export type ShopInvoiceSettings = {
   showCustomerGstin?: boolean;
   showPaymentMethod?: boolean;
   showSubtotal?: boolean;
-<<<<<<< HEAD
   /** Short code used as the first bill-number segment, e.g. "BF" → BF/26-27/R2/0042. */
   storeCode?: string;
-=======
->>>>>>> origin/master
   billPrefix?: string;
   defaultTaxRatePercent?: number;
   /** Whether % / fixed discount applies to line subtotal or grand total (incl. tax) */
@@ -49,11 +43,8 @@ export type ShopInvoiceSettings = {
   defaultCopies?: number;
   /** When false, show whole rupees only and skip bill round-off. Default true. */
   useDecimalPlaces?: boolean;
-<<<<<<< HEAD
   /** Card/UPI machine integration (Paytm, Pine Labs, bridge, etc.). */
   paymentTerminal?: PaymentTerminalConfig;
-=======
->>>>>>> origin/master
 };
 
 export type ShopOrgSettings = {
@@ -111,10 +102,7 @@ export type ResolvedInvoiceTemplate = {
   printMarginMm: number;
   defaultCopies: number;
   useDecimalPlaces: boolean;
-<<<<<<< HEAD
   paymentTerminal: PaymentTerminalConfigPublic;
-=======
->>>>>>> origin/master
 };
 
 export const DEFAULT_INVOICE_SETTINGS: Required<
@@ -202,10 +190,7 @@ export function parseShopInvoiceSettings(settings: unknown): ShopInvoiceSettings
     showPaymentMethod:
       typeof i.showPaymentMethod === "boolean" ? i.showPaymentMethod : undefined,
     showSubtotal: typeof i.showSubtotal === "boolean" ? i.showSubtotal : undefined,
-<<<<<<< HEAD
     storeCode: typeof i.storeCode === "string" ? i.storeCode : undefined,
-=======
->>>>>>> origin/master
     billPrefix: typeof i.billPrefix === "string" ? i.billPrefix : undefined,
     defaultTaxRatePercent:
       typeof i.defaultTaxRatePercent === "number" ? i.defaultTaxRatePercent : undefined,
@@ -234,12 +219,9 @@ export function parseShopInvoiceSettings(settings: unknown): ShopInvoiceSettings
         : undefined,
     useDecimalPlaces:
       typeof i.useDecimalPlaces === "boolean" ? i.useDecimalPlaces : undefined,
-<<<<<<< HEAD
     paymentTerminal: i.paymentTerminal
       ? parsePaymentTerminalConfig(i.paymentTerminal)
       : undefined,
-=======
->>>>>>> origin/master
   };
 }
 
@@ -348,12 +330,9 @@ export function resolveShopInvoiceTemplate(
     defaultCopies: invoice.defaultCopies ?? DEFAULT_INVOICE_SETTINGS.defaultCopies,
     useDecimalPlaces:
       invoice.useDecimalPlaces ?? DEFAULT_INVOICE_SETTINGS.useDecimalPlaces,
-<<<<<<< HEAD
     paymentTerminal: sanitizePaymentTerminalConfig(
       invoice.paymentTerminal ?? parsePaymentTerminalConfig({})
     ),
-=======
->>>>>>> origin/master
   };
 }
 
@@ -377,7 +356,6 @@ function mergeInvoiceSettings(
       if (parsed) next.paperSize = parsed;
       continue;
     }
-<<<<<<< HEAD
     if (key === "paymentTerminal") {
       if (value && typeof value === "object") {
         const merged = mergePaymentTerminalConfig(
@@ -389,13 +367,10 @@ function mergeInvoiceSettings(
       }
       continue;
     }
-=======
->>>>>>> origin/master
     if (typeof value === "string") {
       const trimmed = value.trim();
       if (key === "billPrefix") {
         next.billPrefix = trimmed.toUpperCase() || DEFAULT_INVOICE_SETTINGS.billPrefix;
-<<<<<<< HEAD
       } else if (key === "storeCode") {
         const code = trimmed.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
         if (code) {
@@ -403,8 +378,6 @@ function mergeInvoiceSettings(
         } else {
           delete next.storeCode;
         }
-=======
->>>>>>> origin/master
       } else if (trimmed) {
         (next as Record<string, string>)[key] = trimmed;
       } else {
@@ -469,7 +442,6 @@ export function mergeShopOrgSettings(
     shop: nextShop,
   };
 }
-<<<<<<< HEAD
 
 /** Remove payment-terminal secrets before settings reach the browser. */
 export function sanitizeShopSettingsForClient(
@@ -497,5 +469,3 @@ export function sanitizeShopSettingsForClient(
     },
   };
 }
-=======
->>>>>>> origin/master

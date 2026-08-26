@@ -11,12 +11,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/ops", label: "Overview" },
-<<<<<<< HEAD
-  { href: "/ops/customers", label: "Organizations" },
-  { href: "/ops/users", label: "Users" },
-=======
   { href: "/ops/customers", label: "Customers" },
->>>>>>> origin/master
   { href: "/ops/requests", label: "Plan requests" },
   { href: "/ops/plans", label: "Pricing catalog" },
 ];

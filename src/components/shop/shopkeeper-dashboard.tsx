@@ -1,11 +1,7 @@
 "use client";
 
 import Link from "next/link";
-<<<<<<< HEAD
 import { useMemo, useState } from "react";
-=======
-import { useState } from "react";
->>>>>>> origin/master
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -26,7 +22,6 @@ import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-<<<<<<< HEAD
 import { Input } from "@/components/ui/input";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { formatINR } from "@/lib/finance/money";
@@ -44,15 +39,6 @@ import { DashboardInvoiceFilters } from "@/components/shop/dashboard-invoice-fil
 import { cn } from "@/lib/utils";
 
 type DashboardPeriod = ShopDashboardPeriod;
-=======
-import { MoneyDisplay } from "@/components/finance/money-display";
-import { formatINR } from "@/lib/finance/money";
-import { formatCustomerLabel } from "@/lib/shop/customer";
-import { StaffSalesSidebar } from "@/components/shop/staff-sales-sidebar";
-import { cn } from "@/lib/utils";
-
-type DashboardPeriod = "today" | "month";
->>>>>>> origin/master
 
 type ShopDashboardData = {
   period: DashboardPeriod;
@@ -98,7 +84,6 @@ export function ShopkeeperDashboard() {
   const inventoryEnabled = isModuleEnabled(enabledModules, "shop_inventory");
   const udhaarEnabled = isModuleEnabled(enabledModules, "shop_udhaar");
   const [period, setPeriod] = useState<DashboardPeriod>("today");
-<<<<<<< HEAD
   const [exactDate, setExactDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
   );
@@ -140,20 +125,6 @@ export function ShopkeeperDashboard() {
     [data?.recentInvoices, invoiceSearch, invoicePayment, invoiceSort]
   );
 
-=======
-  const [staffPanelOpen, setStaffPanelOpen] = useState(false);
-  const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: orgId
-      ? [...queryKeys.modules.shop.dashboard(orgId), period]
-      : ["disabled"],
-    queryFn: () =>
-      apiFetch<ShopDashboardData>(`/api/v1/shop/dashboard?period=${period}`),
-    enabled: !!orgId && salesEnabled,
-  });
-
->>>>>>> origin/master
   if (!salesEnabled) {
     return (
       <p className="text-muted-foreground">
@@ -175,11 +146,6 @@ export function ShopkeeperDashboard() {
     .map(([method, count]) => `${method} ${count}`)
     .join(" · ");
 
-<<<<<<< HEAD
-=======
-  const periodLabel = period === "today" ? "Today" : "This month";
-
->>>>>>> origin/master
   return (
     <div className="min-w-0 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -190,7 +156,6 @@ export function ShopkeeperDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-<<<<<<< HEAD
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex rounded-xl border p-1">
               {(["today", "month", "date"] as const).map((p) => (
@@ -217,24 +182,6 @@ export function ShopkeeperDashboard() {
                 className="h-10 w-auto rounded-xl"
               />
             ) : null}
-=======
-          <div className="flex rounded-xl border p-1">
-            {(["today", "month"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                  period === p
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {p === "today" ? "Today" : "This month"}
-              </button>
-            ))}
->>>>>>> origin/master
           </div>
           <Link href="/shop/invoices/new" className="w-full sm:w-auto">
             <Button size="lg" className="w-full rounded-xl sm:w-auto">
@@ -548,15 +495,10 @@ export function ShopkeeperDashboard() {
       <StaffSalesSidebar
         open={staffPanelOpen}
         period={period}
-<<<<<<< HEAD
         exactDate={exactDate}
         periodLabel={periodLabel}
         staffList={data.salesByStaff}
         paymentMethods={paymentMethods}
-=======
-        periodLabel={periodLabel}
-        staffList={data.salesByStaff}
->>>>>>> origin/master
         selectedStaff={selectedStaff}
         onClose={() => {
           setStaffPanelOpen(false);
@@ -608,7 +550,6 @@ export function ShopkeeperDashboard() {
       </Card>
 
       <Card className="rounded-2xl border-0 shadow-md">
-<<<<<<< HEAD
         <CardHeader className="space-y-4">
           <div className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -640,24 +581,6 @@ export function ShopkeeperDashboard() {
             </p>
           ) : (
             filteredInvoices.map((inv) => (
-=======
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Recent invoices
-          </CardTitle>
-          <Link href="/shop/invoices">
-            <Button variant="ghost" size="sm" className="rounded-xl">
-              View all
-            </Button>
-          </Link>
-        </CardHeader>
-        <CardContent className="divide-y p-0">
-          {data.recentInvoices.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">No invoices yet.</p>
-          ) : (
-            data.recentInvoices.map((inv) => (
->>>>>>> origin/master
               <Link
                 key={inv.id}
                 href={`/shop/invoices/${inv.id}`}

@@ -3,11 +3,7 @@ import { ZodError } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import type { OrgRole } from "@prisma/client";
-<<<<<<< HEAD
 import { hasPermission, canManageOrg, canAccessProjectsNav, type Permission } from "@/lib/permissions/rbac";
-=======
-import { hasPermission, canManageOrg, type Permission } from "@/lib/permissions/rbac";
->>>>>>> origin/master
 import { subscriptionAllowsProductUse } from "@/lib/billing/entitlements";
 import { formatZodError } from "@/lib/api/validation";
 import { logger } from "@/lib/logger";
