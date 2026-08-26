@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -22,13 +22,23 @@ import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { formatINR } from "@/lib/finance/money";
 import { formatCustomerLabel } from "@/lib/shop/customer";
+import {
+  resolveShopDashboardBounds,
+  type ShopDashboardPeriod,
+} from "@/lib/shop/dashboard-period";
+import {
+  filterSortInvoices,
+  type InvoiceSort,
+} from "@/lib/shop/invoice-list-filters";
 import { StaffSalesSidebar } from "@/components/shop/staff-sales-sidebar";
+import { DashboardInvoiceFilters } from "@/components/shop/dashboard-invoice-filters";
 import { cn } from "@/lib/utils";
 
-type DashboardPeriod = "today" | "month";
+type DashboardPeriod = ShopDashboardPeriod;
 
 type ShopDashboardData = {
   period: DashboardPeriod;
@@ -74,17 +84,46 @@ export function ShopkeeperDashboard() {
   const inventoryEnabled = isModuleEnabled(enabledModules, "shop_inventory");
   const udhaarEnabled = isModuleEnabled(enabledModules, "shop_udhaar");
   const [period, setPeriod] = useState<DashboardPeriod>("today");
+  const [exactDate, setExactDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoicePayment, setInvoicePayment] = useState("all");
+  const [invoiceSort, setInvoiceSort] = useState<InvoiceSort>("newest");
   const [staffPanelOpen, setStaffPanelOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
 
+  const dashboardQueryKey =
+    orgId && salesEnabled
+      ? [...queryKeys.modules.shop.dashboard(orgId), period, period === "date" ? exactDate : ""]
+      : ["disabled"];
+
   const { data, isLoading, error } = useQuery({
-    queryKey: orgId
-      ? [...queryKeys.modules.shop.dashboard(orgId), period]
-      : ["disabled"],
-    queryFn: () =>
-      apiFetch<ShopDashboardData>(`/api/v1/shop/dashboard?period=${period}`),
+    queryKey: dashboardQueryKey,
+    queryFn: () => {
+      const params = new URLSearchParams({ period });
+      if (period === "date") params.set("date", exactDate);
+      return apiFetch<ShopDashboardData>(`/api/v1/shop/dashboard?${params}`);
+    },
     enabled: !!orgId && salesEnabled,
   });
+
+  const periodLabel = resolveShopDashboardBounds(period, exactDate).label;
+
+  const paymentMethods = useMemo(
+    () => Object.keys(data?.paymentSplit ?? {}).sort(),
+    [data?.paymentSplit]
+  );
+
+  const filteredInvoices = useMemo(
+    () =>
+      filterSortInvoices(data?.recentInvoices ?? [], {
+        search: invoiceSearch,
+        payment: invoicePayment,
+        sort: invoiceSort,
+      }),
+    [data?.recentInvoices, invoiceSearch, invoicePayment, invoiceSort]
+  );
 
   if (!salesEnabled) {
     return (
@@ -107,8 +146,6 @@ export function ShopkeeperDashboard() {
     .map(([method, count]) => `${method} ${count}`)
     .join(" · ");
 
-  const periodLabel = period === "today" ? "Today" : "This month";
-
   return (
     <div className="min-w-0 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -119,22 +156,32 @@ export function ShopkeeperDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-xl border p-1">
-            {(["today", "month"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                  period === p
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {p === "today" ? "Today" : "This month"}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-xl border p-1">
+              {(["today", "month", "date"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                    period === p
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {p === "today" ? "Today" : p === "month" ? "This month" : "Date"}
+                </button>
+              ))}
+            </div>
+            {period === "date" ? (
+              <Input
+                type="date"
+                value={exactDate}
+                onChange={(e) => setExactDate(e.target.value)}
+                className="h-10 w-auto rounded-xl"
+              />
+            ) : null}
           </div>
           <Link href="/shop/invoices/new" className="w-full sm:w-auto">
             <Button size="lg" className="w-full rounded-xl sm:w-auto">
@@ -448,8 +495,10 @@ export function ShopkeeperDashboard() {
       <StaffSalesSidebar
         open={staffPanelOpen}
         period={period}
+        exactDate={exactDate}
         periodLabel={periodLabel}
         staffList={data.salesByStaff}
+        paymentMethods={paymentMethods}
         selectedStaff={selectedStaff}
         onClose={() => {
           setStaffPanelOpen(false);
@@ -501,22 +550,37 @@ export function ShopkeeperDashboard() {
       </Card>
 
       <Card className="rounded-2xl border-0 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Recent invoices
-          </CardTitle>
-          <Link href="/shop/invoices">
-            <Button variant="ghost" size="sm" className="rounded-xl">
-              View all
-            </Button>
-          </Link>
+        <CardHeader className="space-y-4">
+          <div className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Invoices ({periodLabel.toLowerCase()})
+            </CardTitle>
+            <Link href="/shop/invoices">
+              <Button variant="ghost" size="sm" className="rounded-xl">
+                View all
+              </Button>
+            </Link>
+          </div>
+          <DashboardInvoiceFilters
+            search={invoiceSearch}
+            onSearchChange={setInvoiceSearch}
+            payment={invoicePayment}
+            onPaymentChange={setInvoicePayment}
+            sort={invoiceSort}
+            onSortChange={setInvoiceSort}
+            paymentMethods={paymentMethods}
+          />
         </CardHeader>
-        <CardContent className="divide-y p-0">
-          {data.recentInvoices.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">No invoices yet.</p>
+        <CardContent className="divide-y p-0 pt-0">
+          {filteredInvoices.length === 0 ? (
+            <p className="p-6 text-sm text-muted-foreground">
+              {data.recentInvoices.length === 0
+                ? "No invoices in this period."
+                : "No invoices match your search or filters."}
+            </p>
           ) : (
-            data.recentInvoices.map((inv) => (
+            filteredInvoices.map((inv) => (
               <Link
                 key={inv.id}
                 href={`/shop/invoices/${inv.id}`}

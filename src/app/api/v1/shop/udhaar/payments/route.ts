@@ -3,8 +3,7 @@ import { z } from "zod";
 import {
   getAuthContext,
   handleApi,
-  requirePermission,
-  apiSuccess,
+  requireUdhaarWrite,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { recordCustomerPayment } from "@/services/shop-credit.service";
@@ -20,7 +19,7 @@ const paymentSchema = z.object({
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "financial.view");
+    requireUdhaarWrite(ctx);
     const data = paymentSchema.parse(await request.json());
     const credit = await recordCustomerPayment({
       organizationId: ctx.organizationId,

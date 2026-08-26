@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, setActiveOrganizationId } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { logoutUser } from "@/lib/auth/logout-client";
 import { AppLogo } from "@/components/brand/app-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,7 @@ export default function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewOrg = searchParams.get("new") === "1";
-  const { bootstrap, status, initialized, logout } = useAuthStore();
+  const { bootstrap, status, initialized } = useAuthStore();
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
   const [businessTypes, setBusinessTypes] = useState<ShopSector[]>(["CLOTHING"]);
@@ -122,9 +123,7 @@ export default function OnboardingContent() {
   }
 
   async function handleLogout() {
-    await fetch("/api/v1/auth/logout", { method: "POST" });
-    logout();
-    window.location.href = "/login";
+    await logoutUser();
   }
 
   if (!initialized) return <PageLoader label="Loading..." />;

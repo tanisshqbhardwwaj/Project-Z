@@ -84,6 +84,19 @@ describe("shouldShowLineDiscountHints", () => {
     expect(shouldShowLineDiscountHints(pricing)).toBe(false);
   });
 
+  it("returns false for legacy flat rupee discount without manualDiscountMode", () => {
+    const pricing: StoredInvoicePricing = {
+      subtotalRupees: 800,
+      discountRupees: 100,
+      taxIncluded: false,
+      taxRatePercent: 0,
+      roundOffRupees: 0,
+      taxableRupees: 700,
+      gstRupees: 0,
+    };
+    expect(shouldShowLineDiscountHints(pricing)).toBe(false);
+  });
+
   it("respects live discount mode during billing", () => {
     expect(shouldShowLineDiscountHints(null, "percent")).toBe(true);
     expect(shouldShowLineDiscountHints(null, "rupees", 0)).toBe(false);
@@ -131,15 +144,44 @@ describe("formatting", () => {
     expect(formatInvoiceMoney(596, wholeTemplate)).not.toMatch(/\.00/);
   });
 
-  it("builds line discount hint in percent mode", () => {
-    const hint = formatLineDiscountHint({ lineDiscountRupees: 149 }, template);
+  it("builds line discount hint for a single unit", () => {
+    const hint = formatLineDiscountHint(
+      {
+        qty: 1,
+        priceRupees: 745,
+        lineDiscountRupees: 149,
+        discountedUnitRupees: 596,
+      },
+      template
+    );
     expect(hint).toBe("Off ₹149.00");
     expect(hint).not.toContain("List");
   });
 
+  it("shows per-piece discount when qty is greater than one", () => {
+    const hint = formatLineDiscountHint(
+      {
+        qty: 5,
+        priceRupees: 1499,
+        lineDiscountRupees: 2349,
+        discountedUnitRupees: 1029.2,
+      },
+      template
+    );
+    expect(hint).toBe("Off ₹469.80/pc");
+  });
+
   it("returns null hint when no line discount", () => {
     expect(
-      formatLineDiscountHint({ lineDiscountRupees: 0 }, template)
+      formatLineDiscountHint(
+        {
+          qty: 1,
+          priceRupees: 745,
+          lineDiscountRupees: 0,
+          discountedUnitRupees: 745,
+        },
+        template
+      )
     ).toBeNull();
   });
 });
@@ -172,6 +214,26 @@ describe("resolveInvoiceLineAllocations", () => {
     });
     expect(result?.[0].lineDiscountRupees).toBeGreaterThan(160);
     expect(result?.[1].lineDiscountRupees).toBeGreaterThan(0);
+  });
+
+  it("returns null for flat rupee cart discount (totals only)", () => {
+    const result = resolveInvoiceLineAllocations(items, {
+      showLineHints: false,
+      totalDiscountRupees: 100,
+      manualDiscountRupees: 100,
+      manualDiscountMode: "rupees",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("does not spread flat rupee discount across lines even when showLineHints is true", () => {
+    const result = resolveInvoiceLineAllocations(items, {
+      showLineHints: true,
+      totalDiscountRupees: 100,
+      manualDiscountRupees: 100,
+      manualDiscountMode: "rupees",
+    });
+    expect(result).toBeNull();
   });
 });
 

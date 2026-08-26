@@ -1,12 +1,19 @@
 import { prisma } from "@/lib/db/prisma";
 import { NextResponse } from "next/server";
 import { handleApi } from "@/lib/api/context";
+import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { z } from "zod";
 
 const schema = z.object({ token: z.string() });
 
 export async function POST(request: Request) {
   return handleApi(async () => {
+    await enforceRateLimit(
+      request,
+      "auth:verify-email",
+      RATE_LIMITS.auth.limit,
+      RATE_LIMITS.auth.windowMs
+    );
     const body = await request.json();
     const { token } = schema.parse(body);
 

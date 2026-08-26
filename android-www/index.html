@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+    />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Project Z</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 2rem 1.25rem;
+        background: #111;
+        color: #fafafa;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Project Z</h1>
+    <p>
+      This APK loads the shop UI from your HTTPS host. Set
+      <code>CAPACITOR_SERVER_URL=https://your-host</code> then run
+      <code>npx cap sync android</code>.
+    </p>
+    <p>
+      Shop data is stored in SQLCipher on the device. After the first download,
+      bills work offline and sync when the network is back.
+    </p>
+  </body>
+</html>

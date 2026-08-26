@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Project Z",
+  "version": "0.1.0",
+  "identifier": "com.projectz.shop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://127.0.0.1:3000",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Project Z",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 680,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost http://127.0.0.1:* http://localhost:* https: wss: blob:; worker-src 'self' blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    // Updater prep (tauri v2 updater plugin config shape; tauri = "2" in Cargo.toml).
+    // BEFORE DISTRIBUTION: replace the placeholder pubkey with the real signing public key
+    // and point endpoints at the real update manifest feed. The Rust crate
+    // (tauri-plugin-updater) and JS package still need to be added to activate this.
+    "updater": {
+      "pubkey": "REPLACE_WITH_REAL_UPDATER_PUBLIC_KEY",
+      "endpoints": [
+        "https://beta-project-z.vercel.app/api/desktop-updates/{{target}}/{{arch}}/{{current_version}}"
+      ]
+    }
+  }
+}

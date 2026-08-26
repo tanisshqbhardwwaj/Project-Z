@@ -36,6 +36,7 @@ import { downloadBarcodeExportCsv } from "@/lib/shop/inventory-export";
 import {
   inventoryCategoriesForSector,
 } from "@/lib/shop/inventory-categories";
+import { DesktopOnlyNote } from "@/components/layout/desktop-only-note";
 import type { InventoryStockItem } from "@/components/shop/inventory-stock-list";
 
 type ToolTab =
@@ -338,6 +339,7 @@ export function InventoryToolsDialog({
 
         {tab === "upload" ? (
           <div className="space-y-3">
+            <DesktopOnlyNote feature="Bulk CSV import" />
             <p className="text-sm text-muted-foreground">
               Upload a CSV with product and variant columns for your business type.
               Download the template for the exact headers.

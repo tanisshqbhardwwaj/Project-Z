@@ -84,4 +84,28 @@
     display: none !important;
     visibility: hidden !important;
   }
+
+  /* Mount point must stay in DOM (not display:none) so thermal/A4 content can print. */
+  body.printing-shop-invoice .shop-invoice-print-mount,
+  body.printing-shop-invoice .shop-invoice-print-mount *:not(.print-hidden) {
+    visibility: visible !important;
+  }
+
+  body.printing-shop-invoice .shop-invoice-print-mount {
+    display: block !important;
+    visibility: visible !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
+    z-index: 2147483646 !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
 }

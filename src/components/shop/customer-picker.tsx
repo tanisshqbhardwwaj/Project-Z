@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
+import { buildCursorListUrl } from "@/lib/api/list-url";
+import type { CursorPage } from "@/lib/api/cursor-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCustomerLabel } from "@/lib/shop/customer";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { UserRound } from "lucide-react";
 
@@ -52,16 +55,24 @@ export function CustomerPicker({
     return parts.join(" ").trim();
   }, [customerName, customerPhone, search]);
 
-  const { data: suggestions = [] } = useQuery({
+  const debouncedTerm = useDebouncedValue(queryTerm);
+
+  const { data: suggestionsPage } = useQuery({
     queryKey: orgId
-      ? queryKeys.modules.shop.customerRegistry(orgId, queryTerm)
+      ? queryKeys.modules.shop.customerRegistry(orgId, debouncedTerm)
       : ["disabled"],
     queryFn: () =>
-      apiFetch<ShopCustomerOption[]>(
-        `/api/v1/shop/customers${queryTerm ? `?q=${encodeURIComponent(queryTerm)}` : ""}`
+      apiFetch<CursorPage<ShopCustomerOption>>(
+        buildCursorListUrl("/api/v1/shop/customers", {
+          q: debouncedTerm || undefined,
+          limit: 10,
+        })
       ),
-    enabled: !!orgId && open && queryTerm.length >= 1,
+    enabled: !!orgId && open && debouncedTerm.length >= 1,
+    placeholderData: keepPreviousData,
   });
+
+  const suggestions = suggestionsPage?.items ?? [];
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -136,7 +147,7 @@ export function CustomerPicker({
           />
         </div>
 
-        {open && queryTerm.length >= 1 && suggestions.length > 0 ? (
+        {open && debouncedTerm.length >= 1 && suggestions.length > 0 ? (
           <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border bg-popover shadow-lg sm:col-span-2">
             {suggestions.map((customer) => (
               <button

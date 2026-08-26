@@ -305,6 +305,7 @@ model User {
   phone           String?
   emailVerifiedAt DateTime?
   locale          Locale    @default(en)
+  lastLoginAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -434,6 +435,7 @@ model Organization {
   setupFeeStatus        SetupFeeStatus     @default(UNPAID)
   earlyBirdSetup        Boolean            @default(false)
   onboardingCompleteAt  DateTime?
+  lastActiveAt          DateTime?
   cancelledAt           DateTime?
   cancelReason          String?
   localPinHash          String?
@@ -474,6 +476,7 @@ model Organization {
   shopProducts     ShopProduct[]
   shopCategories   ShopCategory[]
   inventoryItems   InventoryItem[]
+  inventoryStockReservations InventoryStockReservation[]
   customerCredits  CustomerCredit[]
   customerCreditEntries CustomerCreditEntry[]
   boqItems         BoqItem[]
@@ -486,9 +489,22 @@ model Organization {
   planRequests     PlanRequest[]
   billingEvents    BillingEvent[]
   syncOutbox       SyncOutbox[]
+  syncMutations    SyncMutation[]
   devices          Device[]
   storageObjects   StorageObject[]
   shopInvoiceDraft ShopInvoiceDraft?
+  shopBillCounters ShopBillCounter[]
+}
+
+model ShopBillCounter {
+  id             String       @id @default(uuid())
+  organizationId String
+  fiscalYear     String
+  seq            Int          @default(0)
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, fiscalYear])
 }
 
 model PlanRequest {
@@ -540,6 +556,21 @@ model SyncOutbox {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status, createdAt])
+}
+
+/** Idempotent client mutations applied from Windows/Android push. */
+model SyncMutation {
+  id             String   @id
+  organizationId String
+  deviceId       String?
+  kind           String
+  entityId       String?
+  appliedAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, appliedAt])
+  @@index([organizationId, kind])
 }
 
 model Device {
@@ -805,6 +836,7 @@ model ShopSale {
   @@index([organizationId, customerId])
   @@index([organizationId, paymentStatus])
   @@index([organizationId, billNumber])
+  @@unique([organizationId, billNumber])
   @@index([organizationId, salesBoyName, createdAt])
   @@index([organizationId, staffId, createdAt])
 }
@@ -831,9 +863,38 @@ model ShopHeldBill {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   customer     ShopCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdBy    User         @relation("ShopHeldBillCreatedBy", fields: [createdById], references: [id])
+  stockReservations InventoryStockReservation[]
 
   @@unique([organizationId, holdNumber])
   @@index([organizationId, status, expiresAt])
+}
+
+/// Distributed rate-limit counters (Turso/SQLite). Upstash Redis takes precedence when configured.
+model RateLimitBucket {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
+/// Soft stock holds tied to active held bills until resume, cancel, or expiry.
+model InventoryStockReservation {
+  id              String   @id @default(uuid())
+  organizationId  String
+  inventoryItemId String
+  quantity        Float
+  heldBillId      String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  heldBill      ShopHeldBill  @relation(fields: [heldBillId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, inventoryItemId])
+  @@index([heldBillId])
+  @@index([expiresAt])
 }
 
 model ShopOffer {
@@ -1010,6 +1071,7 @@ model InventoryItem {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   product      ShopProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  stockReservations InventoryStockReservation[]
 
   @@unique([organizationId, barcode])
   @@index([organizationId, name])

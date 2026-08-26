@@ -1,10 +1,11 @@
-import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
+import { getAuthContext, handleApi, apiSuccess, requirePermission } from "@/lib/api/context";
 import { getAuditLogs } from "@/services/audit.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+    requirePermission(ctx, "audit.view");
     const { searchParams } = new URL(request.url);
 
     const logs = await getAuditLogs(ctx.organizationId, {

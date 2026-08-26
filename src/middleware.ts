@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function newCorrelationId(): string {
+  return globalThis.crypto.randomUUID();
+}
+
 const publicPaths = [
+  "/",
+  "/pricing",
   "/login",
   "/register",
   "/verify-email",
@@ -16,12 +22,22 @@ export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/api") || pathname.startsWith("/_next")) {
+    if (pathname.startsWith("/api")) {
+      const correlationId =
+        request.headers.get("x-correlation-id")?.trim() ||
+        request.headers.get("x-request-id")?.trim() ||
+        newCorrelationId();
+      const response = NextResponse.next();
+      response.headers.set("x-correlation-id", correlationId);
+      return response;
+    }
     return NextResponse.next();
   }
 
-  const isPublic = publicPaths.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
+  const isPublic = publicPaths.some((p) => {
+    if (p === "/") return pathname === "/";
+    return pathname === p || pathname.startsWith(`${p}/`);
+  });
 
   if (!isPublic) {
     const sessionToken =

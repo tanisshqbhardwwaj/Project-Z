@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { logoutUser } from "@/lib/auth/logout-client";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ type BetaTestEmail = {
 };
 
 export default function SettingsProfilePage() {
-  const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, isPlatformAdmin, updateUser, logout } =
+  const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, isPlatformAdmin, updateUser } =
     useAuthStore();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -79,14 +80,14 @@ export default function SettingsProfilePage() {
   }, [user]);
 
   useEffect(() => {
-    if (!isOrgOwner) return;
+    if (!isPlatformAdmin) return;
 
     setBetaLoading(true);
     apiFetch<{ emails: BetaTestEmail[]; max: number; count: number }>("/api/v1/beta-test-emails")
       .then((data) => setBetaEmails(data.emails))
       .catch(() => {})
       .finally(() => setBetaLoading(false));
-  }, [isOrgOwner]);
+  }, [isPlatformAdmin]);
 
   if (!initialized || status === "loading") return <PageLoader label="Loading profile..." />;
 
@@ -209,9 +210,7 @@ export default function SettingsProfilePage() {
   }
 
   async function handleLogout() {
-    await fetch("/api/v1/auth/logout", { method: "POST" });
-    logout();
-    window.location.href = "/login";
+    await logoutUser();
   }
 
   return (
@@ -418,7 +417,7 @@ export default function SettingsProfilePage() {
         </CardContent>
       </Card>
 
-      {isOrgOwner ? (
+      {isPlatformAdmin ? (
         <Card className="rounded-2xl border-0 shadow-md">
           <CardHeader>
             <CardTitle>Beta testers</CardTitle>

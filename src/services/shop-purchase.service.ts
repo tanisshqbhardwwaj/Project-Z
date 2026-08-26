@@ -15,6 +15,7 @@ import { createShopPurchasePaymentRecord } from "@/lib/shop/staff-expense-links"
 import { requireModule } from "@/lib/org/require-module";
 import { createAuditLog } from "./audit.service";
 import { scheduleShopInventoryAlertSync } from "./shop-notification.service";
+import { toCursorPage, type CursorPage } from "@/lib/api/cursor-page";
 
 export type PurchaseLineInput = {
   inventoryItemId?: string | null;
@@ -164,13 +165,11 @@ export async function listShopPurchases(input: {
   from?: Date;
   to?: Date;
   sort?: "newest" | "oldest";
-  page?: number;
-  pageSize?: number;
+  cursor?: string;
+  limit?: number;
 }) {
   await ensureShopExtendedSchema();
-  const page = Math.max(1, input.page ?? 1);
-  const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 25));
-  const skip = (page - 1) * pageSize;
+  const pageSize = Math.min(100, Math.max(1, input.limit ?? 25));
 
   const where = {
     organizationId: input.organizationId,
@@ -195,22 +194,19 @@ export async function listShopPurchases(input: {
       : {}),
   };
 
-  const [items, total] = await Promise.all([
-    prisma.shopPurchase.findMany({
-      where,
-      include: {
-        supplier: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-        _count: { select: { items: true } },
-      },
-      orderBy: { purchaseDate: input.sort === "oldest" ? "asc" : "desc" },
-      skip,
-      take: pageSize,
-    }),
-    prisma.shopPurchase.count({ where }),
-  ]);
+  const items = await prisma.shopPurchase.findMany({
+    where,
+    include: {
+      supplier: { select: { id: true, name: true } },
+      createdBy: { select: { id: true, name: true } },
+      _count: { select: { items: true } },
+    },
+    orderBy: { purchaseDate: input.sort === "oldest" ? "asc" : "desc" },
+    take: pageSize + 1,
+    ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+  });
 
-  return { items, total, page, pageSize };
+  return toCursorPage(items, pageSize);
 }
 
 export async function getShopPurchase(organizationId: string, purchaseId: string) {

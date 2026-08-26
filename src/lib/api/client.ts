@@ -28,6 +28,31 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase();
+  if (typeof window !== "undefined") {
+    try {
+      const { shouldHandleLocally, handleLocalApi } = await import("@/lib/sync/local-api");
+      if (shouldHandleLocally(path, method)) {
+        try {
+          return await handleLocalApi<T>(path, options);
+        } catch (localErr) {
+          if (typeof navigator !== "undefined" && !navigator.onLine) throw localErr;
+          /* online: fall through to cloud if local intercept is write-only duplicate risk */
+          if (method === "GET") {
+            /* ignore and try network */
+          } else {
+            const { isLocalFirstWrite } = await import("@/lib/sync/local-api");
+            if (isLocalFirstWrite(path, method)) {
+              return await handleLocalApi<T>(path, options);
+            }
+          }
+        }
+      }
+    } catch {
+      /* local db unavailable — use network */
+    }
+  }
+
   const headers = new Headers(options.headers);
 
   if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {

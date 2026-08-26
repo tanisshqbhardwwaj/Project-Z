@@ -33,7 +33,7 @@ export function InvoiceLivePreview({
 
   return (
     <div
-      className={`min-w-0 max-w-full overflow-hidden rounded-2xl border bg-white shadow-sm ${className ?? ""}`}
+      className={`shop-invoice-print-mount min-w-0 max-w-full overflow-hidden rounded-2xl border bg-white shadow-sm ${className ?? ""}`}
     >
       <div className="print-hidden border-b bg-muted/40 px-2 py-1.5 text-[10px] font-medium text-muted-foreground">
         Preview

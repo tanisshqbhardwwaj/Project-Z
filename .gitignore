@@ -44,6 +44,15 @@ yarn-error.log*
 # OCR training data (large; not needed in repo)
 *.traineddata
 
+# Local installer binaries served from /downloads
+/public/downloads/*.apk
+/public/downloads/*.exe
+/public/downloads/*.msi
+# Allow shipping installers with the site (needed for Vercel /downloads)
+!/public/downloads/project-z-setup.exe
+!/public/downloads/project-z.apk
+
+
 # playwright
 /test-results/
 /playwright-report/
@@ -54,3 +63,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# android release signing (never commit real secrets)
+keystore.properties
+*.keystore
+*.jks

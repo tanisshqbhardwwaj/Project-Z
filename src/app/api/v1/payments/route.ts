@@ -5,6 +5,7 @@ import {
   requirePermission,
   requireProjectAccess,
   apiSuccess,
+  ApiError,
 } from "@/lib/api/context";
 import { createPayment } from "@/services/payment.service";
 import { listExpenses } from "@/services/expense.service";
@@ -33,6 +34,7 @@ const schema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+    requirePermission(ctx, "financial.view");
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId") ?? undefined;
 
@@ -74,6 +76,53 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const data = schema.parse(body);
+
+    if (data.projectId) {
+      await requireProjectAccess(ctx, data.projectId);
+    }
+
+    if (data.vendorId) {
+      const vendor = await prisma.vendor.findFirst({
+        where: {
+          id: data.vendorId,
+          organizationId: ctx.organizationId,
+          deletedAt: null,
+        },
+      });
+      if (!vendor) {
+        throw new ApiError(404, "NOT_FOUND", "Vendor not found");
+      }
+    }
+
+    const payerMember = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: ctx.organizationId,
+          userId: data.paidByUserId,
+        },
+      },
+    });
+    if (!payerMember || payerMember.status !== "ACTIVE") {
+      throw new ApiError(400, "VALIDATION_ERROR", "Payer must be an active org member");
+    }
+
+    if (data.recipientUserId) {
+      const recipientMember = await prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: ctx.organizationId,
+            userId: data.recipientUserId,
+          },
+        },
+      });
+      if (!recipientMember || recipientMember.status !== "ACTIVE") {
+        throw new ApiError(
+          400,
+          "VALIDATION_ERROR",
+          "Recipient must be an active org member"
+        );
+      }
+    }
 
     const payment = await createPayment({
       organizationId: ctx.organizationId,

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Z</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, system-ui, sans-serif;
+        background: #f6f7fb;
+        color: #0c1222;
+      }
+    </style>
+  </head>
+  <body>
+    <p>Opening Project Z…</p>
+    <script>
+      // Production web app loaded by the desktop shell (same host as the Android app).
+      // Dev mode uses tauri.conf.json devUrl (http://127.0.0.1:3000) instead.
+      var PRODUCTION_URL = "http://localhost:3000";
+      location.replace(PRODUCTION_URL);
+    </script>
+  </body>
+</html>

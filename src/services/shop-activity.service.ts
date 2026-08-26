@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { ORG_ROLE_LABELS } from "@/lib/permissions/rbac";
 import type { OrgRole, Prisma } from "@prisma/client";
+import { toCursorPage, type CursorPage } from "@/lib/api/cursor-page";
 
 const SHOP_ENTITY_PREFIXES = ["Shop", "Inventory", "CustomerCredit"];
 
@@ -199,7 +200,7 @@ export async function getShopActivityLogs(input: {
       },
     },
     orderBy: { createdAt: "desc" },
-    take: search ? Math.min(200, limit * 2) : limit,
+    take: search ? Math.min(200, (limit + 1) * 2) : limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
   });
 
@@ -229,10 +230,10 @@ export async function getShopActivityLogs(input: {
         row.description.toLowerCase().includes(q) ||
         row.module.toLowerCase().includes(q)
     );
-    rows = rows.slice(0, limit);
+    rows = rows.slice(0, limit + 1);
   }
 
-  return rows;
+  return toCursorPage(rows, limit);
 }
 
 export async function getShopActivityActors(organizationId: string) {

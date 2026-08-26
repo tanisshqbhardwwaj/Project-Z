@@ -17,6 +17,7 @@ export async function GET(
   return handleApi(async () => {
     const { id } = await params;
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id") ?? id);
+    requirePermission(ctx, "org.invite");
     const members = await getOrganizationMembers(ctx.organizationId);
     return apiSuccess(serializeBigInt(members));
   });

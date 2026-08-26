@@ -16,7 +16,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Standalone is for Docker only — Vercel needs default output for serverless NFT tracing.
   ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "tesseract.js", "inngest", "heic-convert"],
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "tesseract.js", "inngest", "heic-convert", "sql.js"],
+  turbopack: {
+    resolveAlias: {
+      "sql.js": "./src/lib/local-db/sqljs-browser-stub.ts",
+    },
+  },
   async redirects() {
     return [
       {

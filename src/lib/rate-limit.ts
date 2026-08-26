@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db/prisma";
+
 type RateLimitEntry = {
   count: number;
   resetAt: number;
@@ -32,6 +34,20 @@ export function getClientIp(request: Request): string {
   return request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
+export function hasUpstashRateLimit(): boolean {
+  return Boolean(
+    process.env.UPSTASH_REDIS_REST_URL?.trim() &&
+      process.env.UPSTASH_REDIS_REST_TOKEN?.trim()
+  );
+}
+
+export function hasTursoRateLimit(): boolean {
+  return Boolean(
+    process.env.TURSO_DATABASE_URL?.trim() &&
+      process.env.TURSO_AUTH_TOKEN?.trim()
+  );
+}
+
 export function checkRateLimit(
   key: string,
   limit: number,
@@ -54,14 +70,138 @@ export function checkRateLimit(
   return { ok: true };
 }
 
-export function enforceRateLimit(
+type PipelineResult = { result?: unknown };
+
+async function checkUpstashRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  const base = process.env.UPSTASH_REDIS_REST_URL!.replace(/\/$/, "");
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN!;
+  const redisKey = `rl:${key}`;
+
+  const res = await fetch(`${base}/pipeline`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify([
+      ["INCR", redisKey],
+      ["PTTL", redisKey],
+    ]),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Upstash rate limit HTTP ${res.status}`);
+  }
+
+  const json = (await res.json()) as PipelineResult[];
+  const count = Number(json[0]?.result);
+  const ttlMs = Number(json[1]?.result);
+
+  if (!Number.isFinite(count)) {
+    throw new Error("Upstash rate limit returned no count");
+  }
+
+  if (!Number.isFinite(ttlMs) || ttlMs < 0) {
+    await fetch(`${base}/pexpire/${encodeURIComponent(redisKey)}/${windowMs}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+  }
+
+  if (count > limit) {
+    const retryAfterSec = Math.max(
+      1,
+      Math.ceil((ttlMs > 0 ? ttlMs : windowMs) / 1000)
+    );
+    return { ok: false, retryAfterSec };
+  }
+
+  return { ok: true };
+}
+
+async function checkTursoRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  const now = new Date();
+  const resetAt = new Date(now.getTime() + windowMs);
+
+  return prisma.$transaction(async (tx) => {
+    const bucket = await tx.rateLimitBucket.findUnique({ where: { key } });
+    if (!bucket || bucket.resetAt <= now) {
+      await tx.rateLimitBucket.upsert({
+        where: { key },
+        create: { key, count: 1, resetAt },
+        update: { count: 1, resetAt },
+      });
+      return { ok: true as const };
+    }
+
+    if (bucket.count >= limit) {
+      return {
+        ok: false as const,
+        retryAfterSec: Math.max(
+          1,
+          Math.ceil((bucket.resetAt.getTime() - now.getTime()) / 1000)
+        ),
+      };
+    }
+
+    await tx.rateLimitBucket.update({
+      where: { key },
+      data: { count: { increment: 1 } },
+    });
+    return { ok: true as const };
+  });
+}
+
+async function checkDistributedRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  if (hasUpstashRateLimit()) {
+    try {
+      return await checkUpstashRateLimit(key, limit, windowMs);
+    } catch {
+      /* fall through to Turso or memory */
+    }
+  }
+
+  if (hasTursoRateLimit()) {
+    try {
+      return await checkTursoRateLimit(key, limit, windowMs);
+    } catch {
+      /* fall through to memory */
+    }
+  }
+
+  return checkRateLimit(key, limit, windowMs);
+}
+
+export async function checkRateLimitAsync(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  return checkDistributedRateLimit(key, limit, windowMs);
+}
+
+export async function enforceRateLimit(
   request: Request,
   scope: string,
   limit: number,
   windowMs: number
-): void {
+): Promise<void> {
   const ip = getClientIp(request);
-  const result = checkRateLimit(`${scope}:${ip}`, limit, windowMs);
+  const result = await checkRateLimitAsync(`${scope}:${ip}`, limit, windowMs);
   if (!result.ok) {
     throw new RateLimitError(result.retryAfterSec);
   }

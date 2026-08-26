@@ -1,3 +1,11 @@
+import {
+  mergePaymentTerminalConfig,
+  parsePaymentTerminalConfig,
+  sanitizePaymentTerminalConfig,
+  type PaymentTerminalConfig,
+  type PaymentTerminalConfigPublic,
+} from "@/lib/shop/payment-terminal";
+
 export type DiscountBasis = "subtotal" | "total";
 
 export type InvoicePaperSize = "58mm" | "80mm" | "A4";
@@ -19,6 +27,8 @@ export type ShopInvoiceSettings = {
   showCustomerGstin?: boolean;
   showPaymentMethod?: boolean;
   showSubtotal?: boolean;
+  /** Short code used as the first bill-number segment, e.g. "BF" → BF/26-27/R2/0042. */
+  storeCode?: string;
   billPrefix?: string;
   defaultTaxRatePercent?: number;
   /** Whether % / fixed discount applies to line subtotal or grand total (incl. tax) */
@@ -33,6 +43,8 @@ export type ShopInvoiceSettings = {
   defaultCopies?: number;
   /** When false, show whole rupees only and skip bill round-off. Default true. */
   useDecimalPlaces?: boolean;
+  /** Card/UPI machine integration (Paytm, Pine Labs, bridge, etc.). */
+  paymentTerminal?: PaymentTerminalConfig;
 };
 
 export type ShopOrgSettings = {
@@ -90,6 +102,7 @@ export type ResolvedInvoiceTemplate = {
   printMarginMm: number;
   defaultCopies: number;
   useDecimalPlaces: boolean;
+  paymentTerminal: PaymentTerminalConfigPublic;
 };
 
 export const DEFAULT_INVOICE_SETTINGS: Required<
@@ -177,6 +190,7 @@ export function parseShopInvoiceSettings(settings: unknown): ShopInvoiceSettings
     showPaymentMethod:
       typeof i.showPaymentMethod === "boolean" ? i.showPaymentMethod : undefined,
     showSubtotal: typeof i.showSubtotal === "boolean" ? i.showSubtotal : undefined,
+    storeCode: typeof i.storeCode === "string" ? i.storeCode : undefined,
     billPrefix: typeof i.billPrefix === "string" ? i.billPrefix : undefined,
     defaultTaxRatePercent:
       typeof i.defaultTaxRatePercent === "number" ? i.defaultTaxRatePercent : undefined,
@@ -205,6 +219,9 @@ export function parseShopInvoiceSettings(settings: unknown): ShopInvoiceSettings
         : undefined,
     useDecimalPlaces:
       typeof i.useDecimalPlaces === "boolean" ? i.useDecimalPlaces : undefined,
+    paymentTerminal: i.paymentTerminal
+      ? parsePaymentTerminalConfig(i.paymentTerminal)
+      : undefined,
   };
 }
 
@@ -313,6 +330,9 @@ export function resolveShopInvoiceTemplate(
     defaultCopies: invoice.defaultCopies ?? DEFAULT_INVOICE_SETTINGS.defaultCopies,
     useDecimalPlaces:
       invoice.useDecimalPlaces ?? DEFAULT_INVOICE_SETTINGS.useDecimalPlaces,
+    paymentTerminal: sanitizePaymentTerminalConfig(
+      invoice.paymentTerminal ?? parsePaymentTerminalConfig({})
+    ),
   };
 }
 
@@ -336,10 +356,28 @@ function mergeInvoiceSettings(
       if (parsed) next.paperSize = parsed;
       continue;
     }
+    if (key === "paymentTerminal") {
+      if (value && typeof value === "object") {
+        const merged = mergePaymentTerminalConfig(
+          prev.paymentTerminal,
+          value as Partial<PaymentTerminalConfig>
+        );
+        if (merged) next.paymentTerminal = merged;
+        else delete next.paymentTerminal;
+      }
+      continue;
+    }
     if (typeof value === "string") {
       const trimmed = value.trim();
       if (key === "billPrefix") {
         next.billPrefix = trimmed.toUpperCase() || DEFAULT_INVOICE_SETTINGS.billPrefix;
+      } else if (key === "storeCode") {
+        const code = trimmed.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+        if (code) {
+          next.storeCode = code;
+        } else {
+          delete next.storeCode;
+        }
       } else if (trimmed) {
         (next as Record<string, string>)[key] = trimmed;
       } else {
@@ -402,5 +440,32 @@ export function mergeShopOrgSettings(
   return {
     ...existingSettings,
     shop: nextShop,
+  };
+}
+
+/** Remove payment-terminal secrets before settings reach the browser. */
+export function sanitizeShopSettingsForClient(
+  settings: Record<string, unknown>
+): Record<string, unknown> {
+  const shop = settings.shop;
+  if (!shop || typeof shop !== "object") return settings;
+  const shopObj = shop as Record<string, unknown>;
+  const invoice = shopObj.invoice;
+  if (!invoice || typeof invoice !== "object") return settings;
+
+  const inv = invoice as Record<string, unknown>;
+  const terminal = inv.paymentTerminal;
+  if (!terminal || typeof terminal !== "object") return settings;
+
+  const parsed = parsePaymentTerminalConfig(terminal);
+  return {
+    ...settings,
+    shop: {
+      ...shopObj,
+      invoice: {
+        ...inv,
+        paymentTerminal: sanitizePaymentTerminalConfig(parsed),
+      },
+    },
   };
 }

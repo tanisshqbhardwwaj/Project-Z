@@ -29,7 +29,7 @@ function resolveMimeType(ext: string | undefined, fileType: string): string {
 
 export async function POST(request: Request) {
   return handleApi(async () => {
-    enforceRateLimit(request, "work-order:upload", RATE_LIMITS.upload.limit, RATE_LIMITS.upload.windowMs);
+    await enforceRateLimit(request, "work-order:upload", RATE_LIMITS.upload.limit, RATE_LIMITS.upload.windowMs);
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     requirePermission(ctx, "project.create");
 

@@ -14,6 +14,7 @@ import { useNavGroups, type NavItem } from "@/hooks/use-nav-items";
 import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
 import { useCommandPaletteStore } from "@/stores/command-palette-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { SyncBadge } from "@/components/sync/sync-badge";
 import { CashierModeBanner } from "@/components/layout/cashier-mode-banner";
 import { useCashierMode } from "@/hooks/use-cashier-mode";
 import { Button } from "@/components/ui/button";
@@ -347,6 +348,7 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
       >
         <Search className="h-5 w-5" />
       </Button>
+      <SyncBadge />
       <ThemeToggle />
     </header>
     </>

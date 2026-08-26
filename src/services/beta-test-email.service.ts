@@ -29,7 +29,13 @@ export function isStaticTestEmailAllowlisted(email: string): boolean {
   return staticAllowlist().has(normalizeEmail(email));
 }
 
+export function isBetaEmailBypassEnabled(): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  return process.env.ALLOW_BETA_EMAIL_BYPASS === "true";
+}
+
 export async function isTestEmailAllowlisted(email: string): Promise<boolean> {
+  if (!isBetaEmailBypassEnabled()) return false;
   const normalized = normalizeEmail(email);
   if (isStaticTestEmailAllowlisted(normalized)) return true;
 

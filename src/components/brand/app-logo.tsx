@@ -6,22 +6,40 @@ type AppLogoProps = {
   href?: string | null;
   variant?: "compact" | "full" | "mark";
   className?: string;
+  /** Dark wordmark for white/light bars (ignores html dark mode). */
+  onLight?: boolean;
 };
 
 const markTileClass =
   "flex items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-primary/15";
 
-function BrandWordmark({ showTagline = false }: { showTagline?: boolean }) {
+function BrandWordmark({
+  showTagline = false,
+  onLight = false,
+}: {
+  showTagline?: boolean;
+  onLight?: boolean;
+}) {
   return (
-    <span className="leading-none">
-      <span className="block text-[15px] font-semibold tracking-tight text-foreground">
+    <span className="shrink-0 leading-none">
+      <span
+        className={cn(
+          "block text-[15px] font-semibold tracking-tight",
+          onLight ? "text-slate-950" : "text-foreground"
+        )}
+      >
         Project{" "}
         <span className="bg-gradient-to-r from-violet-600 to-blue-600 bg-clip-text text-transparent">
           Z
         </span>
       </span>
       {showTagline ? (
-        <span className="mt-0.5 block text-[10px] font-medium text-muted-foreground">
+        <span
+          className={cn(
+            "mt-0.5 block text-[10px] font-medium",
+            onLight ? "text-slate-500" : "text-muted-foreground"
+          )}
+        >
           From A to Z
         </span>
       ) : null}
@@ -29,7 +47,12 @@ function BrandWordmark({ showTagline = false }: { showTagline?: boolean }) {
   );
 }
 
-export function AppLogo({ href = "/dashboard", variant = "compact", className }: AppLogoProps) {
+export function AppLogo({
+  href = "/dashboard",
+  variant = "compact",
+  className,
+  onLight = false,
+}: AppLogoProps) {
   const content =
     variant === "full" ? (
       <div
@@ -60,7 +83,7 @@ export function AppLogo({ href = "/dashboard", variant = "compact", className }:
         <span className={cn(markTileClass, "h-9 w-9 shrink-0")}>
           <ProjectZMark className="h-6 w-6" />
         </span>
-        <BrandWordmark />
+        <BrandWordmark onLight={onLight} />
       </span>
     );
 

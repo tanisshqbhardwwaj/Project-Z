@@ -26,6 +26,7 @@ export default function OpsCustomerDetailPage() {
   const [data, setData] = useState<any>(null);
   const [plan, setPlan] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await apiFetch<any>(`/api/v1/ops/organizations/${id}`);
@@ -34,7 +35,10 @@ export default function OpsCustomerDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    load().catch(() => {});
+    setLoadError(null);
+    load().catch((err) => {
+      setLoadError(err instanceof Error ? err.message : "Failed to load customer");
+    });
   }, [load]);
 
   async function activate() {
@@ -71,7 +75,32 @@ export default function OpsCustomerDetailPage() {
     await load();
   }
 
-  if (!data) return <PageLoader label="Loading customer…" />;
+  if (!data) {
+    if (loadError) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+          <div>
+            <h2 className="text-xl font-semibold">Could not load customer</h2>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{loadError}</p>
+          </div>
+          <Button
+            className="rounded-xl"
+            onClick={() => {
+              setLoadError(null);
+              load().catch((err) => {
+                setLoadError(
+                  err instanceof Error ? err.message : "Failed to load customer"
+                );
+              });
+            }}
+          >
+            Try again
+          </Button>
+        </div>
+      );
+    }
+    return <PageLoader label="Loading customer…" />;
+  }
 
   const org = data.org;
   const used = Number(org.storageUsedBytes);
@@ -87,6 +116,11 @@ export default function OpsCustomerDetailPage() {
         <h2 className="mt-2 text-2xl font-semibold">{org.name}</h2>
         <p className="text-sm text-muted-foreground">
           {owner?.name} · {owner?.email} · {owner?.phone ?? "no phone"}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {org.memberCount ?? org.members?.length ?? 0} members ·{" "}
+          {org.staffCount ?? 0} staff · {org.adminCount ?? 1} owner/admin
+          {org.onboardingCompleteAt ? " · Onboarding complete" : " · Onboarding pending"}
         </p>
       </div>
 
@@ -136,6 +170,52 @@ export default function OpsCustomerDetailPage() {
               Waive setup fee
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle className="text-base">Members</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-muted-foreground">
+                <th className="pb-2 pr-4 font-medium">Name</th>
+                <th className="pb-2 pr-4 font-medium">Role</th>
+                <th className="pb-2 pr-4 font-medium">Status</th>
+                <th className="pb-2 font-medium">Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              {org.members.map(
+                (m: {
+                  id: string;
+                  role: string;
+                  status: string;
+                  joinedAt: string | null;
+                  user: {
+                    name: string;
+                    email: string;
+                  };
+                }) => (
+                  <tr key={m.id} className="border-b last:border-0">
+                    <td className="py-2.5 pr-4">
+                      <p className="font-medium">{m.user.name}</p>
+                      <p className="text-xs text-muted-foreground">{m.user.email}</p>
+                    </td>
+                    <td className="py-2.5 pr-4">{m.role}</td>
+                    <td className="py-2.5 pr-4">{m.status}</td>
+                    <td className="py-2.5 text-muted-foreground">
+                      {m.joinedAt
+                        ? new Date(m.joinedAt).toLocaleDateString("en-IN")
+                        : "—"}
+                    </td>
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
         </CardContent>
       </Card>
 

@@ -163,6 +163,29 @@ export function validateProductionEnv(env = process.env) {
   return errors;
 }
 
+export function productionEnvWarnings(env = process.env) {
+  /** @type {string[]} */
+  const warnings = [];
+  const hasUpstash =
+    env.UPSTASH_REDIS_REST_URL?.trim() && env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  const hasTurso = env.TURSO_DATABASE_URL?.trim() && env.TURSO_AUTH_TOKEN?.trim();
+  if (!hasUpstash && !hasTurso) {
+    warnings.push(
+      "No distributed rate limit backend. Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (recommended) or TURSO_DATABASE_URL + TURSO_AUTH_TOKEN (Turso bucket fallback)."
+    );
+  } else if (!hasUpstash && hasTurso) {
+    warnings.push(
+      "Using Turso for distributed rate limits. Optional: add Upstash Redis for lower latency at https://upstash.com"
+    );
+  }
+  if (env.NODE_ENV === "production" && env.ALLOW_BETA_EMAIL_BYPASS === "true") {
+    warnings.push(
+      "ALLOW_BETA_EMAIL_BYPASS=true — beta allowlist emails skip verification in production. Disable before public launch."
+    );
+  }
+  return warnings;
+}
+
 export function printProductionEnvErrors(errors) {
   console.error("\n❌ Production build blocked — fix these Vercel environment variables:\n");
   for (const error of errors) {
@@ -180,4 +203,7 @@ if (isDirectRun) {
     process.exit(1);
   }
   console.log("✓ All production environment variables look valid.");
+  for (const warning of productionEnvWarnings()) {
+    console.warn(`  ⚠ ${warning}`);
+  }
 }

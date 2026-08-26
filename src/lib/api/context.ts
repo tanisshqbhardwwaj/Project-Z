@@ -3,11 +3,13 @@ import { ZodError } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import type { OrgRole } from "@prisma/client";
-import { hasPermission, canManageOrg, type Permission } from "@/lib/permissions/rbac";
+import { hasPermission, canManageOrg, canAccessProjectsNav, type Permission } from "@/lib/permissions/rbac";
 import { subscriptionAllowsProductUse } from "@/lib/billing/entitlements";
 import { formatZodError } from "@/lib/api/validation";
 import { logger } from "@/lib/logger";
 import { RateLimitError } from "@/lib/rate-limit";
+import { clientSafeInternalMessage } from "@/lib/api/internal-error";
+import { touchOrganizationActivity } from "@/lib/db/touch-org-activity";
 
 export class ApiError extends Error {
   constructor(
@@ -86,6 +88,8 @@ export async function getAuthContext(
     throw new ApiError(403, "FORBIDDEN", "Not a member of this organization");
   }
 
+  void touchOrganizationActivity(organizationId);
+
   return {
     userId: session.user.id,
     userEmail: session.user.email!,
@@ -99,6 +103,29 @@ export function requirePermission(ctx: AuthContext, permission: Permission) {
   if (!hasPermission(ctx.role, permission)) {
     throw new ApiError(403, "FORBIDDEN", "Insufficient permissions");
   }
+}
+
+export function requireProjectViewAccess(ctx: AuthContext) {
+  if (!canAccessProjectsNav(ctx.role)) {
+    throw new ApiError(403, "FORBIDDEN", "Insufficient permissions");
+  }
+}
+
+export function requireProjectWriteAccess(ctx: AuthContext) {
+  requireProjectViewAccess(ctx);
+  if (ctx.role === "VIEWER") {
+    throw new ApiError(403, "FORBIDDEN", "Viewers cannot change project data");
+  }
+}
+
+export function requireUdhaarWrite(ctx: AuthContext) {
+  if (
+    hasPermission(ctx.role, "payment.create") ||
+    hasPermission(ctx.role, "shop.sales")
+  ) {
+    return;
+  }
+  throw new ApiError(403, "FORBIDDEN", "Not allowed to change customer credit");
 }
 
 export async function requireProjectAccess(
@@ -166,19 +193,10 @@ export async function handleApi<T>(
       error: e instanceof Error ? e.message : String(e),
       name: e instanceof Error ? e.name : "UnknownError",
     });
-    const isCloud =
-      Boolean(process.env.VERCEL) ||
-      process.env.S3_ENDPOINT?.includes("r2.cloudflarestorage.com");
-    const message =
-      e instanceof Error && e.name === "NoSuchBucket"
-        ? isCloud
-          ? `R2 bucket "${process.env.S3_BUCKET ?? "project-z"}" not found. Create it in Cloudflare Dashboard → R2.`
-          : "Storage bucket missing. Run: docker compose up -d"
-        : e instanceof Error && e.name === "AccessDenied"
-          ? "Storage access denied. Check R2 API token has Object Read & Write on the correct bucket."
-          : e instanceof Error
-            ? e.message
-            : "An unexpected error occurred";
+    const message = clientSafeInternalMessage(
+      e,
+      process.env.NODE_ENV === "production"
+    );
     return apiError(new ApiError(500, "INTERNAL_ERROR", message));
   }
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthContext, handleApi, requireProjectAccess, apiSuccess } from "@/lib/api/context";
+import { getAuthContext, handleApi, requireProjectAccess, requireProjectWriteAccess, apiSuccess } from "@/lib/api/context";
 import { mergeProjects } from "@/services/project.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
@@ -13,10 +13,13 @@ export async function POST(
   return handleApi(async () => {
     const { id: targetProjectId } = await params;
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    await requireProjectAccess(ctx, targetProjectId);
+    requireProjectWriteAccess(ctx);
 
     const body = await request.json();
     const { sourceProjectId } = schema.parse(body);
+
+    await requireProjectAccess(ctx, targetProjectId);
+    await requireProjectAccess(ctx, sourceProjectId);
 
     const project = await mergeProjects({
       targetProjectId,
