@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { randomUUID } from "crypto";
+
+function correlationId(): string {
+  return globalThis.crypto.randomUUID();
+}
 
 const publicPaths = [
   "/",
@@ -23,7 +26,7 @@ export default async function middleware(request: NextRequest) {
       const correlationId =
         request.headers.get("x-correlation-id")?.trim() ||
         request.headers.get("x-request-id")?.trim() ||
-        randomUUID();
+        correlationId();
       const response = NextResponse.next({
         request: {
           headers: new Headers(request.headers),

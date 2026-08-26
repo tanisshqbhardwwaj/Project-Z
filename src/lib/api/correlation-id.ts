@@ -1,12 +1,14 @@
-import { randomUUID } from "crypto";
-
 const CORRELATION_HEADER = "x-correlation-id";
+
+function newCorrelationId(): string {
+  return globalThis.crypto.randomUUID();
+}
 
 export function readCorrelationId(request: Request): string {
   return (
     request.headers.get(CORRELATION_HEADER)?.trim() ||
     request.headers.get("x-request-id")?.trim() ||
-    randomUUID()
+    newCorrelationId()
   );
 }
 
