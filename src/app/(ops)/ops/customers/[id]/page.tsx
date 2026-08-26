@@ -26,7 +26,10 @@ export default function OpsCustomerDetailPage() {
   const [data, setData] = useState<any>(null);
   const [plan, setPlan] = useState<string>("");
   const [saving, setSaving] = useState(false);
+<<<<<<< HEAD
   const [loadError, setLoadError] = useState<string | null>(null);
+=======
+>>>>>>> origin/master
 
   const load = useCallback(async () => {
     const res = await apiFetch<any>(`/api/v1/ops/organizations/${id}`);
@@ -35,10 +38,14 @@ export default function OpsCustomerDetailPage() {
   }, [id]);
 
   useEffect(() => {
+<<<<<<< HEAD
     setLoadError(null);
     load().catch((err) => {
       setLoadError(err instanceof Error ? err.message : "Failed to load customer");
     });
+=======
+    load().catch(() => {});
+>>>>>>> origin/master
   }, [load]);
 
   async function activate() {
@@ -75,6 +82,7 @@ export default function OpsCustomerDetailPage() {
     await load();
   }
 
+<<<<<<< HEAD
   if (!data) {
     if (loadError) {
       return (
@@ -101,6 +109,9 @@ export default function OpsCustomerDetailPage() {
     }
     return <PageLoader label="Loading customer…" />;
   }
+=======
+  if (!data) return <PageLoader label="Loading customer…" />;
+>>>>>>> origin/master
 
   const org = data.org;
   const used = Number(org.storageUsedBytes);
@@ -117,11 +128,14 @@ export default function OpsCustomerDetailPage() {
         <p className="text-sm text-muted-foreground">
           {owner?.name} · {owner?.email} · {owner?.phone ?? "no phone"}
         </p>
+<<<<<<< HEAD
         <p className="mt-1 text-xs text-muted-foreground">
           {org.memberCount ?? org.members?.length ?? 0} members ·{" "}
           {org.staffCount ?? 0} staff · {org.adminCount ?? 1} owner/admin
           {org.onboardingCompleteAt ? " · Onboarding complete" : " · Onboarding pending"}
         </p>
+=======
+>>>>>>> origin/master
       </div>
 
       <Card className="rounded-2xl">
@@ -173,6 +187,7 @@ export default function OpsCustomerDetailPage() {
         </CardContent>
       </Card>
 
+<<<<<<< HEAD
       <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle className="text-base">Members</CardTitle>
@@ -219,6 +234,8 @@ export default function OpsCustomerDetailPage() {
         </CardContent>
       </Card>
 
+=======
+>>>>>>> origin/master
       {org.planRequests?.length ? (
         <Card className="rounded-2xl">
           <CardHeader>

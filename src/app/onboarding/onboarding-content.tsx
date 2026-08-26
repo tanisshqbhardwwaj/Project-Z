@@ -31,7 +31,7 @@ export default function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewOrg = searchParams.get("new") === "1";
-  const { bootstrap, status, initialized } = useAuthStore();
+  const { bootstrap, status, initialized, logout } = useAuthStore();
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
   const [businessTypes, setBusinessTypes] = useState<ShopSector[]>(["CLOTHING"]);
@@ -123,7 +123,13 @@ export default function OnboardingContent() {
   }
 
   async function handleLogout() {
+<<<<<<< HEAD
     await logoutUser();
+=======
+    await fetch("/api/v1/auth/logout", { method: "POST" });
+    logout();
+    window.location.href = "/login";
+>>>>>>> origin/master
   }
 
   if (!initialized) return <PageLoader label="Loading..." />;

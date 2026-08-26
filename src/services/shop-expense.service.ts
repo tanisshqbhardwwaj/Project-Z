@@ -3,7 +3,10 @@ import { prisma } from "@/lib/db/prisma";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { ensureShopExtendedSchema } from "@/lib/shop/ensure-shop-extended-schema";
 import { createAuditLog } from "./audit.service";
+<<<<<<< HEAD
 import { toCursorPage } from "@/lib/api/cursor-page";
+=======
+>>>>>>> origin/master
 
 const DEFAULT_CATEGORIES = [
   "Electricity",
@@ -76,11 +79,21 @@ export async function listShopExpenses(input: {
   from?: Date;
   to?: Date;
   sort?: "newest" | "oldest";
+<<<<<<< HEAD
   cursor?: string;
   limit?: number;
 }) {
   await ensureShopExtendedSchema();
   const pageSize = Math.min(100, Math.max(1, input.limit ?? 25));
+=======
+  page?: number;
+  pageSize?: number;
+}) {
+  await ensureShopExtendedSchema();
+  const page = Math.max(1, input.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 25));
+  const skip = (page - 1) * pageSize;
+>>>>>>> origin/master
 
   const where = {
     organizationId: input.organizationId,
@@ -105,6 +118,7 @@ export async function listShopExpenses(input: {
       : {}),
   };
 
+<<<<<<< HEAD
   const items = await prisma.shopExpense.findMany({
     where,
     include: {
@@ -117,6 +131,23 @@ export async function listShopExpenses(input: {
   });
 
   return toCursorPage(items, pageSize);
+=======
+  const [items, total] = await Promise.all([
+    prisma.shopExpense.findMany({
+      where,
+      include: {
+        category: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+      },
+      orderBy: { expenseDate: input.sort === "oldest" ? "asc" : "desc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.shopExpense.count({ where }),
+  ]);
+
+  return { items, total, page, pageSize };
+>>>>>>> origin/master
 }
 
 export async function getShopExpense(organizationId: string, expenseId: string) {

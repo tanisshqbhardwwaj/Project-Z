@@ -8,7 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AlertCircle, Receipt } from "lucide-react";
+<<<<<<< HEAD
 import { OfflineBanner } from "@/components/sync/offline-banner";
+=======
+>>>>>>> origin/master
 
 export default function CashierHomePage() {
   const userName = useAuthStore((s) => s.user?.name);
@@ -24,7 +27,10 @@ export default function CashierHomePage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-5 pb-8">
+<<<<<<< HEAD
       <OfflineBanner />
+=======
+>>>>>>> origin/master
       <div>
         <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Cashier mode

@@ -50,7 +50,10 @@ const createSaleSchema = z.object({
     )
     .min(1),
   notes: z.string().optional().nullable(),
+<<<<<<< HEAD
   clientId: z.string().uuid().optional().nullable(),
+=======
+>>>>>>> origin/master
   selectedOfferId: z.string().uuid().optional().nullable(),
   skipOffer: z.boolean().optional(),
   appliedOffers: z
@@ -62,6 +65,7 @@ const createSaleSchema = z.object({
       })
     )
     .optional(),
+<<<<<<< HEAD
   splitPayments: z
     .array(
       z.object({
@@ -79,6 +83,8 @@ const createSaleSchema = z.object({
       reference: z.string().optional(),
     })
     .optional(),
+=======
+>>>>>>> origin/master
 });
 
 export async function GET(request: Request) {
@@ -92,8 +98,11 @@ export async function GET(request: Request) {
       q,
       customerId,
       staffId: staffScope,
+<<<<<<< HEAD
       cursor: searchParams.get("cursor") ?? undefined,
       limit: Number(searchParams.get("limit") ?? 25),
+=======
+>>>>>>> origin/master
     });
     return apiSuccess(serializeBigInt(sales));
   });
@@ -110,7 +119,10 @@ export async function POST(request: Request) {
     const sale = await createShopSale({
       organizationId: ctx.organizationId,
       createdById: ctx.userId,
+<<<<<<< HEAD
       clientId: data.clientId,
+=======
+>>>>>>> origin/master
       customerId: data.customerId,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
@@ -134,8 +146,11 @@ export async function POST(request: Request) {
       selectedOfferId: data.selectedOfferId,
       skipOffer: data.skipOffer,
       appliedOffers: data.appliedOffers,
+<<<<<<< HEAD
       splitPayments: data.splitPayments,
       terminalPayment: data.terminalPayment,
+=======
+>>>>>>> origin/master
     });
 
     return NextResponse.json({ data: serializeBigInt(sale) }, { status: 201 });

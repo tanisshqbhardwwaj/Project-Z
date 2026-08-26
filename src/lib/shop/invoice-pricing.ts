@@ -191,6 +191,7 @@ export type StoredInvoicePricing = {
   /** Saved per line index — offer + percent manual combined. */
   lineDiscountRupees?: number[];
   appliedOffers?: { offerId: string; name: string; discountRupees: number }[];
+<<<<<<< HEAD
   splitPayments?: { method: string; amountRupees: number }[];
   terminalPayment?: {
     provider: string;
@@ -198,6 +199,8 @@ export type StoredInvoicePricing = {
     merchantTxnId: string;
     reference?: string;
   };
+=======
+>>>>>>> origin/master
 };
 
 export function parsePricingJson(raw: unknown): StoredInvoicePricing | null {
@@ -239,6 +242,7 @@ export function parsePricingJson(raw: unknown): StoredInvoicePricing | null {
     appliedOffers: Array.isArray(p.appliedOffers)
       ? (p.appliedOffers as { offerId: string; name: string; discountRupees: number }[])
       : undefined,
+<<<<<<< HEAD
     splitPayments: Array.isArray(p.splitPayments)
       ? (p.splitPayments as { method: string; amountRupees: number }[])
       : undefined,
@@ -246,6 +250,8 @@ export function parsePricingJson(raw: unknown): StoredInvoicePricing | null {
       p.terminalPayment && typeof p.terminalPayment === "object"
         ? (p.terminalPayment as StoredInvoicePricing["terminalPayment"])
         : undefined,
+=======
+>>>>>>> origin/master
   };
 }
 
@@ -294,6 +300,7 @@ export function shouldShowLineDiscountHints(
   if (pricing.manualDiscountMode === "percent") return true;
   if ((pricing.manualDiscountPercent ?? 0) > 0) return true;
   if ((pricing.discountPercent ?? 0) > 0) return true;
+<<<<<<< HEAD
   // Legacy bills: flat ₹ discount saved without manualDiscountMode — keep lines at list price.
   if (
     (pricing.manualDiscountRupees ?? 0) > 0 ||
@@ -301,6 +308,8 @@ export function shouldShowLineDiscountHints(
   ) {
     return false;
   }
+=======
+>>>>>>> origin/master
   return false;
 }
 
@@ -401,6 +410,7 @@ export function resolveInvoiceLineAllocations(
 ): AllocatedLineDiscount[] | null {
   if (!input.showLineHints || input.totalDiscountRupees <= 0) return null;
 
+<<<<<<< HEAD
   const offerLineTotal = round2(
     (input.offerLineDiscountRupees ?? []).reduce((s, n) => s + Math.max(0, n), 0)
   );
@@ -410,6 +420,8 @@ export function resolveInvoiceLineAllocations(
     return null;
   }
 
+=======
+>>>>>>> origin/master
   if (
     input.storedLineDiscountRupees &&
     input.storedLineDiscountRupees.length === items.length
@@ -438,5 +450,9 @@ export function resolveInvoiceLineAllocations(
     return allocateLineDiscounts(items, input.manualDiscountRupees!);
   }
 
+<<<<<<< HEAD
   return null;
+=======
+  return allocateLineDiscounts(items, input.totalDiscountRupees);
+>>>>>>> origin/master
 }

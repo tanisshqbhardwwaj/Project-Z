@@ -28,9 +28,12 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#f4f6fa" },
     { media: "(prefers-color-scheme: dark)", color: "#0c1222" },
   ],
+<<<<<<< HEAD
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+=======
+>>>>>>> origin/master
 };
 
 export default async function RootLayout({

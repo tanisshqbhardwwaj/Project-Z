@@ -14,7 +14,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
+<<<<<<< HEAD
 import { DesktopOnlyNote } from "@/components/layout/desktop-only-note";
+=======
+>>>>>>> origin/master
 import {
   DEFAULT_INVOICE_SETTINGS,
   defaultPrintMarginForPaper,
@@ -24,6 +27,7 @@ import {
   type ShopInvoiceSettings,
 } from "@/lib/org/shop-settings";
 import {
+<<<<<<< HEAD
   defaultPaymentTerminalConfig,
   sanitizePaymentTerminalConfig,
   parsePaymentTerminalConfig,
@@ -36,6 +40,8 @@ import {
   type InvoiceSettingsTab,
 } from "@/components/shop/invoice-settings-tabs";
 import {
+=======
+>>>>>>> origin/master
   ShopInvoicePrint,
   type ShopInvoiceData,
 } from "@/components/shop/shop-invoice-print";
@@ -44,17 +50,25 @@ import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import { printShopInvoice } from "@/lib/shop/print/invoice-print-service";
 import type { OrgSettingsJson } from "@/lib/org/modules";
 import { cn } from "@/lib/utils";
+<<<<<<< HEAD
 import { deriveStoreCode, fiscalYearLabel, formatShopBillNumber } from "@/lib/shop/bill-number";
+=======
+import { fiscalYearLabel } from "@/lib/shop/bill-number";
+>>>>>>> origin/master
 import { ArrowLeft, Printer, Save } from "lucide-react";
 
 const SAMPLE_INVOICE: ShopInvoiceData = {
   orgName: "Sample Shop",
+<<<<<<< HEAD
   billNumber: formatShopBillNumber({
     storeCode: "BF",
     cashierCode: "R1",
     fiscalYear: fiscalYearLabel(),
     sequence: 18,
   }),
+=======
+  billNumber: `INV-4-${fiscalYearLabel()}-00018`,
+>>>>>>> origin/master
   customerName: "Rahul Sharma",
   customerPhone: "9876543210",
   customerGstin: "29ABCDE1234F1Z5",
@@ -119,7 +133,11 @@ export default function InvoiceSettingsPage() {
   const [gstin, setGstin] = useState("");
   const [footerText, setFooterText] = useState(DEFAULT_INVOICE_SETTINGS.footerText);
   const [termsText, setTermsText] = useState("");
+<<<<<<< HEAD
   const [storeCode, setStoreCode] = useState("");
+=======
+  const [billPrefix, setBillPrefix] = useState(DEFAULT_INVOICE_SETTINGS.billPrefix);
+>>>>>>> origin/master
   const [showLogo, setShowLogo] = useState(DEFAULT_INVOICE_SETTINGS.showLogo);
   const [showBarcode, setShowBarcode] = useState(DEFAULT_INVOICE_SETTINGS.showBarcode);
   const [showCashier, setShowCashier] = useState(DEFAULT_INVOICE_SETTINGS.showCashier);
@@ -149,6 +167,7 @@ export default function InvoiceSettingsPage() {
   const [useDecimalPlaces, setUseDecimalPlaces] = useState(
     DEFAULT_INVOICE_SETTINGS.useDecimalPlaces
   );
+<<<<<<< HEAD
   const [paymentTerminal, setPaymentTerminal] = useState<PaymentTerminalConfigPublic>(
     defaultPaymentTerminalConfig()
   );
@@ -158,6 +177,9 @@ export default function InvoiceSettingsPage() {
   }>({});
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState<InvoiceSettingsTab>("shop");
+=======
+  const [printing, setPrinting] = useState(false);
+>>>>>>> origin/master
 
   useEffect(() => {
     const invoice = parseShopInvoiceSettings(activeOrgSettings);
@@ -169,7 +191,11 @@ export default function InvoiceSettingsPage() {
     setGstin(invoice.gstin ?? "");
     setFooterText(invoice.footerText ?? DEFAULT_INVOICE_SETTINGS.footerText);
     setTermsText(invoice.termsText ?? "");
+<<<<<<< HEAD
     setStoreCode(invoice.storeCode ?? invoice.billPrefix ?? "");
+=======
+    setBillPrefix(invoice.billPrefix ?? DEFAULT_INVOICE_SETTINGS.billPrefix);
+>>>>>>> origin/master
     setShowLogo(invoice.showLogo ?? DEFAULT_INVOICE_SETTINGS.showLogo);
     setShowBarcode(invoice.showBarcode ?? DEFAULT_INVOICE_SETTINGS.showBarcode);
     setShowCashier(invoice.showCashier ?? DEFAULT_INVOICE_SETTINGS.showCashier);
@@ -198,12 +224,15 @@ export default function InvoiceSettingsPage() {
     );
     setDefaultCopies(String(invoice.defaultCopies ?? DEFAULT_INVOICE_SETTINGS.defaultCopies));
     setUseDecimalPlaces(invoice.useDecimalPlaces ?? DEFAULT_INVOICE_SETTINGS.useDecimalPlaces);
+<<<<<<< HEAD
     setPaymentTerminal(
       sanitizePaymentTerminalConfig(
         parsePaymentTerminalConfig(invoice.paymentTerminal ?? {})
       )
     );
     setTerminalSecrets({});
+=======
+>>>>>>> origin/master
     setLoading(false);
   }, [activeOrgSettings]);
 
@@ -217,7 +246,11 @@ export default function InvoiceSettingsPage() {
       gstin: gstin.trim() || undefined,
       footerText: footerText.trim() || undefined,
       termsText: termsText.trim() || undefined,
+<<<<<<< HEAD
       storeCode: storeCode.trim() || undefined,
+=======
+      billPrefix: billPrefix.trim() || undefined,
+>>>>>>> origin/master
       showLogo,
       showBarcode,
       showCashier,
@@ -233,6 +266,7 @@ export default function InvoiceSettingsPage() {
       printMarginMm: Number(printMarginMm) || 0,
       defaultCopies: Math.min(5, Math.max(1, Number(defaultCopies) || 1)),
       useDecimalPlaces,
+<<<<<<< HEAD
       paymentTerminal: {
         ...paymentTerminal,
         ...(terminalSecrets.merchantKey
@@ -246,6 +280,8 @@ export default function InvoiceSettingsPage() {
             ? { bridgeApiKey: SECRET_PLACEHOLDER }
             : {}),
       },
+=======
+>>>>>>> origin/master
     };
   }, [
     displayName,
@@ -256,7 +292,11 @@ export default function InvoiceSettingsPage() {
     gstin,
     footerText,
     termsText,
+<<<<<<< HEAD
     storeCode,
+=======
+    billPrefix,
+>>>>>>> origin/master
     showLogo,
     showBarcode,
     showCashier,
@@ -272,8 +312,11 @@ export default function InvoiceSettingsPage() {
     printMarginMm,
     defaultCopies,
     useDecimalPlaces,
+<<<<<<< HEAD
     paymentTerminal,
     terminalSecrets,
+=======
+>>>>>>> origin/master
   ]);
 
   const previewTemplate = useMemo(() => {
@@ -307,6 +350,13 @@ export default function InvoiceSettingsPage() {
     if (!isOwner) return;
     clear();
     setSavedMessage("");
+<<<<<<< HEAD
+=======
+    if (!billPrefix.trim()) {
+      showWarning("Bill prefix is required");
+      return;
+    }
+>>>>>>> origin/master
     setSaving(true);
     try {
       const updated = await apiFetch<{
@@ -370,11 +420,16 @@ export default function InvoiceSettingsPage() {
           </Link>
           <h1 className="text-2xl font-bold sm:text-3xl">Invoice settings</h1>
           <p className="text-sm text-muted-foreground">
+<<<<<<< HEAD
             Customize your invoice — use the tabs below; preview updates live on the right
           </p>
           <div className="mt-2">
             <DesktopOnlyNote feature="Invoice settings" />
           </div>
+=======
+            Customize your invoice template — header, shop details, and what to show
+          </p>
+>>>>>>> origin/master
         </div>
         {isOwner ? (
           <Button
@@ -398,11 +453,16 @@ export default function InvoiceSettingsPage() {
         <p className="text-sm font-medium text-emerald-600">{savedMessage}</p>
       ) : null}
 
+<<<<<<< HEAD
       <InvoiceSettingsTabs activeTab={activeTab} onChange={setActiveTab} />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="min-w-0 space-y-4">
           {activeTab === "shop" ? (
+=======
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div className="space-y-4">
+>>>>>>> origin/master
           <Card className="rounded-2xl border-0 shadow-md">
             <CardHeader>
               <CardTitle className="text-lg">Shop details on invoice</CardTitle>
@@ -478,15 +538,20 @@ export default function InvoiceSettingsPage() {
               </p>
             </CardContent>
           </Card>
+<<<<<<< HEAD
           ) : null}
 
           {activeTab === "bill" ? (
+=======
+
+>>>>>>> origin/master
           <Card className="rounded-2xl border-0 shadow-md">
             <CardHeader>
               <CardTitle className="text-lg">Bill & footer</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
+<<<<<<< HEAD
                 <Label>Store code for bill numbers</Label>
                 <Input
                   value={storeCode}
@@ -505,6 +570,18 @@ export default function InvoiceSettingsPage() {
                     sequence: 18,
                   })}
                   {" "}· leave blank to auto-use shop initials
+=======
+                <Label>Bill number prefix</Label>
+                <Input
+                  value={billPrefix}
+                  onChange={(e) => setBillPrefix(e.target.value.toUpperCase())}
+                  className="h-11 max-w-[120px] rounded-xl font-mono uppercase"
+                  maxLength={10}
+                  disabled={!isOwner}
+                />
+                <p className="text-xs text-muted-foreground">
+                  New bills: {billPrefix || "INV"}-4-{fiscalYearLabel()}-00018
+>>>>>>> origin/master
                 </p>
               </div>
               <div className="space-y-2">
@@ -590,9 +667,13 @@ export default function InvoiceSettingsPage() {
               </div>
             </CardContent>
           </Card>
+<<<<<<< HEAD
           ) : null}
 
           {activeTab === "print" ? (
+=======
+
+>>>>>>> origin/master
           <Card className="rounded-2xl border-0 shadow-md">
             <CardHeader>
               <CardTitle className="text-lg">Print settings</CardTitle>
@@ -677,6 +758,7 @@ export default function InvoiceSettingsPage() {
               </p>
             </CardContent>
           </Card>
+<<<<<<< HEAD
           ) : null}
 
           {activeTab === "terminal" ? (
@@ -697,6 +779,12 @@ export default function InvoiceSettingsPage() {
               <p className="text-sm text-muted-foreground">
                 Choose which details appear on printed and preview bills
               </p>
+=======
+
+          <Card className="rounded-2xl border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg">Show on invoice</CardTitle>
+>>>>>>> origin/master
             </CardHeader>
             <CardContent className="space-y-2">
               <ToggleRow
@@ -750,7 +838,10 @@ export default function InvoiceSettingsPage() {
               />
             </CardContent>
           </Card>
+<<<<<<< HEAD
           ) : null}
+=======
+>>>>>>> origin/master
         </div>
 
         <Card className="rounded-2xl border-0 shadow-md xl:sticky xl:top-4 xl:self-start">
@@ -770,11 +861,18 @@ export default function InvoiceSettingsPage() {
             </Button>
           </CardHeader>
           <CardContent>
+<<<<<<< HEAD
             <div className="flex justify-center overflow-hidden rounded-xl bg-neutral-100/80 px-4 py-8 dark:bg-neutral-900/40">
               <InvoicePreviewRoot
                 paperSize={previewTemplate.paperSize}
                 printMarginMm={previewTemplate.printMarginMm}
                 framed
+=======
+            <div className="flex justify-center overflow-hidden rounded-xl border bg-neutral-50/80 py-3">
+              <InvoicePreviewRoot
+                paperSize={previewTemplate.paperSize}
+                printMarginMm={previewTemplate.printMarginMm}
+>>>>>>> origin/master
               >
                 <ShopInvoicePrint
                   invoice={{

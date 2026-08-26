@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
+<<<<<<< HEAD
 import { useState } from "react";
+=======
+import { useMemo, useState } from "react";
+>>>>>>> origin/master
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Wallet } from "lucide-react";
@@ -11,18 +15,26 @@ import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
+<<<<<<< HEAD
 import { buildCursorListUrl } from "@/lib/api/list-url";
 import { PageLoader } from "@/components/ui/page-loader";
 import { EmptyState } from "@/components/ui/empty-state";
+=======
+import { PageLoader } from "@/components/ui/page-loader";
+>>>>>>> origin/master
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
+<<<<<<< HEAD
 import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
 import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
+=======
+import { useFormFeedback } from "@/hooks/use-form-feedback";
+>>>>>>> origin/master
 import { formatINR } from "@/lib/finance/money";
 import { hasPermission } from "@/lib/permissions/rbac";
 import { cn } from "@/lib/utils";
@@ -39,6 +51,10 @@ type ExpenseRow = {
   category: { name: string };
   createdBy: { name: string };
 };
+<<<<<<< HEAD
+=======
+type ExpenseList = { items: ExpenseRow[]; total: number };
+>>>>>>> origin/master
 
 type TabKey = "daily" | "history" | "add";
 type ExpenseKind = "one-time" | "recurring";
@@ -70,6 +86,19 @@ export default function ShopExpensesPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
 
   const today = new Date().toISOString().slice(0, 10);
+<<<<<<< HEAD
+=======
+  const queryString = useMemo(() => {
+    const p = new URLSearchParams();
+    if (search.trim()) p.set("q", search.trim());
+    if (categoryId) p.set("categoryId", categoryId);
+    if (tab === "daily") {
+      p.set("from", today);
+      p.set("to", today);
+    }
+    return `?${p.toString()}`;
+  }, [search, categoryId, tab, today]);
+>>>>>>> origin/master
 
   const categoriesQuery = useQuery({
     queryKey: orgId ? queryKeys.modules.shop.expenseCategories(orgId) : ["disabled"],
@@ -77,6 +106,7 @@ export default function ShopExpensesPage() {
     enabled: !!orgId && enabled,
   });
 
+<<<<<<< HEAD
   const expensesList = useInfiniteShopList<ExpenseRow>({
     queryKey: orgId ? [...queryKeys.modules.shop.expenses(orgId), tab, categoryId, today] : ["disabled"],
     buildUrl: (cursor, debouncedSearch) =>
@@ -89,6 +119,12 @@ export default function ShopExpensesPage() {
       }, cursor),
     enabled: !!orgId && enabled && (tab === "daily" || tab === "history"),
     search: tab === "history" ? search : "",
+=======
+  const expensesQuery = useQuery({
+    queryKey: orgId ? [...queryKeys.modules.shop.expenses(orgId), tab, search, categoryId] : ["disabled"],
+    queryFn: () => apiFetch<ExpenseList>(`/api/v1/shop/expenses${queryString}`),
+    enabled: !!orgId && enabled && (tab === "daily" || tab === "history"),
+>>>>>>> origin/master
   });
 
   const profitQuery = useQuery({
@@ -125,6 +161,7 @@ export default function ShopExpensesPage() {
     return <p className="text-muted-foreground">Turn on {title} in Manage Organization → Features.</p>;
   }
 
+<<<<<<< HEAD
   const expenses = expensesList.items;
   const todayTotal = expenses.reduce((s, e) => s + Number(e.amountPaise), 0);
 
@@ -135,6 +172,15 @@ export default function ShopExpensesPage() {
     return <PageLoader label="Loading expenses..." />;
   }
 
+=======
+  if (categoriesQuery.isLoading || (expensesQuery.isLoading && tab !== "add")) {
+    return <PageLoader label="Loading expenses..." />;
+  }
+
+  const expenses = expensesQuery.data?.items ?? [];
+  const todayTotal = expenses.reduce((s, e) => s + Number(e.amountPaise), 0);
+
+>>>>>>> origin/master
   async function submitExpense(e: React.FormEvent) {
     e.preventDefault();
     clear();
@@ -316,17 +362,25 @@ export default function ShopExpensesPage() {
             <CardTitle className="flex items-center gap-2 text-lg">
               <Wallet className="h-5 w-5" />
               {tab === "daily" ? "Today's expenses" : "Expense history"}
+<<<<<<< HEAD
               <ListFetchIndicator active={expensesList.isSearchPending} className="ml-1" />
+=======
+>>>>>>> origin/master
             </CardTitle>
             {tab === "history" && (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+<<<<<<< HEAD
                 <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-11 rounded-xl pl-9" aria-busy={expensesList.isSearchPending} />
+=======
+                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-11 rounded-xl pl-9" />
+>>>>>>> origin/master
               </div>
             )}
           </CardHeader>
           <CardContent>
             {expenses.length === 0 ? (
+<<<<<<< HEAD
               <EmptyState
                 icon={Wallet}
                 title={tab === "daily" ? "No expenses recorded today" : "No expenses found"}
@@ -339,6 +393,11 @@ export default function ShopExpensesPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
+=======
+              <p className="py-8 text-center text-sm text-muted-foreground">No expenses recorded.</p>
+            ) : (
+              <table className="w-full text-sm">
+>>>>>>> origin/master
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="pb-2 font-medium">Date</th>
@@ -362,6 +421,7 @@ export default function ShopExpensesPage() {
                   ))}
                 </tbody>
               </table>
+<<<<<<< HEAD
               </div>
             )}
             <LoadMoreTrigger
@@ -369,6 +429,9 @@ export default function ShopExpensesPage() {
               isLoading={expensesList.isFetchingNextPage}
               onLoadMore={() => expensesList.fetchNextPage()}
             />
+=======
+            )}
+>>>>>>> origin/master
           </CardContent>
         </Card>
       )}

@@ -31,6 +31,7 @@ export function useRequireAuth() {
     if (!initialized) return;
 
     if (status === "unauthenticated") {
+<<<<<<< HEAD
       const isPublic = PUBLIC_PATHS.some((p) => {
         if (p === "/") return pathname === "/";
         return pathname === p || pathname.startsWith(`${p}/`);
@@ -38,6 +39,9 @@ export function useRequireAuth() {
       if (!isPublic) {
         router.replace(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
       }
+=======
+      router.replace(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
+>>>>>>> origin/master
       return;
     }
 

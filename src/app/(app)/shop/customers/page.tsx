@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+<<<<<<< HEAD
 import { ArrowLeft, Receipt, Search, Users } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
@@ -16,6 +17,19 @@ import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
 import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
 import { formatCustomerLabel } from "@/lib/shop/customer";
 import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
+=======
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Receipt, Search } from "lucide-react";
+import { useAuthStore } from "@/stores/auth-store";
+import { isModuleEnabled } from "@/hooks/use-enabled-modules";
+import { apiFetch } from "@/lib/api/client";
+import { queryKeys } from "@/lib/query/keys";
+import { PageLoader } from "@/components/ui/page-loader";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { formatCustomerLabel } from "@/lib/shop/customer";
+>>>>>>> origin/master
 
 type ShopCustomerRow = {
   id: string;
@@ -32,6 +46,7 @@ export default function ShopCustomersPage() {
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
   const [search, setSearch] = useState("");
 
+<<<<<<< HEAD
   const {
     items: customers,
     debouncedSearch,
@@ -49,6 +64,19 @@ export default function ShopCustomersPage() {
         : buildCursorListUrl("/api/v1/shop/customers", { all: 1, limit: 25 }, cursor),
     enabled: !!orgId && salesEnabled,
     search,
+=======
+  const { data, isLoading, error } = useQuery({
+    queryKey: orgId
+      ? queryKeys.modules.shop.customerRegistry(orgId, search || "all")
+      : ["disabled"],
+    queryFn: () =>
+      apiFetch<ShopCustomerRow[]>(
+        search.trim()
+          ? `/api/v1/shop/customers?q=${encodeURIComponent(search.trim())}`
+          : "/api/v1/shop/customers?all=1"
+      ),
+    enabled: !!orgId && salesEnabled,
+>>>>>>> origin/master
   });
 
   if (!salesEnabled) {
@@ -59,7 +87,11 @@ export default function ShopCustomersPage() {
     );
   }
 
+<<<<<<< HEAD
   if (isInitialLoading) return <PageLoader label="Loading customers..." />;
+=======
+  if (isLoading) return <PageLoader label="Loading customers..." />;
+>>>>>>> origin/master
   if (error) {
     return (
       <p className="text-destructive">
@@ -68,6 +100,11 @@ export default function ShopCustomersPage() {
     );
   }
 
+<<<<<<< HEAD
+=======
+  const customers = data ?? [];
+
+>>>>>>> origin/master
   return (
     <div className="space-y-6">
       <div>
@@ -91,19 +128,28 @@ export default function ShopCustomersPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="h-11 rounded-xl pl-10"
           placeholder="Search by name or phone"
+<<<<<<< HEAD
           aria-busy={isSearchPending}
+=======
+>>>>>>> origin/master
         />
       </div>
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardHeader>
+<<<<<<< HEAD
           <CardTitle className="flex items-center gap-2">
             {customers.length} customer{customers.length === 1 ? "" : "s"}
             <ListFetchIndicator active={isSearchPending} />
+=======
+          <CardTitle>
+            {customers.length} customer{customers.length === 1 ? "" : "s"}
+>>>>>>> origin/master
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {customers.length === 0 ? (
+<<<<<<< HEAD
             <EmptyState
               icon={Users}
               title={debouncedSearch.trim() ? "No customers match your search" : "No customers yet"}
@@ -160,6 +206,53 @@ export default function ShopCustomersPage() {
                 onLoadMore={() => fetchNextPage()}
               />
             </>
+=======
+            <p className="p-6 text-sm text-muted-foreground">
+              {search.trim()
+                ? "No customers match your search."
+                : "Customers appear here when you bill someone with a name."}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Customer</th>
+                    <th className="px-4 py-3 font-medium">GSTIN</th>
+                    <th className="px-4 py-3 font-medium">Invoices</th>
+                    <th className="px-4 py-3 font-medium">Last bill</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {customers.map((c) => (
+                    <tr key={c.id} className="hover:bg-muted/30">
+                      <td className="px-4 py-3 font-medium">
+                        {formatCustomerLabel(c)}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {c.gstin ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">{c._count.sales}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {c.lastSaleAt
+                          ? new Date(c.lastSaleAt).toLocaleDateString("en-IN")
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/shop/invoices?customerId=${c.id}`}>
+                          <Button variant="outline" size="sm" className="rounded-xl">
+                            <Receipt className="mr-1 h-3.5 w-3.5" />
+                            View bills
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+>>>>>>> origin/master
           )}
         </CardContent>
       </Card>

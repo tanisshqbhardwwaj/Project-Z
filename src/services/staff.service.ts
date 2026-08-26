@@ -41,6 +41,7 @@ async function assertUniqueCashierCode(
   }
 }
 
+<<<<<<< HEAD
 const CASHIER_CODE_LETTERS = ["R", "C", "S", "A", "B", "K", "M", "T"] as const;
 
 /**
@@ -64,6 +65,8 @@ async function nextAutoCashierCode(organizationId: string): Promise<string> {
   throw new Error("No cashier codes left — set one manually");
 }
 
+=======
+>>>>>>> origin/master
 export async function listStaffMembers(
   organizationId: string,
   options?: { status?: StaffStatus; search?: string }
@@ -276,9 +279,13 @@ export async function createStaffMember(input: {
       ? rupeesToPaise(input.overtimeRateRupees)
       : null;
   const commission = resolveCommission(input);
+<<<<<<< HEAD
   const cashierCode =
     resolveCashierCodeInput(input.cashierCode) ??
     (await nextAutoCashierCode(input.organizationId));
+=======
+  const cashierCode = resolveCashierCodeInput(input.cashierCode);
+>>>>>>> origin/master
   await assertUniqueCashierCode(input.organizationId, cashierCode);
 
   const staff = await prisma.staffMember.create({

@@ -62,6 +62,7 @@ export async function recordStorageDelete(organizationId: string, storageKey: st
 }
 
 export async function getStorageUsageBreakdown(organizationId: string) {
+<<<<<<< HEAD
   const [grouped, org, documents] = await Promise.all([
     prisma.storageObject.groupBy({
       by: ["category"],
@@ -130,6 +131,25 @@ export async function getStorageUsageBreakdown(organizationId: string) {
       category,
       bytes: row.bytes.toString(),
       count: row.count,
+=======
+  const grouped = await prisma.storageObject.groupBy({
+    by: ["category"],
+    where: { organizationId },
+    _sum: { byteSize: true },
+    _count: true,
+  });
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { storageUsedBytes: true, storageQuotaBytes: true },
+  });
+  return {
+    usedBytes: org?.storageUsedBytes?.toString() ?? "0",
+    quotaBytes: org?.storageQuotaBytes?.toString() ?? "0",
+    byCategory: grouped.map((g) => ({
+      category: g.category,
+      bytes: g._sum.byteSize?.toString() ?? "0",
+      count: g._count,
+>>>>>>> origin/master
     })),
   };
 }

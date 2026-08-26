@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
+<<<<<<< HEAD
 import { logger } from "@/lib/logger";
 import type { AuthContext } from "@/lib/api/context";
 import type { Prisma } from "@prisma/client";
 import { OUTBOX_MAX_ATTEMPTS, nextOutboxFailure } from "@/lib/sync/outbox-policy";
 import { applySyncPush } from "@/services/shop-sync.service";
+=======
+import type { Prisma, SyncOutboxStatus } from "@prisma/client";
+>>>>>>> origin/master
 
 export async function enqueueSyncOutbox(input: {
   organizationId: string;
@@ -20,6 +24,7 @@ export async function enqueueSyncOutbox(input: {
   });
 }
 
+<<<<<<< HEAD
 /** Apply queued desktop/server mutations. 8 failures → FAILED (dead-letter). */
 export async function processPendingOutbox(ctx: AuthContext, limit = 20) {
   const items = await prisma.syncOutbox.findMany({
@@ -27,10 +32,16 @@ export async function processPendingOutbox(ctx: AuthContext, limit = 20) {
       organizationId: ctx.organizationId,
       status: { in: ["PENDING", "PROCESSING"] },
     },
+=======
+export async function processPendingOutbox(limit = 20) {
+  const items = await prisma.syncOutbox.findMany({
+    where: { status: "PENDING" },
+>>>>>>> origin/master
     orderBy: { createdAt: "asc" },
     take: limit,
   });
 
+<<<<<<< HEAD
   let processed = 0;
   let failed = 0;
 
@@ -82,6 +93,29 @@ export async function processPendingOutbox(ctx: AuthContext, limit = 20) {
   }
 
   return { processed, failed, scanned: items.length };
+=======
+  for (const item of items) {
+    await prisma.syncOutbox.update({
+      where: { id: item.id },
+      data: { status: "PROCESSING", attempts: { increment: 1 } },
+    });
+    try {
+      // Cloud push handled by desktop backup service in later phases.
+      await prisma.syncOutbox.update({
+        where: { id: item.id },
+        data: { status: "COMPLETED", processedAt: new Date() },
+      });
+    } catch (e) {
+      await prisma.syncOutbox.update({
+        where: { id: item.id },
+        data: {
+          status: "FAILED",
+          lastError: e instanceof Error ? e.message : String(e),
+        },
+      });
+    }
+  }
+>>>>>>> origin/master
 }
 
 export function isLocalMode(): boolean {

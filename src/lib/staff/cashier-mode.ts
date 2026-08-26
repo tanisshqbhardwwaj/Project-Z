@@ -8,7 +8,10 @@ import {
   FileText,
   CalendarDays,
   User,
+<<<<<<< HEAD
   Cloud,
+=======
+>>>>>>> origin/master
 } from "lucide-react";
 import { hasPermission } from "@/lib/permissions/rbac";
 import type { StaffAccess } from "@/lib/staff/access";
@@ -121,6 +124,7 @@ export function cashierNavItems(access: StaffAccess): CashierNavItem[] {
   }
 
   items.push({
+<<<<<<< HEAD
     href: "/settings/storage",
     label: "Storage & Sync",
     key: "cashier_storage",
@@ -129,6 +133,8 @@ export function cashierNavItems(access: StaffAccess): CashierNavItem[] {
   });
 
   items.push({
+=======
+>>>>>>> origin/master
     href: "/settings/profile",
     label: "Profile",
     key: "cashier_profile",
@@ -147,7 +153,11 @@ export function cashierHomePath(access: StaffAccess): string {
   return "/cashier";
 }
 
+<<<<<<< HEAD
 const ALWAYS_ALLOWED = ["/cashier", "/settings/profile", "/settings/storage"];
+=======
+const ALWAYS_ALLOWED = ["/cashier", "/settings/profile"];
+>>>>>>> origin/master
 
 export function isCashierRouteAllowed(
   pathname: string,

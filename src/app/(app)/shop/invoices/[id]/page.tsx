@@ -8,7 +8,10 @@ import { useAuthStore } from "@/stores/auth-store";
 import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
+<<<<<<< HEAD
 import { Badge } from "@/components/ui/badge";
+=======
+>>>>>>> origin/master
 import {
   ShopInvoicePrint,
   type ShopInvoiceData,
@@ -20,6 +23,7 @@ import { InvoiceReturnPanel } from "@/components/shop/invoice-return-panel";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
 import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
+<<<<<<< HEAD
 import {
   buildInvoiceWhatsAppMessage,
   downloadInvoiceViaPrint,
@@ -33,6 +37,8 @@ import {
   MessageCircle,
   Printer,
 } from "lucide-react";
+=======
+>>>>>>> origin/master
 
 type SaleDetail = ShopInvoiceData & {
   id: string;
@@ -61,7 +67,10 @@ export default function ShopInvoicePage() {
   const template = useShopInvoiceTemplate();
   const layout = resolvePaperLayout(template.paperSize, template.printMarginMm);
   const { printInvoice, PrintLayer } = useShopInvoicePrint();
+<<<<<<< HEAD
   const { toast } = useToast();
+=======
+>>>>>>> origin/master
 
   const { data, isLoading, error } = useQuery({
     queryKey: orgId ? [...queryKeys.modules.shop.invoices(orgId), "detail", id] : ["disabled"],
@@ -97,6 +106,7 @@ export default function ShopInvoicePage() {
     );
   }
 
+<<<<<<< HEAD
   const sale = data;
 
   const invoice: ShopInvoiceData = {
@@ -208,6 +218,59 @@ export default function ShopInvoicePage() {
             paperSize={template.paperSize}
             printMarginMm={template.printMarginMm}
             framed
+=======
+  const invoice: ShopInvoiceData = {
+    orgName: data.organization.name,
+    billNumber: data.billNumber,
+    customerName: data.customerName,
+    customerPhone: data.customerPhone,
+    customerGstin: data.customerGstin,
+    salesBoyName: data.salesBoyName,
+    paymentMethod: data.paymentMethod,
+    items: data.itemsJson ?? [],
+    totalPaise: data.totalPaise,
+    gstPaise: data.gstPaise,
+    notes: data.notes,
+    pricing: parsePricingJson(data.pricingJson),
+    createdAt: data.createdAt,
+    cashierName: data.createdBy?.name,
+  };
+
+  return (
+    <>
+      <PrintLayer />
+      <div className="mx-auto max-w-lg space-y-4 p-4">
+        <div className="print-hidden flex items-center justify-between">
+          <Link href="/shop/invoices">
+            <Button variant="outline" className="rounded-xl">
+              Back
+            </Button>
+          </Link>
+          <Button className="rounded-xl" onClick={() => void printInvoice()}>
+            PRINT INVOICE
+          </Button>
+        </div>
+        {data.paymentStatus && data.paymentStatus !== "PAID" ? (
+          <div className="print-hidden rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/30">
+            <p className="font-medium">Payment: {data.paymentStatus.replace("_", " ")}</p>
+            <p>
+              Paid {formatINR(data.paidAmountPaise ?? 0)} of{" "}
+              {formatINR(data.totalPaise)}
+            </p>
+          </div>
+        ) : null}
+        <div className="print-hidden">
+          <InvoiceReturnPanel
+            saleId={data.id}
+            billNumber={data.billNumber}
+            customerName={data.customerName}
+          />
+        </div>
+        <div className="flex justify-center">
+          <InvoicePreviewRoot
+            paperSize={template.paperSize}
+            printMarginMm={template.printMarginMm}
+>>>>>>> origin/master
           >
             <ShopInvoicePrint
               invoice={invoice}

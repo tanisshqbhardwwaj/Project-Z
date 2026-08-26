@@ -23,11 +23,28 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   // Standalone is for Docker only — Vercel needs default output for serverless NFT tracing.
   ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
+<<<<<<< HEAD
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "tesseract.js", "inngest", "heic-convert", "sql.js"],
   turbopack: {
     resolveAlias: {
       "sql.js": "./src/lib/local-db/sqljs-browser-stub.ts",
     },
+=======
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "tesseract.js", "inngest", "heic-convert"],
+  async redirects() {
+    return [
+      {
+        source: "/shop/sales",
+        destination: "/shop/invoices",
+        permanent: false,
+      },
+      {
+        source: "/shop/sales/invoice/:id",
+        destination: "/shop/invoices/:id",
+        permanent: false,
+      },
+    ];
+>>>>>>> origin/master
   },
   async headers() {
     return [

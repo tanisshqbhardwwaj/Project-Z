@@ -3,6 +3,10 @@ import { z } from "zod";
 import {
   getAuthContext,
   handleApi,
+<<<<<<< HEAD
+=======
+  requirePermission,
+>>>>>>> origin/master
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
@@ -11,11 +15,14 @@ import {
   listBoqItems,
   updateBoqItem,
 } from "@/services/contractor.service";
+<<<<<<< HEAD
 import {
   requireAssignedBoqWrite,
   requireAssignedProjectView,
   requireAssignedProjectWrite,
 } from "@/lib/org/project-api-access";
+=======
+>>>>>>> origin/master
 
 const createBoqSchema = z.object({
   projectId: z.string().uuid(),
@@ -36,10 +43,17 @@ const updateBoqSchema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+<<<<<<< HEAD
     const projectId = await requireAssignedProjectView(
       ctx,
       new URL(request.url).searchParams.get("projectId")
     );
+=======
+    requirePermission(ctx, "project.view_all");
+
+    const projectId = new URL(request.url).searchParams.get("projectId");
+    if (!projectId) throw new Error("projectId is required");
+>>>>>>> origin/master
 
     const items = await listBoqItems(ctx.organizationId, projectId);
     return apiSuccess(serializeBigInt(items));
@@ -49,9 +63,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+<<<<<<< HEAD
     const body = await request.json();
     const data = createBoqSchema.parse(body);
     await requireAssignedProjectWrite(ctx, data.projectId);
+=======
+    requirePermission(ctx, "project.view_all");
+
+    const body = await request.json();
+    const data = createBoqSchema.parse(body);
+>>>>>>> origin/master
 
     const item = await createBoqItem({
       organizationId: ctx.organizationId,
@@ -66,9 +87,16 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+<<<<<<< HEAD
     const body = await request.json();
     const data = updateBoqSchema.parse(body);
     await requireAssignedBoqWrite(ctx, data.itemId);
+=======
+    requirePermission(ctx, "project.view_all");
+
+    const body = await request.json();
+    const data = updateBoqSchema.parse(body);
+>>>>>>> origin/master
 
     const item = await updateBoqItem({
       organizationId: ctx.organizationId,

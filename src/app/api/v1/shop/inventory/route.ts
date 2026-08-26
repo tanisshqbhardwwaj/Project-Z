@@ -37,7 +37,10 @@ const updateItemSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   size: z.string().max(80).optional().nullable(),
   barcode: z.string().optional().nullable(),
+<<<<<<< HEAD
   sku: z.string().max(64).optional().nullable(),
+=======
+>>>>>>> origin/master
   generateBarcode: z.boolean().optional(),
   quantity: z.number().min(0).optional(),
   reorderLevel: z.number().min(0).optional(),

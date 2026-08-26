@@ -30,7 +30,11 @@ type BetaTestEmail = {
 };
 
 export default function SettingsProfilePage() {
+<<<<<<< HEAD
   const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, isPlatformAdmin, updateUser } =
+=======
+  const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, isPlatformAdmin, updateUser, logout } =
+>>>>>>> origin/master
     useAuthStore();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");

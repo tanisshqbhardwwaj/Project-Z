@@ -435,7 +435,10 @@ model Organization {
   setupFeeStatus        SetupFeeStatus     @default(UNPAID)
   earlyBirdSetup        Boolean            @default(false)
   onboardingCompleteAt  DateTime?
+<<<<<<< HEAD
   lastActiveAt          DateTime?
+=======
+>>>>>>> origin/master
   cancelledAt           DateTime?
   cancelReason          String?
   localPinHash          String?
@@ -476,7 +479,10 @@ model Organization {
   shopProducts     ShopProduct[]
   shopCategories   ShopCategory[]
   inventoryItems   InventoryItem[]
+<<<<<<< HEAD
   inventoryStockReservations InventoryStockReservation[]
+=======
+>>>>>>> origin/master
   customerCredits  CustomerCredit[]
   customerCreditEntries CustomerCreditEntry[]
   boqItems         BoqItem[]
@@ -489,6 +495,7 @@ model Organization {
   planRequests     PlanRequest[]
   billingEvents    BillingEvent[]
   syncOutbox       SyncOutbox[]
+<<<<<<< HEAD
   syncMutations    SyncMutation[]
   devices          Device[]
   storageObjects   StorageObject[]
@@ -505,6 +512,11 @@ model ShopBillCounter {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, fiscalYear])
+=======
+  devices          Device[]
+  storageObjects   StorageObject[]
+  shopInvoiceDraft ShopInvoiceDraft?
+>>>>>>> origin/master
 }
 
 model PlanRequest {
@@ -558,6 +570,7 @@ model SyncOutbox {
   @@index([organizationId, status, createdAt])
 }
 
+<<<<<<< HEAD
 /** Idempotent client mutations applied from Windows/Android push. */
 model SyncMutation {
   id             String   @id
@@ -573,6 +586,8 @@ model SyncMutation {
   @@index([organizationId, kind])
 }
 
+=======
+>>>>>>> origin/master
 model Device {
   id             String       @id @default(uuid())
   organizationId String
@@ -836,7 +851,10 @@ model ShopSale {
   @@index([organizationId, customerId])
   @@index([organizationId, paymentStatus])
   @@index([organizationId, billNumber])
+<<<<<<< HEAD
   @@unique([organizationId, billNumber])
+=======
+>>>>>>> origin/master
   @@index([organizationId, salesBoyName, createdAt])
   @@index([organizationId, staffId, createdAt])
 }
@@ -863,12 +881,16 @@ model ShopHeldBill {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   customer     ShopCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdBy    User         @relation("ShopHeldBillCreatedBy", fields: [createdById], references: [id])
+<<<<<<< HEAD
   stockReservations InventoryStockReservation[]
+=======
+>>>>>>> origin/master
 
   @@unique([organizationId, holdNumber])
   @@index([organizationId, status, expiresAt])
 }
 
+<<<<<<< HEAD
 /// Distributed rate-limit counters (Turso/SQLite). Upstash Redis takes precedence when configured.
 model RateLimitBucket {
   key     String   @id
@@ -897,6 +919,8 @@ model InventoryStockReservation {
   @@index([expiresAt])
 }
 
+=======
+>>>>>>> origin/master
 model ShopOffer {
   id                  String            @id @default(uuid())
   organizationId        String
@@ -1071,7 +1095,10 @@ model InventoryItem {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   product      ShopProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+<<<<<<< HEAD
   stockReservations InventoryStockReservation[]
+=======
+>>>>>>> origin/master
 
   @@unique([organizationId, barcode])
   @@index([organizationId, name])

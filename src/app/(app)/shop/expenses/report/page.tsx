@@ -35,7 +35,11 @@ export default function ExpenseReportPage() {
   });
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
 
+<<<<<<< HEAD
   const { data, isLoading, error: queryError, refetch } = useQuery({
+=======
+  const { data, isLoading, refetch } = useQuery({
+>>>>>>> origin/master
     queryKey: orgId ? [...queryKeys.modules.shop.profit(orgId, `${from}-${to}`)] : ["disabled"],
     queryFn: () => apiFetch<ProfitData>(`/api/v1/shop/profit?from=${from}&to=${to}`),
     enabled: !!orgId && enabled,
@@ -43,6 +47,7 @@ export default function ExpenseReportPage() {
 
   if (!enabled) return <p className="text-muted-foreground">Enable Expenses module first.</p>;
   if (isLoading) return <PageLoader label="Loading report..." />;
+<<<<<<< HEAD
   if (queryError) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
@@ -58,6 +63,8 @@ export default function ExpenseReportPage() {
       </div>
     );
   }
+=======
+>>>>>>> origin/master
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 pb-8">

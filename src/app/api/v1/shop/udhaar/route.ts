@@ -4,7 +4,10 @@ import {
   getAuthContext,
   handleApi,
   requirePermission,
+<<<<<<< HEAD
   requireUdhaarWrite,
+=======
+>>>>>>> origin/master
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
@@ -39,7 +42,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+<<<<<<< HEAD
     requireUdhaarWrite(ctx);
+=======
+    requirePermission(ctx, "financial.view");
+>>>>>>> origin/master
 
     const body = await request.json();
     const data = createCreditSchema.parse(body);
@@ -56,7 +63,11 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+<<<<<<< HEAD
     requireUdhaarWrite(ctx);
+=======
+    requirePermission(ctx, "financial.view");
+>>>>>>> origin/master
 
     const body = await request.json();
     const data = adjustCreditSchema.parse(body);

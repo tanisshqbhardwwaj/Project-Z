@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+<<<<<<< HEAD
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+=======
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+>>>>>>> origin/master
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
@@ -30,7 +34,10 @@ import {
 import { catalogCategoryLabel, catalogSubCategoryLabel } from "@/lib/shop/category-catalog";
 import { getShopSectorConfig, inventoryFieldsForSectors, variantsExpectedForSectors, variantAxisLabel, defaultVariantAxisForSectors } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
+<<<<<<< HEAD
 import { DesktopOnlyNote } from "@/components/layout/desktop-only-note";
+=======
+>>>>>>> origin/master
 import {
   Dialog,
   DialogContent,
@@ -99,7 +106,10 @@ export default function ShopInventoryPage() {
   const [variantSize, setVariantSize] = useState("");
   const [variantColor, setVariantColor] = useState("");
   const [variantBarcode, setVariantBarcode] = useState("");
+<<<<<<< HEAD
   const [variantSku, setVariantSku] = useState("");
+=======
+>>>>>>> origin/master
   const [variantQty, setVariantQty] = useState("0");
   const [variantSell, setVariantSell] = useState("");
   const [variantCost, setVariantCost] = useState("");
@@ -125,7 +135,10 @@ export default function ShopInventoryPage() {
     queryKey: orgId ? ["shop", orgId, "products"] : ["disabled"],
     queryFn: () => apiFetch<ProductRow[]>("/api/v1/shop/products"),
     enabled: !!orgId && moduleEnabled,
+<<<<<<< HEAD
     placeholderData: keepPreviousData,
+=======
+>>>>>>> origin/master
   });
 
   const itemsQuery = useQuery({
@@ -372,7 +385,10 @@ export default function ShopInventoryPage() {
         size: variantSize.trim() || null,
         color: variantColor.trim() || null,
         barcode: variantBarcode.trim() || null,
+<<<<<<< HEAD
         sku: variantSku.trim() || null,
+=======
+>>>>>>> origin/master
         quantity: Number(variantQty) || 0,
         reorderLevel: Number(variantReorder) || 0,
         sellRupees: variantSell ? Number(variantSell) : null,
@@ -422,9 +438,12 @@ export default function ShopInventoryPage() {
             One row per product. Sizes and variants sit inside, each with its own
             barcode and stock count.
           </p>
+<<<<<<< HEAD
           <div className="mt-2">
             <DesktopOnlyNote feature="Bulk CSV and inventory tools" />
           </div>
+=======
+>>>>>>> origin/master
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/shop/inventory/report">
@@ -491,8 +510,12 @@ export default function ShopInventoryPage() {
               products={productsQuery.data ?? []}
               categories={categories.map((c) => ({ key: c.key, label: c.label }))}
               lookup={lookup}
+<<<<<<< HEAD
               isLoading={productsQuery.isFetching}
               isInitialLoading={productsQuery.isLoading && !productsQuery.data}
+=======
+              isLoading={productsQuery.isLoading}
+>>>>>>> origin/master
               isUpdating={variantMutation.isPending}
               onAddVariant={(product) => {
                 setAddSizeTarget(product);
@@ -513,7 +536,10 @@ export default function ShopInventoryPage() {
                 setVariantSize(variant.size ?? "");
                 setVariantColor(variant.color ?? "");
                 setVariantBarcode(variant.barcode ?? "");
+<<<<<<< HEAD
                 setVariantSku(variant.sku ?? "");
+=======
+>>>>>>> origin/master
                 setVariantQty(String(variant.quantity));
                 setVariantReorder(String(variant.reorderLevel));
                 setVariantSell(
@@ -766,6 +792,7 @@ export default function ShopInventoryPage() {
                 placeholder="Leave blank to clear"
               />
             </div>
+<<<<<<< HEAD
             <div className="space-y-1.5">
               <Label>SKU (optional)</Label>
               <Input
@@ -775,6 +802,8 @@ export default function ShopInventoryPage() {
                 placeholder="Auto-generated if blank on create"
               />
             </div>
+=======
+>>>>>>> origin/master
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Stock</Label>

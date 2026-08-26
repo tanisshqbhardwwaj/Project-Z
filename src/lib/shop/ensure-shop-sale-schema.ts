@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 
 let schemaReady: Promise<void> | null = null;
 
+<<<<<<< HEAD
 async function billNumberUniqueIndexExists(): Promise<boolean> {
   const rows = (await prisma.$queryRawUnsafe(
     `SELECT name FROM sqlite_master WHERE type='index' AND name='ShopSale_organizationId_billNumber_key'`
@@ -10,6 +11,9 @@ async function billNumberUniqueIndexExists(): Promise<boolean> {
 }
 
 /** Idempotent — adds pricingJson if missing; ensures bill-number unique index when data allows. */
+=======
+/** Idempotent — adds pricingJson if missing (Turso/local drift). */
+>>>>>>> origin/master
 export async function ensureShopSaleSchema() {
   if (!schemaReady) {
     schemaReady = (async () => {
@@ -21,6 +25,7 @@ export async function ensureShopSaleSchema() {
           `ALTER TABLE "ShopSale" ADD COLUMN "pricingJson" TEXT NOT NULL DEFAULT '{}'`
         );
       }
+<<<<<<< HEAD
 
       await prisma.$executeRawUnsafe(
         `CREATE TABLE IF NOT EXISTS "ShopBillCounter" (
@@ -54,6 +59,8 @@ export async function ensureShopSaleSchema() {
         }
         throw err;
       }
+=======
+>>>>>>> origin/master
     })().catch((err) => {
       schemaReady = null;
       throw err;

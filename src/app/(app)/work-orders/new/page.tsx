@@ -28,6 +28,7 @@ import {
 } from "@/lib/finance/completion-date";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
+import { useBusinessType } from "@/hooks/use-business-type";
 import { firstValidationIssue, requireField } from "@/lib/api/validation";
 
 const FIELD_LABELS: Record<string, string> = {
@@ -87,6 +88,7 @@ function fieldValue(
 
 export default function NewWorkOrderPage() {
   const router = useRouter();
+  const biz = useBusinessType();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -327,8 +329,10 @@ export default function NewWorkOrderPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-5 pb-8">
       <div className="space-y-1">
-        <p className="text-sm font-medium text-primary">Work Order</p>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Upload & Review</h1>
+        <p className="text-sm font-medium text-primary">{biz.workItemSingular}</p>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {biz.uploadWorkItemLabel}
+        </h1>
         <p className="text-sm text-muted-foreground">
           Upload a PDF or photo, or take a picture with your phone camera. iPhone HEIC photos are supported.
         </p>

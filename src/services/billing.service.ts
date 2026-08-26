@@ -393,6 +393,7 @@ export async function getOpsSummary() {
     where: { setupFeeStatus: "UNPAID", businessType: "SHOPKEEPER" },
   });
 
+<<<<<<< HEAD
   const ops = await getOpsActivitySignals();
   const recentOrganizations = await listRecentOpsOrganizations(8);
   const platformFeed = await listOpsPlatformFeed(12);
@@ -423,6 +424,9 @@ export async function getOpsSummary() {
       })
       .catch(() => 0),
   ]);
+=======
+  const ops = await getOpsActivitySignals(orgCount);
+>>>>>>> origin/master
 
   return {
     orgCount,
@@ -435,12 +439,15 @@ export async function getOpsSummary() {
     storageUsedBytes: storageAgg._sum.storageUsedBytes?.toString() ?? "0",
     mrrPaise,
     setupOutstanding,
+<<<<<<< HEAD
     totalUsers,
     totalStaff,
     activeUsers30d,
     inactiveOrgs30d,
     recentOrganizations,
     platformFeed,
+=======
+>>>>>>> origin/master
     ...ops,
   };
 }
@@ -453,6 +460,7 @@ function startOfDay(daysAgo = 0): Date {
 }
 
 /**
+<<<<<<< HEAD
  * Platform billing and adoption only. Shop sales, stock, staff and returns stay
  * inside each organization — ops must not aggregate those private details.
  */
@@ -464,6 +472,38 @@ export async function getOpsActivitySignals() {
   const safeCount = (promise: Promise<number>) => promise.catch(() => 0);
 
   const [newOrgsThisWeek, newOrgsThisMonth, trialsExpiringSoon] = await Promise.all([
+=======
+ * Platform-wide activity the operator actually needs to run the service:
+ * who signed up, who is billing, who has gone quiet, and where the money and
+ * stock health sit. Every query is tolerant of a module being unused so a fresh
+ * install still renders.
+ */
+export async function getOpsActivitySignals(orgCount: number) {
+  const today = startOfDay();
+  const weekAgo = startOfDay(7);
+  const monthAgo = startOfDay(30);
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const safeCount = (promise: Promise<number>) => promise.catch(() => 0);
+
+  const [
+    newOrgsThisWeek,
+    newOrgsThisMonth,
+    trialsExpiringSoon,
+    salesToday,
+    salesThisMonth,
+    activeShopsToday,
+    activeShopsThisWeek,
+    invoicesToday,
+    returnsThisWeek,
+    staffCount,
+    productCount,
+    lowStockCount,
+    overdueRecurring,
+  ] = await Promise.all([
+>>>>>>> origin/master
     safeCount(prisma.organization.count({ where: { createdAt: { gte: weekAgo } } })),
     safeCount(prisma.organization.count({ where: { createdAt: { gte: monthAgo } } })),
     safeCount(
@@ -477,6 +517,45 @@ export async function getOpsActivitySignals() {
         },
       })
     ),
+<<<<<<< HEAD
+=======
+    prisma.shopSale
+      .aggregate({
+        where: { createdAt: { gte: today }, status: "COMPLETED" },
+        _sum: { totalPaise: true },
+      })
+      .then((r) => r._sum.totalPaise ?? BigInt(0))
+      .catch(() => BigInt(0)),
+    prisma.shopSale
+      .aggregate({
+        where: { createdAt: { gte: monthStart }, status: "COMPLETED" },
+        _sum: { totalPaise: true },
+      })
+      .then((r) => r._sum.totalPaise ?? BigInt(0))
+      .catch(() => BigInt(0)),
+    prisma.shopSale
+      .groupBy({ by: ["organizationId"], where: { createdAt: { gte: today } } })
+      .then((rows) => rows.length)
+      .catch(() => 0),
+    prisma.shopSale
+      .groupBy({ by: ["organizationId"], where: { createdAt: { gte: weekAgo } } })
+      .then((rows) => rows.length)
+      .catch(() => 0),
+    safeCount(prisma.shopSale.count({ where: { createdAt: { gte: today } } })),
+    safeCount(prisma.shopSaleReturn.count({ where: { createdAt: { gte: weekAgo } } })),
+    safeCount(prisma.staffMember.count({ where: { status: "ACTIVE" } })),
+    safeCount(prisma.shopProduct.count({ where: { deletedAt: null } })),
+    safeCount(
+      prisma.$queryRawUnsafe<Array<{ c: number }>>(
+        `SELECT COUNT(*) as c FROM "InventoryItem" WHERE "quantity" <= "reorderLevel" AND "quantity" < 9999`
+      ).then((rows) => Number(rows[0]?.c ?? 0))
+    ),
+    safeCount(
+      prisma.shopRecurringExpenseOccurrence.count({
+        where: { status: "PENDING", dueDate: { lt: today } },
+      })
+    ),
+>>>>>>> origin/master
   ]);
 
   return {
@@ -484,10 +563,29 @@ export async function getOpsActivitySignals() {
       newOrgsThisWeek,
       newOrgsThisMonth,
       trialsExpiringSoon,
+<<<<<<< HEAD
+=======
+      salesTodayPaise: salesToday.toString(),
+      salesThisMonthPaise: salesThisMonth.toString(),
+      activeShopsToday,
+      activeShopsThisWeek,
+      invoicesToday,
+      returnsThisWeek,
+      staffCount,
+      productCount,
+      lowStockCount,
+      overdueRecurring,
+      /** Share of organizations that billed nothing in the last seven days. */
+      idleShare:
+        orgCount > 0
+          ? Math.round(((orgCount - activeShopsThisWeek) / orgCount) * 100)
+          : 0,
+>>>>>>> origin/master
     },
   };
 }
 
+<<<<<<< HEAD
 export type OpsPlatformEvent = {
   id: string;
   type: "org_created" | "member_joined";
@@ -542,6 +640,8 @@ export async function listOpsPlatformFeed(take = 12): Promise<OpsPlatformEvent[]
     .slice(0, take);
 }
 
+=======
+>>>>>>> origin/master
 /** Recently created organizations with their owner, for the ops overview feed. */
 export async function listRecentOpsOrganizations(take = 8) {
   const orgs = await prisma.organization.findMany({

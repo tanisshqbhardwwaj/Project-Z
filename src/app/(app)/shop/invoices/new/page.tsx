@@ -2,7 +2,10 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
+<<<<<<< HEAD
 import { useSearchParams } from "next/navigation";
+=======
+>>>>>>> origin/master
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
@@ -10,6 +13,7 @@ import { InvoiceEntryForm } from "@/components/shop/invoice-entry-form";
 import { InvoiceLivePreview, buildDraftInvoice } from "@/components/shop/invoice-live-preview";
 import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
 import { computeInvoicePricing } from "@/lib/shop/invoice-pricing";
+<<<<<<< HEAD
 import {
   buildInvoiceWhatsAppMessage,
   shareInvoiceOnWhatsApp,
@@ -17,11 +21,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Download, MessageCircle, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+=======
+import { Button } from "@/components/ui/button";
+import { Settings } from "lucide-react";
+>>>>>>> origin/master
 import {
   useShopInvoicePrint,
   type CashTender,
 } from "@/hooks/use-shop-invoice-print";
 
+<<<<<<< HEAD
 type SavedSale = {
   id: string;
   billNumber: string | null;
@@ -31,6 +40,9 @@ type SavedSale = {
 export default function NewInvoicePage() {
   const searchParams = useSearchParams();
   const duplicateSaleId = searchParams.get("duplicate");
+=======
+export default function NewInvoicePage() {
+>>>>>>> origin/master
   const { activeBusinessType, activeOrganizationName, enabledModules, user } =
     useAuthStore();
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
@@ -51,18 +63,24 @@ export default function NewInvoicePage() {
   );
   const [resetKey, setResetKey] = useState(0);
   const [printCashTender, setPrintCashTender] = useState<CashTender | null>(null);
+<<<<<<< HEAD
   const [lastSaved, setLastSaved] = useState<{
     sale: SavedSale;
     invoice: ShopInvoiceData;
   } | null>(null);
 
   const { toast } = useToast();
+=======
+>>>>>>> origin/master
 
   const { printInvoice, PrintLayer } = useShopInvoicePrint({
     onComplete: () => {
       setPrintCashTender(null);
       setResetKey((k) => k + 1);
+<<<<<<< HEAD
       setLastSaved(null);
+=======
+>>>>>>> origin/master
     },
   });
 
@@ -71,6 +89,7 @@ export default function NewInvoicePage() {
   }, []);
 
   function handleSaved(
+<<<<<<< HEAD
     sale: SavedSale,
     invoice: ShopInvoiceData,
     cashTender?: CashTender | null,
@@ -82,12 +101,20 @@ export default function NewInvoicePage() {
       setResetKey((k) => k + 1);
       return;
     }
+=======
+    _sale: unknown,
+    invoice: ShopInvoiceData,
+    cashTender?: CashTender | null
+  ) {
+    setDraft(invoice);
+>>>>>>> origin/master
     setPrintCashTender(cashTender ?? null);
     window.setTimeout(() => {
       void printInvoice();
     }, 80);
   }
 
+<<<<<<< HEAD
   function shareWhatsApp() {
     if (!lastSaved) return;
     const { invoice } = lastSaved;
@@ -105,6 +132,8 @@ export default function NewInvoicePage() {
     shareInvoiceOnWhatsApp(msg, invoice.customerPhone);
   }
 
+=======
+>>>>>>> origin/master
   if (!salesEnabled) {
     return (
       <p className="text-muted-foreground">
@@ -139,6 +168,7 @@ export default function NewInvoicePage() {
           </div>
         </div>
 
+<<<<<<< HEAD
         {lastSaved ? (
           <div className="print-hidden flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
             <p className="w-full text-sm font-medium text-emerald-900 dark:text-emerald-100 sm:w-auto sm:flex-1">
@@ -180,6 +210,15 @@ export default function NewInvoicePage() {
             <InvoiceEntryForm
               resetKey={resetKey}
               duplicateSaleId={duplicateSaleId}
+=======
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[2fr_3fr]">
+          <div className="order-1 min-w-0 xl:sticky xl:top-4 xl:self-start">
+            <InvoiceLivePreview invoice={draft} cashTender={printCashTender} />
+          </div>
+          <div className="order-2 min-w-0">
+            <InvoiceEntryForm
+              resetKey={resetKey}
+>>>>>>> origin/master
               onDraftChange={onDraftChange}
               onSaved={handleSaved}
             />

@@ -8,6 +8,7 @@ import {
   Bell,
   User,
   CreditCard,
+<<<<<<< HEAD
   Cloud,
   Shield,
   Tag,
@@ -15,6 +16,10 @@ import {
   Users,
   Building2,
   UsersRound,
+=======
+  Shield,
+  Tag,
+>>>>>>> origin/master
   type LucideIcon,
 } from "lucide-react";
 import type { OrgRole } from "@prisma/client";
@@ -114,6 +119,7 @@ export function useNavGroups(): NavGroups {
           label: "Offers",
           key: "shop_offers",
         });
+<<<<<<< HEAD
         modules.push({
           href: "/shop/returns",
           icon: RotateCcw,
@@ -126,6 +132,8 @@ export function useNavGroups(): NavGroups {
           label: "Customers",
           key: "shop_customers",
         });
+=======
+>>>>>>> origin/master
       }
     }
 
@@ -146,6 +154,7 @@ export function useNavGroups(): NavGroups {
 
     if (role === "OWNER") {
       tools.push({
+<<<<<<< HEAD
         href: "/settings/organization",
         icon: Building2,
         label: "Organization",
@@ -164,6 +173,8 @@ export function useNavGroups(): NavGroups {
         key: "storage",
       });
       tools.push({
+=======
+>>>>>>> origin/master
         href: "/settings/billing",
         icon: CreditCard,
         label: "Billing",

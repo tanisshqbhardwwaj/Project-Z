@@ -1,6 +1,10 @@
 "use client";
 
+<<<<<<< HEAD
 import { useState } from "react";
+=======
+import { useMemo, useState } from "react";
+>>>>>>> origin/master
 import { useQuery } from "@tanstack/react-query";
 import { ClipboardList, Search } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
@@ -8,15 +12,22 @@ import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
+<<<<<<< HEAD
 import { buildCursorListUrl } from "@/lib/api/list-url";
+=======
+>>>>>>> origin/master
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+<<<<<<< HEAD
 import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
 import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
 import { cn } from "@/lib/utils";
 import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
+=======
+import { cn } from "@/lib/utils";
+>>>>>>> origin/master
 import type {
   ActivityDatePreset,
   ActivityModuleFilter,
@@ -93,6 +104,7 @@ export default function ShopActivityPage() {
   const [customTo, setCustomTo] = useState("");
   const [userId, setUserId] = useState("");
 
+<<<<<<< HEAD
   const {
     items: logs,
     isInitialLoading,
@@ -124,6 +136,27 @@ export default function ShopActivityPage() {
       }, cursor),
     enabled: !!orgId && enabled,
     search,
+=======
+  const queryString = useMemo(() => {
+    const p = new URLSearchParams();
+    if (search.trim()) p.set("q", search.trim());
+    if (moduleFilter !== "all") p.set("module", moduleFilter);
+    if (datePreset !== "all") p.set("date", datePreset);
+    if (datePreset === "custom") {
+      if (customFrom) p.set("from", customFrom);
+      if (customTo) p.set("to", customTo);
+    }
+    if (userId) p.set("userId", userId);
+    return p.toString() ? `?${p.toString()}` : "";
+  }, [search, moduleFilter, datePreset, customFrom, customTo, userId]);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: orgId
+      ? [...queryKeys.modules.shop.activity(orgId), queryString]
+      : ["disabled"],
+    queryFn: () => apiFetch<ActivityRow[]>(`/api/v1/shop/activity${queryString}`),
+    enabled: !!orgId && enabled,
+>>>>>>> origin/master
   });
 
   const actorsQuery = useQuery({
@@ -140,7 +173,11 @@ export default function ShopActivityPage() {
     );
   }
 
+<<<<<<< HEAD
   if (isInitialLoading) return <PageLoader label="Loading activity trail..." />;
+=======
+  if (isLoading) return <PageLoader label="Loading activity trail..." />;
+>>>>>>> origin/master
   if (error) {
     return (
       <p className="text-destructive">
@@ -149,7 +186,11 @@ export default function ShopActivityPage() {
     );
   }
 
+<<<<<<< HEAD
   const logsList = logs;
+=======
+  const logs = data ?? [];
+>>>>>>> origin/master
 
   return (
     <div className="space-y-6">
@@ -165,7 +206,10 @@ export default function ShopActivityPage() {
           <CardTitle className="flex items-center gap-2 text-lg">
             <ClipboardList className="h-5 w-5" />
             Recent activity
+<<<<<<< HEAD
             <ListFetchIndicator active={isSearchPending} className="ml-1" />
+=======
+>>>>>>> origin/master
           </CardTitle>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -174,7 +218,10 @@ export default function ShopActivityPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search actions, descriptions, people…"
               className="h-11 rounded-xl pl-9"
+<<<<<<< HEAD
               aria-busy={isSearchPending}
+=======
+>>>>>>> origin/master
             />
           </div>
 
@@ -247,14 +294,23 @@ export default function ShopActivityPage() {
           </div>
         </CardHeader>
         <CardContent>
+<<<<<<< HEAD
           {logsList.length === 0 ? (
+=======
+          {logs.length === 0 ? (
+>>>>>>> origin/master
             <p className="py-8 text-center text-sm text-muted-foreground">
               No activity matches these filters.
             </p>
           ) : (
+<<<<<<< HEAD
             <>
               <ul className="space-y-3">
                 {logsList.map((log) => {
+=======
+            <ul className="space-y-3">
+              {logs.map((log) => {
+>>>>>>> origin/master
                 const dt = new Date(log.createdAt);
                 return (
                   <li key={log.id} className="rounded-xl border p-3 text-sm">
@@ -279,6 +335,7 @@ export default function ShopActivityPage() {
                     </div>
                   </li>
                 );
+<<<<<<< HEAD
                 })}
               </ul>
               <LoadMoreTrigger
@@ -287,6 +344,10 @@ export default function ShopActivityPage() {
                 onLoadMore={() => fetchNextPage()}
               />
             </>
+=======
+              })}
+            </ul>
+>>>>>>> origin/master
           )}
         </CardContent>
       </Card>

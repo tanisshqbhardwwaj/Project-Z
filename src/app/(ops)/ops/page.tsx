@@ -7,6 +7,10 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+<<<<<<< HEAD
+=======
+import { formatINR } from "@/lib/finance/money";
+>>>>>>> origin/master
 import { formatStorageBytes } from "@/lib/billing/plans";
 import { getShopSectorConfig } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
@@ -16,8 +20,15 @@ import {
   ClipboardList,
   Package,
   RefreshCw,
+<<<<<<< HEAD
   Users,
   UserCog,
+=======
+  Receipt,
+  RotateCcw,
+  TrendingUp,
+  UsersRound,
+>>>>>>> origin/master
   Wallet,
 } from "lucide-react";
 
@@ -46,6 +57,7 @@ type Summary = {
     newOrgsThisWeek: number;
     newOrgsThisMonth: number;
     trialsExpiringSoon: number;
+<<<<<<< HEAD
   };
   totalUsers: number;
   totalStaff: number;
@@ -59,6 +71,21 @@ type Summary = {
     at: string;
     href: string | null;
   }>;
+=======
+    salesTodayPaise: string;
+    salesThisMonthPaise: string;
+    activeShopsToday: number;
+    activeShopsThisWeek: number;
+    invoicesToday: number;
+    returnsThisWeek: number;
+    staffCount: number;
+    productCount: number;
+    lowStockCount: number;
+    overdueRecurring: number;
+    idleShare: number;
+  };
+  recentOrganizations: RecentOrg[];
+>>>>>>> origin/master
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -115,6 +142,19 @@ export default function OpsOverviewPage() {
       href: "/ops/customers",
       count: summary.setupOutstanding,
     },
+<<<<<<< HEAD
+=======
+    {
+      label: "recurring expenses overdue across shops",
+      href: "/ops/customers",
+      count: activity.overdueRecurring,
+    },
+    {
+      label: "variants below reorder level",
+      href: "/ops/customers",
+      count: activity.lowStockCount,
+    },
+>>>>>>> origin/master
   ].filter((item) => item.count > 0);
 
   return (
@@ -123,8 +163,13 @@ export default function OpsOverviewPage() {
         <div>
           <h2 className="text-2xl font-semibold">Overview</h2>
           <p className="text-sm text-muted-foreground">
+<<<<<<< HEAD
             Billing and adoption across the platform. Shop sales and stock stay
             inside each organization.
+=======
+            Billing, adoption and day-to-day activity across every shop on the
+            platform.
+>>>>>>> origin/master
           </p>
         </div>
         <Button
@@ -198,6 +243,7 @@ export default function OpsOverviewPage() {
 
       <section className="space-y-3">
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+<<<<<<< HEAD
           People
         </h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -256,6 +302,42 @@ export default function OpsOverviewPage() {
         </CardContent>
       </Card>
 
+=======
+          Live operations
+        </h3>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            icon={TrendingUp}
+            title="Sales today"
+            value={formatINR(activity.salesTodayPaise)}
+            hint={`${activity.invoicesToday} invoices from ${activity.activeShopsToday} shops`}
+          />
+          <StatCard
+            icon={Receipt}
+            title="Sales this month"
+            value={formatINR(activity.salesThisMonthPaise)}
+            hint={`${activity.activeShopsThisWeek} shops billed in the last 7 days`}
+          />
+          <StatCard
+            icon={RotateCcw}
+            title="Returns this week"
+            value={String(activity.returnsThisWeek)}
+            hint="Returns and exchanges platform-wide"
+          />
+          <StatCard
+            icon={UsersRound}
+            title="Active staff"
+            value={String(activity.staffCount)}
+            hint={`${activity.productCount} products catalogued`}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {activity.idleShare}% of organizations billed nothing in the last seven
+          days — the likeliest churn and onboarding follow-up list.
+        </p>
+      </section>
+
+>>>>>>> origin/master
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl lg:col-span-2">
           <CardHeader className="pb-2">

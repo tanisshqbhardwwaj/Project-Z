@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireModule } from "@/lib/org/require-module";
 import { ensureShopFeaturesSchema } from "@/lib/shop/ensure-shop-features-schema";
+<<<<<<< HEAD
 import {
   createReservationsForHeldBill,
   purgeStaleStockReservations,
   releaseReservationsForHeldBill,
 } from "@/lib/inventory/stock-reservation";
+=======
+>>>>>>> origin/master
 import { createAuditLog } from "./audit.service";
 
 const HOLD_TTL_MS = 30 * 60 * 1000;
@@ -13,8 +16,11 @@ const HOLD_TTL_MS = 30 * 60 * 1000;
 export async function expireStaleHeldBills(organizationId: string) {
   await ensureShopFeaturesSchema();
   const now = new Date();
+<<<<<<< HEAD
   await purgeStaleStockReservations(prisma, organizationId);
 
+=======
+>>>>>>> origin/master
   const stale = await prisma.shopHeldBill.findMany({
     where: {
       organizationId,
@@ -23,12 +29,18 @@ export async function expireStaleHeldBills(organizationId: string) {
     },
   });
   for (const bill of stale) {
+<<<<<<< HEAD
     await prisma.$transaction(async (tx) => {
       await releaseReservationsForHeldBill(tx, bill.id);
       await tx.shopHeldBill.update({
         where: { id: bill.id },
         data: { status: "EXPIRED" },
       });
+=======
+    await prisma.shopHeldBill.update({
+      where: { id: bill.id },
+      data: { status: "EXPIRED" },
+>>>>>>> origin/master
     });
     await createAuditLog({
       organizationId,
@@ -75,6 +87,7 @@ export async function createHeldBill(input: {
   await requireModule(input.organizationId, "shop_sales");
   const holdNumber = await nextHoldNumber(input.organizationId);
   const now = new Date();
+<<<<<<< HEAD
   const expiresAt = new Date(now.getTime() + HOLD_TTL_MS);
 
   const bill = await prisma.$transaction(async (tx) => {
@@ -110,6 +123,23 @@ export async function createHeldBill(input: {
 
   const withCreator = await prisma.shopHeldBill.findUniqueOrThrow({
     where: { id: bill.id },
+=======
+  const bill = await prisma.shopHeldBill.create({
+    data: {
+      organizationId: input.organizationId,
+      holdNumber,
+      customerId: input.customerId ?? null,
+      customerName: input.customerName?.trim() || null,
+      customerPhone: input.customerPhone?.trim() || null,
+      customerGstin: input.customerGstin?.trim() || null,
+      salesBoyName: input.salesBoyName?.trim() || null,
+      cartJson: input.cartJson as object,
+      pricingJson: (input.pricingJson ?? {}) as object,
+      status: "ACTIVE",
+      expiresAt: new Date(now.getTime() + HOLD_TTL_MS),
+      createdById: input.userId,
+    },
+>>>>>>> origin/master
     include: { createdBy: { select: { id: true, name: true } } },
   });
 
@@ -119,10 +149,17 @@ export async function createHeldBill(input: {
     action: "shop.hold_bill.created",
     entityType: "ShopHeldBill",
     entityId: bill.id,
+<<<<<<< HEAD
     after: withCreator,
   });
 
   return withCreator;
+=======
+    after: bill,
+  });
+
+  return bill;
+>>>>>>> origin/master
 }
 
 export async function resumeHeldBill(input: {
@@ -139,22 +176,34 @@ export async function resumeHeldBill(input: {
   if (!bill) throw new Error("Held bill not found");
   if (bill.status !== "ACTIVE") throw new Error("Held bill is no longer active");
   if (bill.expiresAt <= new Date()) {
+<<<<<<< HEAD
     await prisma.$transaction(async (tx) => {
       await releaseReservationsForHeldBill(tx, bill.id);
       await tx.shopHeldBill.update({
         where: { id: bill.id },
         data: { status: "EXPIRED" },
       });
+=======
+    await prisma.shopHeldBill.update({
+      where: { id: bill.id },
+      data: { status: "EXPIRED" },
+>>>>>>> origin/master
     });
     throw new Error("Held bill has expired");
   }
 
+<<<<<<< HEAD
   const updated = await prisma.$transaction(async (tx) => {
     await releaseReservationsForHeldBill(tx, bill.id);
     return tx.shopHeldBill.update({
       where: { id: bill.id },
       data: { status: "RESUMED", resumedAt: new Date() },
     });
+=======
+  const updated = await prisma.shopHeldBill.update({
+    where: { id: bill.id },
+    data: { status: "RESUMED", resumedAt: new Date() },
+>>>>>>> origin/master
   });
 
   await createAuditLog({
@@ -182,12 +231,18 @@ export async function cancelHeldBill(input: {
   if (!bill) throw new Error("Held bill not found");
   if (bill.status !== "ACTIVE") throw new Error("Held bill is not active");
 
+<<<<<<< HEAD
   const updated = await prisma.$transaction(async (tx) => {
     await releaseReservationsForHeldBill(tx, bill.id);
     return tx.shopHeldBill.update({
       where: { id: bill.id },
       data: { status: "CANCELLED", cancelledAt: new Date() },
     });
+=======
+  const updated = await prisma.shopHeldBill.update({
+    where: { id: bill.id },
+    data: { status: "CANCELLED", cancelledAt: new Date() },
+>>>>>>> origin/master
   });
 
   await createAuditLog({

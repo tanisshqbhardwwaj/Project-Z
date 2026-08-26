@@ -224,6 +224,7 @@ export default function ShopScanPage() {
               </div>
             ) : null}
             <div className="flex flex-wrap gap-2 pt-2">
+<<<<<<< HEAD
               <Button
                 type="button"
                 className="rounded-xl"
@@ -251,6 +252,8 @@ export default function ShopScanPage() {
               >
                 Add to new bill
               </Button>
+=======
+>>>>>>> origin/master
               <Link href="/shop/inventory">
                 <Button variant="outline" className="rounded-xl">
                   Open inventory

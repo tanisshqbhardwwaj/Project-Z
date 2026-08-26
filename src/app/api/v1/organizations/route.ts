@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma, serializeBigInt } from "@/lib/db/prisma";
 import { auth } from "@/lib/auth";
+<<<<<<< HEAD
 import { sanitizeShopSettingsForClient } from "@/lib/org/shop-settings";
+=======
+>>>>>>> origin/master
 import {
   handleApi,
   getAuthContext,
@@ -58,7 +61,10 @@ const updateSchema = z.object({
               showPaymentMethod: z.boolean().optional(),
               showSubtotal: z.boolean().optional(),
               billPrefix: z.string().max(10).optional(),
+<<<<<<< HEAD
               storeCode: z.string().max(4).optional(),
+=======
+>>>>>>> origin/master
               defaultTaxRatePercent: z.number().min(0).max(100).optional(),
               discountBasis: z.enum(["subtotal", "total"]).optional(),
               defaultStaffMonthlyTargetRupees: z.number().min(0).optional(),
@@ -66,6 +72,7 @@ const updateSchema = z.object({
               paperSize: z.enum(["58mm", "80mm", "A4"]).optional(),
               printMarginMm: z.number().min(0).max(30).optional(),
               defaultCopies: z.number().int().min(1).max(5).optional(),
+<<<<<<< HEAD
               useDecimalPlaces: z.boolean().optional(),
               paymentTerminal: z
                 .object({
@@ -94,6 +101,8 @@ const updateSchema = z.object({
                   hasBridgeApiKey: z.boolean().optional(),
                 })
                 .optional(),
+=======
+>>>>>>> origin/master
             })
             .optional(),
         })
@@ -173,6 +182,27 @@ export async function GET(request: Request) {
         updatedAt: true,
       },
     });
+<<<<<<< HEAD
+=======
+    return NextResponse.json({ data: serializeBigInt(org) });
+  });
+}
+
+export async function PATCH(request: Request) {
+  return handleApi(async () => {
+    const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+    requirePermission(ctx, "org.manage");
+
+    const body = await request.json();
+    const data = updateSchema.parse(body);
+
+    const org = await updateOrganization({
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      ...data,
+    });
+
+>>>>>>> origin/master
     return NextResponse.json({ data: serializeBigInt(org) });
   });
 }

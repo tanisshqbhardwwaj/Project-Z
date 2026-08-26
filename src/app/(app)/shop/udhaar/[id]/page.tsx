@@ -52,7 +52,11 @@ export default function CustomerLedgerPage() {
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const [paymentAmount, setPaymentAmount] = useState("");
 
+<<<<<<< HEAD
   const { data, isLoading, error: queryError, refetch } = useQuery({
+=======
+  const { data, isLoading } = useQuery({
+>>>>>>> origin/master
     queryKey: orgId ? queryKeys.modules.shop.creditLedger(orgId, id) : ["disabled"],
     queryFn: () => apiFetch<LedgerData>(`/api/v1/shop/udhaar/${id}/ledger`),
     enabled: !!orgId && !!id,
@@ -71,6 +75,7 @@ export default function CustomerLedgerPage() {
   });
 
   if (isLoading) return <PageLoader label="Loading ledger..." />;
+<<<<<<< HEAD
   if (queryError) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
@@ -86,6 +91,8 @@ export default function CustomerLedgerPage() {
       </div>
     );
   }
+=======
+>>>>>>> origin/master
   if (!data) return <p className="p-8">Customer not found</p>;
 
   const { credit, entries, outstandingSales } = data;

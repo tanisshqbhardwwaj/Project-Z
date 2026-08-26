@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+<<<<<<< HEAD
 import { useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
@@ -9,11 +10,19 @@ import { buildCursorListUrl } from "@/lib/api/list-url";
 import { useAuthStore } from "@/stores/auth-store";
 import { PageLoader } from "@/components/ui/page-loader";
 import { EmptyState } from "@/components/ui/empty-state";
+=======
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api/client";
+import { queryKeys } from "@/lib/query/keys";
+import { useAuthStore } from "@/stores/auth-store";
+import { PageLoader } from "@/components/ui/page-loader";
+>>>>>>> origin/master
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+<<<<<<< HEAD
 import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
 import { formatINR } from "@/lib/finance/money";
 import { cn } from "@/lib/utils";
@@ -21,6 +30,11 @@ import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ReturnExchangeWizard } from "@/components/shop/return-exchange-wizard";
 import { CameraScanButton } from "@/components/shop/camera-scan-button";
+=======
+import { formatINR } from "@/lib/finance/money";
+import { cn } from "@/lib/utils";
+import { ReturnExchangeWizard } from "@/components/shop/return-exchange-wizard";
+>>>>>>> origin/master
 import { ArrowRight, Repeat, RotateCcw, Search } from "lucide-react";
 
 type BillLookup = {
@@ -71,10 +85,15 @@ function lineLabel(line: ReturnRow["lines"][number]): string {
 
 export default function ShopReturnsPage() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
+<<<<<<< HEAD
   const qc = useQueryClient();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
+=======
+  const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
+>>>>>>> origin/master
   const [billLookup, setBillLookup] = useState("");
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -104,6 +123,7 @@ export default function ShopReturnsPage() {
     }
   }
 
+<<<<<<< HEAD
   const {
     items: rows,
     isInitialLoading,
@@ -121,6 +141,18 @@ export default function ShopReturnsPage() {
 
   const filtered = useMemo(() => {
     const query = debouncedSearch.trim().toLowerCase();
+=======
+  const { data, isLoading, error } = useQuery({
+    queryKey: orgId ? queryKeys.modules.shop.returns(orgId) : ["disabled"],
+    queryFn: () => apiFetch<ReturnRow[]>("/api/v1/shop/returns"),
+    enabled: !!orgId,
+  });
+
+  const rows = data ?? [];
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+>>>>>>> origin/master
     return rows.filter((row) => {
       if (filter !== "all" && row.type !== filter) return false;
       if (!query) return true;
@@ -135,7 +167,11 @@ export default function ShopReturnsPage() {
         .toLowerCase();
       return haystack.includes(query);
     });
+<<<<<<< HEAD
   }, [rows, filter, debouncedSearch]);
+=======
+  }, [rows, filter, search]);
+>>>>>>> origin/master
 
   const totals = useMemo(() => {
     let refunded = BigInt(0);
@@ -152,7 +188,11 @@ export default function ShopReturnsPage() {
     };
   }, [rows]);
 
+<<<<<<< HEAD
   if (isInitialLoading) return <PageLoader label="Loading returns..." />;
+=======
+  if (isLoading) return <PageLoader label="Loading returns..." />;
+>>>>>>> origin/master
   if (error) {
     return (
       <p className="p-8 text-destructive">
@@ -190,6 +230,7 @@ export default function ShopReturnsPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="min-w-0 flex-1 space-y-1.5">
               <Label htmlFor="bill-lookup">Bill number</Label>
+<<<<<<< HEAD
               <div className="flex gap-2">
                 <Input
                   id="bill-lookup"
@@ -215,6 +256,24 @@ export default function ShopReturnsPage() {
                   }}
                 />
               </div>
+=======
+              <Input
+                id="bill-lookup"
+                value={billLookup}
+                onChange={(e) => {
+                  setBillLookup(e.target.value.toUpperCase());
+                  setLookupError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void findBillForReturn();
+                  }
+                }}
+                placeholder="INV-4-26-27-00018"
+                className="h-11 rounded-xl font-mono uppercase"
+              />
+>>>>>>> origin/master
             </div>
             <Button
               type="button"
@@ -240,9 +299,12 @@ export default function ShopReturnsPage() {
           open={wizardOpen}
           onOpenChange={setWizardOpen}
           onCompleted={() => {
+<<<<<<< HEAD
             if (orgId) {
               qc.invalidateQueries({ queryKey: queryKeys.modules.shop.returns(orgId) });
             }
+=======
+>>>>>>> origin/master
             setBillLookup("");
             setReturnTarget(null);
           }}
@@ -302,6 +364,7 @@ export default function ShopReturnsPage() {
 
       {filtered.length === 0 ? (
         <Card className="rounded-2xl">
+<<<<<<< HEAD
           <CardContent>
             <EmptyState
               icon={RotateCcw}
@@ -316,6 +379,20 @@ export default function ShopReturnsPage() {
                   : "Try a different search or filter."
               }
             />
+=======
+          <CardContent className="py-12 text-center">
+            <RotateCcw className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+            <p className="font-medium">
+              {rows.length === 0
+                ? "No returns or exchanges yet"
+                : "Nothing matches that search"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {rows.length === 0
+                ? "Open an invoice and use Return / Exchange to start one."
+                : "Try a different search or filter."}
+            </p>
+>>>>>>> origin/master
           </CardContent>
         </Card>
       ) : (
@@ -403,11 +480,14 @@ export default function ShopReturnsPage() {
               </Card>
             );
           })}
+<<<<<<< HEAD
           <LoadMoreTrigger
             hasMore={!!hasNextPage}
             isLoading={isFetchingNextPage}
             onLoadMore={() => fetchNextPage()}
           />
+=======
+>>>>>>> origin/master
         </div>
       )}
     </div>

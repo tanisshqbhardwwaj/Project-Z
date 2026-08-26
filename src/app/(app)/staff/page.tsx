@@ -7,7 +7,10 @@ import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
 import { PageLoader } from "@/components/ui/page-loader";
+<<<<<<< HEAD
 import { EmptyState } from "@/components/ui/empty-state";
+=======
+>>>>>>> origin/master
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -199,10 +202,14 @@ function RegularityTable({
 }) {
   if (rows.length === 0) {
     return (
+<<<<<<< HEAD
       <EmptyState
         title="No attendance data yet"
         className="py-6"
       />
+=======
+      <p className="py-3 text-sm text-muted-foreground">No attendance data yet.</p>
+>>>>>>> origin/master
     );
   }
 
@@ -286,9 +293,15 @@ export default function StaffHubPage() {
 
   const [tab, setTab] = useState<Tab>("attendance");
   const [date, setDate] = useState(() => orgTodayKey(timezone));
+<<<<<<< HEAD
   const now = useMemo(() => new Date(), []);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+=======
+  const orgMonth = parseDayKey(orgTodayKey(timezone));
+  const [year, setYear] = useState(orgMonth.year);
+  const [month, setMonth] = useState(orgMonth.month);
+>>>>>>> origin/master
   const [editFinal, setEditFinal] = useState<Record<string, string>>({});
   const [editPayrollNotes, setEditPayrollNotes] = useState<Record<string, string>>({});
   const [advanceStaffId, setAdvanceStaffId] = useState("");
@@ -613,12 +626,16 @@ export default function StaffHubPage() {
                 {attendanceQuery.isLoading ? (
                   <PageLoader label="Loading..." />
                 ) : (attendanceQuery.data ?? []).length === 0 ? (
+<<<<<<< HEAD
                   <EmptyState
                     icon={UsersRound}
                     title="No active staff"
                     description="Add team members from the People tab to start marking attendance."
                     className="py-6"
                   />
+=======
+                  <p className="text-sm text-muted-foreground">No active staff.</p>
+>>>>>>> origin/master
                 ) : (
                   (attendanceQuery.data ?? []).map(({ staff, attendance }: AttendanceRow) => (
                     <div
@@ -697,11 +714,15 @@ export default function StaffHubPage() {
                 {gridQuery.isLoading ? (
                   <PageLoader label="Loading grid..." />
                 ) : (gridQuery.data?.rows ?? []).length === 0 ? (
+<<<<<<< HEAD
                   <EmptyState
                     icon={UsersRound}
                     title="No active staff to show"
                     className="py-6"
                   />
+=======
+                  <p className="text-sm text-muted-foreground">No active staff to show.</p>
+>>>>>>> origin/master
                 ) : (
                   <div className="overflow-x-auto rounded-xl border">
                     <table className="min-w-full text-xs">
@@ -886,11 +907,18 @@ export default function StaffHubPage() {
             {payrollQuery.isLoading ? (
               <PageLoader label="Loading payroll..." />
             ) : payrollRows.length === 0 ? (
+<<<<<<< HEAD
               <EmptyState
                 title={`No payroll for ${MONTHS[month - 1]} ${year} yet`}
                 description="Generate payroll to calculate salaries from attendance."
                 className="rounded-xl border border-dashed"
               >
+=======
+              <div className="space-y-3 rounded-xl border border-dashed p-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No payroll for {MONTHS[month - 1]} {year} yet.
+                </p>
+>>>>>>> origin/master
                 {canPayroll && (
                   <Button
                     className="rounded-xl"
@@ -900,7 +928,11 @@ export default function StaffHubPage() {
                     Generate payroll
                   </Button>
                 )}
+<<<<<<< HEAD
               </EmptyState>
+=======
+              </div>
+>>>>>>> origin/master
             ) : (
               payrollRows.map((row: PayrollRow) => {
                 const adjustmentPaise = BigInt(row.adjustmentPaise || "0");
@@ -1199,6 +1231,7 @@ export default function StaffHubPage() {
             {staffQuery.isLoading ? (
               <PageLoader label="Loading team..." />
             ) : filteredStaff.length === 0 ? (
+<<<<<<< HEAD
               <EmptyState
                 icon={UsersRound}
                 title={
@@ -1213,6 +1246,21 @@ export default function StaffHubPage() {
                 }
                 className="rounded-xl border border-dashed"
               />
+=======
+              <div className="rounded-xl border border-dashed py-12 text-center">
+                <UsersRound className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+                <p className="font-medium">
+                  {(staffQuery.data ?? []).length === 0
+                    ? "No team members yet"
+                    : "No one matches that search"}
+                </p>
+                <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                  {(staffQuery.data ?? []).length === 0
+                    ? "Add your first team member to start marking attendance, running payroll and tracking sales commission."
+                    : "Try a different name, phone or role."}
+                </p>
+              </div>
+>>>>>>> origin/master
             ) : (
               <div className="space-y-3">
                 {filteredStaff.map((s) => (

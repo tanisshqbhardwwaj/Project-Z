@@ -2,7 +2,10 @@ import { prisma } from "@/lib/db/prisma";
 import type { PaymentMethod, Prisma } from "@prisma/client";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { isInfiniteStock } from "@/lib/shop/inventory";
+<<<<<<< HEAD
 import { sumActiveReservedQty, atomicDeductInventory } from "@/lib/inventory/stock-reservation";
+=======
+>>>>>>> origin/master
 import { mergeInventorySectorMeta } from "@/lib/shop/inventory-categories";
 import { generateShopBarcode, normalizeBarcode } from "@/lib/shop/barcode";
 import {
@@ -12,9 +15,18 @@ import {
 import { nextShopBillNumber } from "@/lib/shop/bill-number";
 import {
   customerSearchWhere,
+<<<<<<< HEAD
 } from "@/lib/shop/customer";
 import {
   getCustomerRaw,
+=======
+  invoiceSearchWhere,
+} from "@/lib/shop/customer";
+import {
+  getCustomerRaw,
+  listCustomersRaw,
+  searchCustomersRaw,
+>>>>>>> origin/master
   upsertCustomerRaw,
 } from "@/lib/shop/customer-store";
 import { ensureShopExtendedSchema } from "@/lib/shop/ensure-shop-extended-schema";
@@ -29,10 +41,13 @@ import { getPurchaseSummary } from "./shop-purchase.service";
 import { getExpenseSummary } from "./shop-expense.service";
 import { getTotalOutstandingCredit } from "./shop-credit.service";
 import {
+<<<<<<< HEAD
   resolveShopDashboardBounds,
   type ShopDashboardPeriod,
 } from "@/lib/shop/dashboard-period";
 import {
+=======
+>>>>>>> origin/master
   computeInvoicePricing,
   resolveInvoiceLineAllocations,
   type StoredInvoicePricing,
@@ -54,6 +69,7 @@ import {
   variantDisplayName,
   variantSubtitle,
 } from "@/lib/shop/variant-display";
+<<<<<<< HEAD
 export {
   listShopSales,
   listShopCustomers,
@@ -61,6 +77,8 @@ export {
   getShopCustomer,
   type ShopCustomerWithCount,
 } from "./shop/sales-list.service";
+=======
+>>>>>>> origin/master
 
 export type ShopSaleItem = {
   name: string;
@@ -123,6 +141,7 @@ async function enrichSaleItemsWithVariants(
   });
 }
 
+<<<<<<< HEAD
 /** Server-side catalog prices — client cannot undercut inventory sell price. */
 async function resolveAuthoritativeSalePrices(
   organizationId: string,
@@ -155,6 +174,8 @@ async function resolveAuthoritativeSalePrices(
   });
 }
 
+=======
+>>>>>>> origin/master
 export async function getShopSale(organizationId: string, saleId: string) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopSaleSchema();
@@ -320,19 +341,91 @@ export async function resolveBarcodeScan(
   return { type: "invoice", sale };
 }
 
+<<<<<<< HEAD
 export async function getShopDashboard(
   organizationId: string,
   period: ShopDashboardPeriod = "today",
   date?: string | null
+=======
+export async function listShopSales(
+  organizationId: string,
+  opts?: { q?: string; customerId?: string; limit?: number; staffId?: string }
+) {
+  await requireModule(organizationId, "shop_sales");
+  await ensureShopSaleSchema();
+  const where = invoiceSearchWhere(
+    organizationId,
+    opts?.q ?? "",
+    opts?.customerId
+  );
+  if (opts?.staffId) {
+    where.staffId = opts.staffId;
+  }
+  return prisma.shopSale.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: opts?.limit ?? 100,
+  });
+}
+
+export async function searchShopCustomers(
+  organizationId: string,
+  query?: string,
+  limit = 20
+) {
+  await requireModule(organizationId, "shop_sales");
+  return searchCustomersRaw(organizationId, query, limit);
+}
+
+export async function listShopCustomers(organizationId: string, limit = 200) {
+  await requireModule(organizationId, "shop_sales");
+  return listCustomersRaw(organizationId, limit);
+}
+
+export async function getShopCustomer(organizationId: string, customerId: string) {
+  await requireModule(organizationId, "shop_sales");
+  const customer = await getCustomerRaw(organizationId, customerId);
+  if (!customer) throw new Error("Customer not found");
+  const sales = await prisma.shopSale.findMany({
+    where: { organizationId, customerId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: {
+      id: true,
+      billNumber: true,
+      totalPaise: true,
+      paymentMethod: true,
+      createdAt: true,
+    },
+  });
+  return { ...customer, sales };
+}
+
+export async function getShopDashboard(
+  organizationId: string,
+  period: "today" | "month" = "today"
+>>>>>>> origin/master
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopSaleSchema();
   await ensureShopExtendedSchema();
 
+<<<<<<< HEAD
   const { start: periodStart, end: periodEnd } = resolveShopDashboardBounds(
     period,
     date
   );
+=======
+  const periodStart = new Date();
+  const periodEnd = new Date();
+  periodEnd.setHours(23, 59, 59, 999);
+  if (period === "today") {
+    periodStart.setHours(0, 0, 0, 0);
+  } else {
+    periodStart.setDate(1);
+    periodStart.setHours(0, 0, 0, 0);
+  }
+>>>>>>> origin/master
 
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
@@ -346,6 +439,7 @@ export async function getShopDashboard(
   const [periodSales, recentInvoices, inventorySnapshot, profitToday, purchaseSummary, expenseSummary, outstandingCreditPaise, totalCustomers, totalStaff, heldBillsCount, activeOffersCount, recentReturnsCount, topCustomer] =
     await Promise.all([
     prisma.shopSale.findMany({
+<<<<<<< HEAD
       where: {
         organizationId,
         createdAt: { gte: periodStart, lte: periodEnd },
@@ -359,6 +453,15 @@ export async function getShopDashboard(
       },
       orderBy: { createdAt: "desc" },
       take: 100,
+=======
+      where: { organizationId, createdAt: { gte: periodStart } },
+      select: { totalPaise: true, totalCostPaise: true, paymentMethod: true, salesBoyName: true },
+    }),
+    prisma.shopSale.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+>>>>>>> origin/master
       select: {
         id: true,
         billNumber: true,
@@ -384,6 +487,7 @@ export async function getShopDashboard(
     (async () => {
       try {
         const { getShopProfitAnalytics } = await import("./shop-profit.service");
+<<<<<<< HEAD
         return getShopProfitAnalytics(
           period === "date"
             ? {
@@ -397,6 +501,12 @@ export async function getShopDashboard(
                 period: period === "today" ? "today" : "month",
               }
         );
+=======
+        return getShopProfitAnalytics({
+          organizationId,
+          period: period === "today" ? "today" : "month",
+        });
+>>>>>>> origin/master
       } catch {
         return null;
       }
@@ -523,22 +633,41 @@ export async function getShopDashboard(
 
 export async function getStaffSalesInvoices(
   organizationId: string,
+<<<<<<< HEAD
   period: ShopDashboardPeriod,
   staffName: string,
   date?: string | null
+=======
+  period: "today" | "month",
+  staffName: string
+>>>>>>> origin/master
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopSaleSchema();
 
+<<<<<<< HEAD
   const { start: periodStart, end: periodEnd } = resolveShopDashboardBounds(
     period,
     date
   );
+=======
+  const periodStart = new Date();
+  if (period === "today") {
+    periodStart.setHours(0, 0, 0, 0);
+  } else {
+    periodStart.setDate(1);
+    periodStart.setHours(0, 0, 0, 0);
+  }
+>>>>>>> origin/master
 
   const sales = await prisma.shopSale.findMany({
     where: {
       organizationId,
+<<<<<<< HEAD
       createdAt: { gte: periodStart, lte: periodEnd },
+=======
+      createdAt: { gte: periodStart },
+>>>>>>> origin/master
       ...(staffName === "Unassigned"
         ? { OR: [{ salesBoyName: null }, { salesBoyName: "" }] }
         : { salesBoyName: staffName }),
@@ -649,8 +778,11 @@ async function resolveSaleStaff(
 }
 
 export async function createShopSale(input: {
+<<<<<<< HEAD
   /** Client-generated UUID so offline push is idempotent. */
   clientId?: string | null;
+=======
+>>>>>>> origin/master
   organizationId: string;
   createdById: string;
   customerId?: string | null;
@@ -676,6 +808,7 @@ export async function createShopSale(input: {
   selectedOfferId?: string | null;
   skipOffer?: boolean;
   appliedOffers?: { offerId: string; name: string; discountRupees: number }[];
+<<<<<<< HEAD
   splitPayments?: { method: string; amountRupees: number }[];
   terminalPayment?: {
     provider: string;
@@ -683,12 +816,15 @@ export async function createShopSale(input: {
     merchantTxnId: string;
     reference?: string;
   };
+=======
+>>>>>>> origin/master
 }) {
   await requireModule(input.organizationId, "shop_sales");
   await ensureShopSaleSchema();
   await ensureShopExtendedSchema();
   await ensureCatalogSchema();
 
+<<<<<<< HEAD
   if (input.clientId) {
     const existing = await prisma.shopSale.findFirst({
       where: { id: input.clientId, organizationId: input.organizationId },
@@ -696,6 +832,8 @@ export async function createShopSale(input: {
     if (existing) return existing;
   }
 
+=======
+>>>>>>> origin/master
   const org = await prisma.organization.findUnique({
     where: { id: input.organizationId },
     select: { settings: true },
@@ -711,11 +849,14 @@ export async function createShopSale(input: {
     }
   );
 
+<<<<<<< HEAD
   const pricedItems = await resolveAuthoritativeSalePrices(
     input.organizationId,
     input.items
   );
 
+=======
+>>>>>>> origin/master
   let appliedOffers: { offerId: string; name: string; discountRupees: number }[] = [];
   let offerDiscountRupees = 0;
   let offerLineDiscountRupees: number[] | undefined;
@@ -723,7 +864,11 @@ export async function createShopSale(input: {
     const { computeOfferDiscountForSale } = await import("./shop-offer.service");
     const offerResult = await computeOfferDiscountForSale(
       input.organizationId,
+<<<<<<< HEAD
       pricedItems,
+=======
+      input.items,
+>>>>>>> origin/master
       { selectedOfferId: input.selectedOfferId ?? null, skipOffer: input.skipOffer }
     );
     offerDiscountRupees = offerResult.offerDiscountRupees;
@@ -733,7 +878,11 @@ export async function createShopSale(input: {
     /* offers optional if schema not ready */
   }
 
+<<<<<<< HEAD
   const subtotalRupees = pricedItems.reduce((s, l) => s + l.qty * l.priceRupees, 0);
+=======
+  const subtotalRupees = input.items.reduce((s, l) => s + l.qty * l.priceRupees, 0);
+>>>>>>> origin/master
   const manualDiscountMode: "percent" | "rupees" =
     (input.discountPercent ?? 0) > 0 ? "percent" : "rupees";
   const manualDiscountPercent =
@@ -748,12 +897,17 @@ export async function createShopSale(input: {
   const useDecimalPlaces = invoiceSettings.useDecimalPlaces !== false;
 
   const pricing = computeInvoicePricing({
+<<<<<<< HEAD
     items: pricedItems,
+=======
+    items: input.items,
+>>>>>>> origin/master
     discountRupees: totalDiscountRupees,
     discountPercent: 0,
     discountBasis: invoiceSettings.discountBasis ?? "subtotal",
     taxRatePercent: input.taxRatePercent,
     taxIncluded: input.taxIncluded,
+<<<<<<< HEAD
     manualGstRupees:
       input.taxRatePercent && input.taxRatePercent > 0
         ? null
@@ -777,6 +931,21 @@ export async function createShopSale(input: {
   const showLineHints = offerDiscountRupees > 0 || manualDiscountMode === "percent";
   const savedLineDiscounts = showLineHints
     ? resolveInvoiceLineAllocations(pricedItems, {
+=======
+    manualGstRupees: input.manualGstRupees ?? input.gstRupees,
+    useDecimalPlaces,
+  });
+
+  const totalPaise =
+    input.totalRupees != null
+      ? rupeesToPaise(input.totalRupees)
+      : pricing.totalPaise;
+  if (totalPaise <= BigInt(0)) throw new Error("Sale total must be greater than zero");
+
+  const showLineHints = offerDiscountRupees > 0 || manualDiscountMode === "percent";
+  const savedLineDiscounts = showLineHints
+    ? resolveInvoiceLineAllocations(input.items, {
+>>>>>>> origin/master
         showLineHints: true,
         totalDiscountRupees: totalDiscountRupees,
         manualDiscountRupees,
@@ -823,8 +992,11 @@ export async function createShopSale(input: {
             : {}),
         }),
     ...(savedLineDiscounts?.length ? { lineDiscountRupees: savedLineDiscounts } : {}),
+<<<<<<< HEAD
     ...(input.splitPayments?.length ? { splitPayments: input.splitPayments } : {}),
     ...(input.terminalPayment ? { terminalPayment: input.terminalPayment } : {}),
+=======
+>>>>>>> origin/master
   };
 
   const customer = await upsertCustomerRaw(input.organizationId, {
@@ -839,7 +1011,11 @@ export async function createShopSale(input: {
   const customerGstin = input.customerGstin?.trim() || customer?.gstin || null;
 
   const deductions = new Map<string, number>();
+<<<<<<< HEAD
   for (const item of pricedItems) {
+=======
+  for (const item of input.items) {
+>>>>>>> origin/master
     if (item.inventoryItemId) {
       deductions.set(
         item.inventoryItemId,
@@ -850,7 +1026,11 @@ export async function createShopSale(input: {
 
   const enrichedItems = await enrichSaleItemsWithVariants(
     input.organizationId,
+<<<<<<< HEAD
     pricedItems
+=======
+    input.items
+>>>>>>> origin/master
   );
   const { totalCostPaise, itemsWithCost } = await computeSaleCostPaise(
     input.organizationId,
@@ -865,6 +1045,7 @@ export async function createShopSale(input: {
         : totalPaise;
   const paymentStatus = deriveInvoicePaymentStatus(totalPaise, paidPaise);
 
+<<<<<<< HEAD
   // Fail before touching stock when the sale would need the udhaar ledger.
   const creditOwed = totalPaise - paidPaise;
   if (creditOwed > BigInt(0)) {
@@ -883,6 +1064,8 @@ export async function createShopSale(input: {
         ).method as PaymentMethod)
       : (input.paymentMethod ?? "CASH");
 
+=======
+>>>>>>> origin/master
   const sale = await prisma.$transaction(async (tx) => {
     if (deductions.size > 0) {
       const inventoryIds = [...deductions.keys()];
@@ -900,6 +1083,7 @@ export async function createShopSale(input: {
       for (const inv of inventoryItems) {
         const deductQty = deductions.get(inv.id)!;
         if (isInfiniteStock(inv.quantity)) continue;
+<<<<<<< HEAD
         const ok = await atomicDeductInventory({
           tx,
           organizationId: input.organizationId,
@@ -914,13 +1098,35 @@ export async function createShopSale(input: {
           );
         }
       }
+=======
+        if (inv.quantity < deductQty) {
+          throw new Error(
+            `Not enough stock for "${inv.name}" (have ${inv.quantity}, need ${deductQty})`
+          );
+        }
+      }
+
+      for (const inv of inventoryItems) {
+        const deductQty = deductions.get(inv.id)!;
+        if (isInfiniteStock(inv.quantity)) continue;
+        await tx.inventoryItem.update({
+          where: { id: inv.id },
+          data: { quantity: inv.quantity - deductQty },
+        });
+      }
+>>>>>>> origin/master
     }
 
     const customerRecord = customer;
 
+<<<<<<< HEAD
     const sale = await tx.shopSale.create({
       data: {
         ...(input.clientId ? { id: input.clientId } : {}),
+=======
+    return tx.shopSale.create({
+      data: {
+>>>>>>> origin/master
         organizationId: input.organizationId,
         createdById: input.createdById,
         customerId: customerRecord?.id ?? null,
@@ -938,7 +1144,11 @@ export async function createShopSale(input: {
         paidAmountPaise: paidPaise,
         totalCostPaise,
         paymentStatus,
+<<<<<<< HEAD
         paymentMethod: resolvedPaymentMethod,
+=======
+        paymentMethod: input.paymentMethod ?? "CASH",
+>>>>>>> origin/master
         itemsJson: itemsWithCost,
         notes: input.notes?.trim() || null,
         pricingJson,
@@ -948,6 +1158,7 @@ export async function createShopSale(input: {
         createdBy: { select: { name: true } },
       },
     });
+<<<<<<< HEAD
 
     // Credit ledger writes join this transaction — a sale on udhaar can
     // never commit without its ledger entry (and vice versa).
@@ -977,6 +1188,28 @@ export async function createShopSale(input: {
       entityType: "ShopSale",
       entityId: sale.id,
       after: { creditAmount: creditOwed.toString() },
+=======
+  });
+
+  const creditOwed = totalPaise - paidPaise;
+  if (creditOwed > BigInt(0)) {
+    const { enabledModules } = await getOrgModuleContext(input.organizationId);
+    if (!enabledModules.shop_udhaar) {
+      throw new Error(
+        "Customer credit ledger is not enabled. Turn on Udhaar in Manage Organization → Features, or collect full payment."
+      );
+    }
+    await recordCreditFromSale({
+      organizationId: input.organizationId,
+      userId: input.createdById,
+      shopSaleId: sale.id,
+      customerId: customer?.id ?? null,
+      customerName,
+      customerPhone,
+      totalPaise,
+      paidPaise,
+      paymentMethod: input.paymentMethod,
+>>>>>>> origin/master
     });
   }
 
