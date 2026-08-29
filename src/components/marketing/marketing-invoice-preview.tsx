@@ -12,7 +12,7 @@ const DEMO_CART = [
   { name: "Premium Cotton Shirt", qty: 2, priceRupees: 899, size: "M", sku: "SH-001" },
   { name: "Formal Trousers", qty: 1, priceRupees: 1299, size: "32", sku: "TR-042" },
   { name: "Leather Belt", qty: 1, priceRupees: 450, sku: "AC-118" },
-] as const;
+];
 
 /** Fixed timestamp so SSR and client hydration match (buildDraftInvoice uses Date.now()). */
 const DEMO_CREATED_AT = "2026-01-15T10:30:00.000Z";
@@ -32,7 +32,7 @@ const DEMO_INVOICE = {
     customerGstin: "",
     salesBoyName: "",
     paymentMethod: "CASH",
-    cart: [...DEMO_CART],
+    cart: DEMO_CART,
     billNumber: "INV-2026-0042",
     pricing: DEMO_PRICING,
     taxRatePercent: 18,
