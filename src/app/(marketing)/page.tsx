@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { LandingPage } from "@/components/marketing/landing-page";
 import { auth } from "@/lib/auth";
+import { getPublicMarketingConfig } from "@/lib/marketing/public-config";
 
 export const metadata: Metadata = {
-  title: "Project Z — From A to Z",
+  title: "Project Z — Professional Billing & Business Management",
   description:
-    "Billing, inventory, staff, and projects in one place for shopkeepers, contractors, architects, and builders.",
+    "Create professional digital invoices, manage customers and sales, track inventory and expenses, and grow your business — from billing to complete business management.",
 };
 
 export default async function HomePage() {
@@ -15,5 +16,7 @@ export default async function HomePage() {
     redirect("/dashboard");
   }
 
-  return <LandingPage />;
+  const config = getPublicMarketingConfig();
+
+  return <LandingPage config={config} />;
 }

@@ -11,8 +11,10 @@ import { navyCta } from "@/components/marketing/cta";
 
 const LINKS = [
   { href: "/", label: "Home" },
-  { href: "/#about", label: "About" },
+  { href: "/#billing", label: "Features" },
+  { href: "/#operations", label: "Operations" },
   { href: "/#pricing", label: "Pricing" },
+  { href: "/pricing/compare", label: "Compare" },
   { href: "/#faq", label: "FAQ" },
   { href: "/login", label: "Log In" },
 ];
