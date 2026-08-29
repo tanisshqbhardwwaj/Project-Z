@@ -8,11 +8,14 @@ import type { PublicMarketingConfig } from "@/lib/marketing/public-config";
 
 type DownloadAppsProps = {
   config: PublicMarketingConfig;
+  /** Hide section header when embedded in another section (e.g. landing page). */
+  embedded?: boolean;
 };
 
-export function DownloadApps({ config }: DownloadAppsProps) {
+export function DownloadApps({ config, embedded }: DownloadAppsProps) {
   return (
-    <section className="scroll-mt-20 space-y-8" aria-labelledby="downloads-heading" id="downloads">
+    <section className="scroll-mt-20 space-y-8" aria-labelledby={embedded ? undefined : "downloads-heading"} id={embedded ? undefined : "downloads"}>
+      {!embedded ? (
       <div className="max-w-xl space-y-3">
         <SectionEyebrow>GET THE APP</SectionEyebrow>
         <h2 id="downloads-heading" className="text-3xl font-extrabold tracking-tight sm:text-4xl">
@@ -23,6 +26,7 @@ export function DownloadApps({ config }: DownloadAppsProps) {
           are on the way.
         </p>
       </div>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <DownloadTile
           icon={<Smartphone className="h-4 w-4" />}

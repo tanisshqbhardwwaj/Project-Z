@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionEyebrow } from "@/components/marketing/marketing-footer";
+import { AddonServicesBlock } from "@/components/marketing/sections/addon-services-section";
 import {
   BILLING_PLANS,
   PLAN_ORDER,
@@ -13,6 +15,7 @@ export function PublicPricing() {
   const showSetup = SETUP_FEE_REGULAR_PAISE > 0 || SETUP_FEE_EARLY_BIRD_PAISE > 0;
 
   return (
+    <div className="space-y-12">
     <section className="space-y-10" aria-labelledby="pricing-heading">
       <div className="max-w-xl space-y-3">
         <SectionEyebrow>PRICING</SectionEyebrow>
@@ -20,8 +23,14 @@ export function PublicPricing() {
           Simple plans. Clear monthly rates.
         </h1>
         <p className="text-base leading-relaxed text-slate-600">
-          Starting rates for a single shop. Talk to us for yearly billing or more than one location.
+          Starting rates for a single business. Talk to us for yearly billing or more than one location.
         </p>
+        <Link
+          href="/pricing/compare"
+          className="inline-flex text-sm font-medium text-slate-950 underline-offset-2 hover:underline"
+        >
+          Compare all features →
+        </Link>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {PLAN_ORDER.map((code) => {
@@ -97,5 +106,7 @@ export function PublicPricing() {
         </p>
       ) : null}
     </section>
+    <AddonServicesBlock />
+    </div>
   );
 }

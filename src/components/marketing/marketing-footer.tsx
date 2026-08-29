@@ -7,18 +7,24 @@ export function MarketingFooter() {
         <div className="max-w-sm space-y-2">
           <p className="text-sm font-semibold tracking-wide text-slate-950">PROJECT Z</p>
           <p className="text-sm leading-relaxed text-slate-600">
-            Billing, inventory, staff, and projects for Indian shops and teams — one platform
-            from A to Z.
+            Professional digital billing and business management — start with invoicing, grow into
+            inventory, expenses, and projects.
           </p>
         </div>
         <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-slate-600">
+          <Link href="/#billing" className="hover:text-slate-950">
+            Features
+          </Link>
           <Link href="/pricing" className="hover:text-slate-950">
             Pricing
+          </Link>
+          <Link href="/pricing/compare" className="hover:text-slate-950">
+            Compare plans
           </Link>
           <Link href="/#faq" className="hover:text-slate-950">
             FAQ
           </Link>
-          <Link href="/pricing#downloads" className="hover:text-slate-950">
+          <Link href="/#downloads" className="hover:text-slate-950">
             Get the app
           </Link>
           <Link href="/login" className="hover:text-slate-950">
