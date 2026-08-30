@@ -11,9 +11,9 @@ test("landing page is public and light", async ({ page }) => {
 test("pricing page shows plans, contact, and downloads", async ({ page }) => {
   await page.goto("/pricing");
   await expect(page.getByRole("heading", { name: /^basic$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^starter$/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^business$/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^professional$/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /business pro/i })).toBeVisible();
   await expect(page.getByText(/download apk/i)).toBeVisible();
   await expect(page.getByText(/download for windows/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /ios/i })).toBeDisabled();
