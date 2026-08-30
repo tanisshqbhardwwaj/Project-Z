@@ -1,7 +1,7 @@
 import { execSync } from "node:child_process";
 import { printProductionEnvErrors, validateProductionEnv } from "./validate-production-env.mjs";
 
-const LOCAL_PRISMA_URL = "file:./dev.db";
+const LOCAL_PRISMA_URL = "postgresql://projectz:projectz@localhost:5433/projectz";
 
 function run(command) {
   execSync(command, { stdio: "inherit", env: process.env });
@@ -9,7 +9,7 @@ function run(command) {
 
 function ensurePrismaCliDatabaseUrl() {
   if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = LOCAL_PRISMA_URL;
+    process.env.DATABASE_URL = process.env.DIRECT_URL || LOCAL_PRISMA_URL;
   }
 }
 
@@ -21,12 +21,7 @@ if (process.env.VERCEL) {
   }
 
   console.log("✓ Production environment variables validated");
-
-  if (process.env.TURSO_DATABASE_URL) {
-    run("node scripts/turso-migrate.mjs");
-  } else {
-    run("npx prisma migrate deploy");
-  }
+  run("npx prisma migrate deploy");
 }
 
 ensurePrismaCliDatabaseUrl();

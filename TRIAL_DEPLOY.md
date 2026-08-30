@@ -1,44 +1,46 @@
 # Free Trial Deploy (No Custom Domain)
 
-Deploy Project Z for **$0** using Turso (SQLite) + Vercel + R2. No PostgreSQL or Docker required.
+Deploy Project Z for **$0** using Prisma Postgres Free + Vercel + Cloudflare R2.
+
+This app used to run on Turso/libsql. Production is now standard PostgreSQL. Do not set `TURSO_DATABASE_URL` or `TURSO_AUTH_TOKEN`.
 
 ## What you need (all free tiers)
 
 | Service | Free URL | Purpose |
 |---------|----------|---------|
 | [GitHub](https://github.com) | — | Code |
-| [Turso](https://turso.tech) | — | Database (SQLite, edge-hosted) |
-| [Cloudflare R2](https://developers.cloudflare.com/r2/) | — | File storage |
-| [Vercel](https://vercel.com) | `*.vercel.app` | Host the app |
+| [Prisma Postgres](https://console.prisma.io) | Free plan | Database (PostgreSQL) |
+| [Cloudflare R2](https://developers.cloudflare.com/r2/) | — | File storage (keep your existing bucket) |
+| [Vercel](https://vercel.com) | `*.vercel.app` | Host the app (unchanged) |
 | [Resend](https://resend.com) | — | Email |
 
 ---
 
-## Step 1 — Turso database (5 min)
+## Step 1 — Prisma Postgres Free in Singapore (5 min)
 
-1. Sign up at https://turso.tech
-2. Install CLI (optional but easiest):
-   ```bash
-   # macOS/Linux
-   curl -sSfL https://get.tur.so/install.sh | bash
-   # Windows — use WSL or create DB in Turso dashboard
-   ```
-3. Create database:
-   ```bash
-   turso auth login
-   turso db create project-z
-   turso db show project-z --url
-   turso db tokens create project-z
-   ```
-4. Copy:
-   - **URL** → `libsql://project-z-xxxxx.turso.io`
-   - **Token** → `eyJhbG...`
+1. Sign in at https://console.prisma.io
+2. Create a **Prisma Postgres** database on the **Free** plan
+3. Region: **ap-southeast-1 (Singapore)** — pick this so it matches the product region
+4. Copy the PostgreSQL connection string (starts with `postgres://` or `postgresql://`)
+5. In Vercel → Project → Settings → Environment Variables:
+   - **`DATABASE_URL`** = that connection string
+   - **`DIRECT_URL`** = the direct / non-pooled URL if the console shows one; otherwise paste the same string as `DATABASE_URL`
 
-No connection strings, no ports, no SSL config — just two env vars.
+Do not invent or commit secrets. Paste only from the Prisma console.
+
+Then apply schema on the empty database (the Vercel build also runs this):
+
+```bash
+npx prisma migrate deploy
+```
 
 ---
 
-## Step 2 — Cloudflare R2 (10 min)
+## Step 2 — Cloudflare R2 (keep as-is)
+
+If R2 is already configured, leave `S3_*` variables unchanged.
+
+New setup:
 
 1. Cloudflare dashboard → **R2** → Create bucket (`project-z`)
 2. Create API token with read/write
@@ -69,12 +71,12 @@ Temporary testing only (no domain): `EMAIL_FROM=Project Z <onboarding@resend.dev
 
 ## Step 4 — Deploy on Vercel (10 min)
 
-1. https://vercel.com → Import GitHub repo
+1. https://vercel.com → Import GitHub repo (hosting stays on Vercel)
 2. Add **Environment Variables** (Production):
 
 ```env
-TURSO_DATABASE_URL=libsql://project-z-xxxxx.turso.io
-TURSO_AUTH_TOKEN=eyJhbG...
+DATABASE_URL=postgresql://...   # from Prisma Postgres console
+DIRECT_URL=postgresql://...     # same as DATABASE_URL unless a separate direct URL is shown
 AUTH_SECRET=<openssl rand -base64 32>
 AUTH_URL=https://YOUR-APP.vercel.app
 NEXT_PUBLIC_APP_URL=https://YOUR-APP.vercel.app
@@ -88,11 +90,11 @@ S3_SECRET_ACCESS_KEY=...
 S3_BUCKET=project-z
 ```
 
-3. **Remove** any old `DATABASE_URL` pointing at `localhost:5433` from Vercel — the build will fail if it's still there.
+3. Remove leftover `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` if they are still on the project.
 4. Deploy
 5. After first deploy, set `AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your exact `https://xxx.vercel.app` URL, then redeploy.
 
-Migrations apply automatically to Turso during build.
+`prisma migrate deploy` runs during the Vercel build.
 
 ---
 
@@ -123,37 +125,28 @@ Android APK: same pattern with `NEXT_PUBLIC_ANDROID_APK_URL` (APK must point at 
 
 ---
 
-## Why Turso instead of PostgreSQL?
-
-| | PostgreSQL (Neon) | Turso (SQLite) |
-|--|--|--|
-| Free tier | 500MB, can sleep | 5GB storage, 500M rows read/mo |
-| Setup | Connection strings, SSL, pooler | URL + token (2 vars) |
-| Vercel fit | Cold starts, connection limits | HTTP-based, edge-native |
-| Cost at scale | Higher | Cheaper |
-
----
-
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
 | `package.json#prisma` warning | Redeploy latest code — config is in `prisma.config.mjs` |
-| `localhost:5433` in build log | Delete `DATABASE_URL` from Vercel env vars |
 | Build env validation errors | Read bullet list in log — each var explained |
 | Login redirect loop | `AUTH_URL` must match exact Vercel URL |
-| Upload fails | Check R2 credentials |
+| Upload fails | Check R2 credentials (unchanged) |
+| `migrate deploy` connection error | Set `DIRECT_URL` to the direct URL from the Prisma console |
+| Old Turso vars | Delete `TURSO_*` from Vercel; this app no longer reads them |
 | npm deprecated warnings | Harmless — from transitive deps, not your app |
 
 ---
 
-## Local dev (no Turso needed)
+## Local dev
 
 ```bash
 cp .env.example .env
+docker compose up -d postgres
 npm install
 npx prisma migrate deploy
 npm run dev
 ```
 
-Uses local SQLite file at `prisma/dev.db` — no Docker Postgres.
+Uses local Docker Postgres on port **5433** (`postgresql://projectz:projectz@localhost:5433/projectz`).

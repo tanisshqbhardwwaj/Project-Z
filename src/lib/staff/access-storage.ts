@@ -6,35 +6,29 @@ import {
 } from "@/lib/staff/access";
 import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
 
-function parseAccessJsonColumn(raw: string | null | undefined): StaffAccess {
-  if (!raw) return parseStaffAccess(null);
-  try {
-    return parseStaffAccess(JSON.parse(raw));
-  } catch {
-    return parseStaffAccess(null);
-  }
+function parseAccessJsonColumn(raw: unknown): StaffAccess {
+  return parseStaffAccess(raw);
 }
 
-/** Persists access toggles via SQL so staff saves work before `prisma generate`. */
+/** Persists access toggles on StaffMember.accessJson. */
 export async function writeStaffAccessJson(
   staffId: string,
   access: Partial<StaffAccess>
 ) {
   await ensureCatalogSchema();
-  const json = JSON.stringify(staffAccessFromForm(access));
-  await prisma.$executeRawUnsafe(
-    `UPDATE "StaffMember" SET "accessJson" = ? WHERE "id" = ?`,
-    json,
-    staffId
-  );
+  await prisma.staffMember.update({
+    where: { id: staffId },
+    data: { accessJson: staffAccessFromForm(access) },
+  });
 }
 
 export async function readStaffAccessJson(staffId: string): Promise<StaffAccess> {
   await ensureCatalogSchema();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{ accessJson: string | null }>
-  >(`SELECT "accessJson" FROM "StaffMember" WHERE "id" = ? LIMIT 1`, staffId);
-  return parseAccessJsonColumn(rows[0]?.accessJson);
+  const row = await prisma.staffMember.findUnique({
+    where: { id: staffId },
+    select: { accessJson: true },
+  });
+  return parseAccessJsonColumn(row?.accessJson);
 }
 
 export async function readStaffAccessJsonMap(
@@ -43,13 +37,10 @@ export async function readStaffAccessJsonMap(
   const map = new Map<string, StaffAccess>();
   if (staffIds.length === 0) return map;
   await ensureCatalogSchema();
-  const placeholders = staffIds.map(() => "?").join(", ");
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{ id: string; accessJson: string | null }>
-  >(
-    `SELECT "id", "accessJson" FROM "StaffMember" WHERE "id" IN (${placeholders})`,
-    ...staffIds
-  );
+  const rows = await prisma.staffMember.findMany({
+    where: { id: { in: staffIds } },
+    select: { id: true, accessJson: true },
+  });
   for (const row of rows) {
     map.set(row.id, parseAccessJsonColumn(row.accessJson));
   }

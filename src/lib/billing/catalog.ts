@@ -25,27 +25,6 @@ type StoredCatalog = Partial<Record<BillingPlan, Partial<PlanDefinition>>>;
 let catalogCache: { at: number; plans: Record<BillingPlan, PlanDefinition> } | null =
   null;
 const CACHE_MS = 8_000;
-let tableReady: Promise<void> | null = null;
-
-async function ensurePlatformSettingTable() {
-  if (!tableReady) {
-    tableReady = prisma
-      .$executeRaw`
-        CREATE TABLE IF NOT EXISTS "PlatformSetting" (
-          "key" TEXT NOT NULL PRIMARY KEY,
-          "value" JSON NOT NULL,
-          "updatedAt" DATETIME NOT NULL,
-          "updatedById" TEXT
-        )
-      `
-      .then(() => undefined)
-      .catch((err) => {
-        tableReady = null;
-        throw err;
-      });
-  }
-  await tableReady;
-}
 
 function clonePlan(plan: PlanDefinition): PlanDefinition {
   return {
@@ -167,25 +146,26 @@ function parseStoredValue(value: unknown): StoredCatalog | null {
 }
 
 async function readStoredCatalog(): Promise<StoredCatalog | null> {
-  await ensurePlatformSettingTable();
-  const rows = await prisma.$queryRaw<Array<{ value: unknown }>>`
-    SELECT "value" FROM "PlatformSetting" WHERE "key" = ${BILLING_CATALOG_KEY} LIMIT 1
-  `;
-  return parseStoredValue(rows[0]?.value);
+  const row = await prisma.platformSetting.findUnique({
+    where: { key: BILLING_CATALOG_KEY },
+    select: { value: true },
+  });
+  return parseStoredValue(row?.value);
 }
 
 async function writeStoredCatalog(toStore: StoredCatalog, updatedById?: string | null) {
-  await ensurePlatformSettingTable();
-  const json = JSON.stringify(toStore);
-  const now = new Date().toISOString();
-  await prisma.$executeRaw`
-    INSERT INTO "PlatformSetting" ("key", "value", "updatedAt", "updatedById")
-    VALUES (${BILLING_CATALOG_KEY}, ${json}, ${now}, ${updatedById ?? null})
-    ON CONFLICT("key") DO UPDATE SET
-      "value" = excluded."value",
-      "updatedAt" = excluded."updatedAt",
-      "updatedById" = excluded."updatedById"
-  `;
+  await prisma.platformSetting.upsert({
+    where: { key: BILLING_CATALOG_KEY },
+    create: {
+      key: BILLING_CATALOG_KEY,
+      value: toStore,
+      updatedById: updatedById ?? null,
+    },
+    update: {
+      value: toStore,
+      updatedById: updatedById ?? null,
+    },
+  });
 }
 
 export function invalidatePlanCatalogCache() {
@@ -252,10 +232,9 @@ export async function savePlanCatalog(
 }
 
 export async function resetPlanCatalog() {
-  await ensurePlatformSettingTable();
-  await prisma.$executeRaw`
-    DELETE FROM "PlatformSetting" WHERE "key" = ${BILLING_CATALOG_KEY}
-  `;
+  await prisma.platformSetting.deleteMany({
+    where: { key: BILLING_CATALOG_KEY },
+  });
   invalidatePlanCatalogCache();
   return defaultsCatalog();
 }

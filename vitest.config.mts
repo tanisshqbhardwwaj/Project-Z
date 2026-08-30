@@ -8,6 +8,11 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    env: {
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        "postgresql://projectz:projectz@localhost:5433/projectz",
+    },
   },
   resolve: {
     alias: {

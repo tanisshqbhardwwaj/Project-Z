@@ -1,9 +1,8 @@
 /**
- * Seed a verified local user into SQLite so login works without Turso/Resend.
+ * Seed a verified local user so login works without Resend.
  *
  * Usage:
- *   $env:DATABASE_URL="file:./dev.db"
- *   node scripts/seed-local-user.mjs
+ *   node --env-file=.env scripts/seed-local-user.mjs
  *
  * Optional:
  *   $env:SEED_EMAIL="you@email.com"

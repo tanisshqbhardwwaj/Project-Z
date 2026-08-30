@@ -6,13 +6,23 @@ import "dotenv/config";
 import { prisma } from "../src/lib/db/prisma.ts";
 import { nextShopBillNumber } from "../src/lib/shop/bill-number.ts";
 
-const dupes = await prisma.$queryRawUnsafe(`
-  SELECT "organizationId", "billNumber", GROUP_CONCAT(id) as ids
-  FROM "ShopSale"
-  WHERE "billNumber" IS NOT NULL AND TRIM("billNumber") != ''
-  GROUP BY 1, 2
-  HAVING COUNT(*) > 1
-`);
+const sales = await prisma.shopSale.findMany({
+  where: { billNumber: { not: null } },
+  select: { id: true, organizationId: true, billNumber: true },
+});
+
+/** @type {Map<string, string[]>} */
+const groups = new Map();
+for (const sale of sales) {
+  const bill = sale.billNumber?.trim();
+  if (!bill) continue;
+  const key = `${sale.organizationId}\0${bill}`;
+  const ids = groups.get(key);
+  if (ids) ids.push(sale.id);
+  else groups.set(key, [sale.id]);
+}
+
+const dupes = [...groups.entries()].filter(([, ids]) => ids.length > 1);
 
 if (dupes.length === 0) {
   console.log("No duplicate bill numbers.");
@@ -22,8 +32,8 @@ if (dupes.length === 0) {
 
 console.log(`Found ${dupes.length} duplicate bill number group(s).`);
 
-for (const group of dupes) {
-  const ids = String(group.ids).split(",");
+for (const [key, ids] of dupes) {
+  const organizationId = key.split("\0")[0];
   const rows = await prisma.shopSale.findMany({
     where: { id: { in: ids } },
     select: { id: true, createdAt: true, billNumber: true, staffId: true },
@@ -40,7 +50,7 @@ for (const group of dupes) {
         : null;
       const newBill = await nextShopBillNumber(
         tx,
-        group.organizationId,
+        organizationId,
         staff?.cashierCode ?? null
       );
       await tx.shopSale.update({

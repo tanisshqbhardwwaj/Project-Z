@@ -7,7 +7,8 @@ on:
     branches: [main, master]
 
 env:
-  DATABASE_URL: file:./dev.db
+  DATABASE_URL: postgresql://projectz:projectz@localhost:5432/projectz
+  DIRECT_URL: postgresql://projectz:projectz@localhost:5432/projectz
   AUTH_SECRET: ci-test-secret-32-characters-long
   AUTH_URL: http://localhost:3000
   NEXT_PUBLIC_APP_URL: http://localhost:3000
@@ -23,6 +24,21 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: projectz
+          POSTGRES_PASSWORD: projectz
+          POSTGRES_DB: projectz
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U projectz -d projectz"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -41,14 +57,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Reject missing Turso credentials on Vercel builds
+      - name: Reject missing Postgres credentials on Vercel builds
         run: |
           node --input-type=module -e "
           import { validateProductionEnv } from './scripts/validate-production-env.mjs';
           const errors = validateProductionEnv({
             DATABASE_URL: 'postgresql://u:p@localhost:5433/db',
-            TURSO_DATABASE_URL: '',
-            TURSO_AUTH_TOKEN: '',
             AUTH_SECRET: 'short',
             AUTH_URL: 'http://localhost:3000',
             NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
@@ -62,13 +76,34 @@ jobs:
           if (errors.length < 5) throw new Error('Expected validation to catch bad env');
           console.log('✓ Vercel env guard catches misconfiguration');
           "
+      - name: Reject leftover Turso URLs
+        run: |
+          node --input-type=module -e "
+          import { validateProductionEnv } from './scripts/validate-production-env.mjs';
+          const errors = validateProductionEnv({
+            DATABASE_URL: 'libsql://project-z-user.turso.io',
+            AUTH_SECRET: 'ci-test-secret-32-characters-long',
+            AUTH_URL: 'https://project-z.vercel.app',
+            NEXT_PUBLIC_APP_URL: 'https://project-z.vercel.app',
+            RESEND_API_KEY: 're_real_key_123',
+            EMAIL_FROM: 'Project Z <onboarding@resend.dev>',
+            S3_ENDPOINT: 'https://abc123.r2.cloudflarestorage.com',
+            S3_ACCESS_KEY_ID: 'real-access-key',
+            S3_SECRET_ACCESS_KEY: 'real-secret-key',
+            S3_BUCKET: 'project-z',
+          });
+          if (!errors.some((e) => e.includes('DATABASE_URL'))) {
+            throw new Error('Expected DATABASE_URL Turso/libsql rejection');
+          }
+          console.log('✓ Turso libsql URLs are rejected');
+          "
       - name: Accept valid production env
         run: |
           node --input-type=module -e "
           import { validateProductionEnv } from './scripts/validate-production-env.mjs';
           const errors = validateProductionEnv({
-            TURSO_DATABASE_URL: 'libsql://project-z-user.turso.io',
-            TURSO_AUTH_TOKEN: 'eyJhbGci.test',
+            DATABASE_URL: 'postgresql://user:pass@db.prisma.io:5432/postgres?sslmode=require',
+            DIRECT_URL: 'postgresql://user:pass@db.prisma.io:5432/postgres?sslmode=require',
             AUTH_SECRET: 'ci-test-secret-32-characters-long',
             AUTH_URL: 'https://project-z.vercel.app',
             NEXT_PUBLIC_APP_URL: 'https://project-z.vercel.app',

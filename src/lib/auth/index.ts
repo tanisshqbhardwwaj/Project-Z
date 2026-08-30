@@ -37,13 +37,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         await ensureUserSchema();
-        await prisma.$executeRawUnsafe(
-          `UPDATE "User" SET "lastLoginAt" = ? WHERE "id" = ?`,
-          new Date().toISOString(),
-          user.id
-        ).catch(() => {
-          /* column may not exist until migration */
-        });
+        await prisma.user
+          .update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          })
+          .catch(() => {
+            /* ignore — login should still succeed */
+          });
 
         return {
           id: user.id,

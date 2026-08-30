@@ -404,11 +404,8 @@ export async function getOpsSummary() {
     prisma.staffMember
       .count({ where: { status: "ACTIVE" } })
       .catch(() => 0),
-    prisma.$queryRawUnsafe<Array<{ count: number }>>(
-      `SELECT COUNT(*) as count FROM "User" WHERE "lastLoginAt" >= ?`,
-      startOfDay(30).toISOString()
-    )
-      .then((rows) => Number(rows[0]?.count ?? 0))
+    prisma.user
+      .count({ where: { lastLoginAt: { gte: startOfDay(30) } } })
       .catch(() => 0),
     prisma.organization
       .count({

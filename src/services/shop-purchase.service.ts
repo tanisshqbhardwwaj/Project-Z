@@ -514,59 +514,11 @@ export async function getPurchaseSummary(
 
 export async function listPurchasePayments(organizationId: string, purchaseId: string) {
   await ensureShopExtendedSchema();
-  const delegate = (
-    prisma as unknown as {
-      shopPurchasePayment?: {
-        findMany: (args: unknown) => Promise<
-          Array<{
-            id: string;
-            amountPaise: bigint;
-            paymentMethod: string;
-            notes: string | null;
-            createdAt: Date;
-            createdBy: { id: string; name: string };
-          }>
-        >;
-      };
-    }
-  ).shopPurchasePayment;
-
-  if (delegate?.findMany) {
-    return delegate.findMany({
-      where: { organizationId, purchaseId },
-      include: { createdBy: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
-  return prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      amountPaise: bigint;
-      paymentMethod: string;
-      notes: string | null;
-      createdAt: Date;
-      createdById: string;
-      createdByName: string;
-    }>
-  >(
-    `SELECT p."id", p."amountPaise", p."paymentMethod", p."notes", p."createdAt", p."createdById", u."name" AS "createdByName"
-     FROM "ShopPurchasePayment" p
-     JOIN "User" u ON u."id" = p."createdById"
-     WHERE p."organizationId" = ? AND p."purchaseId" = ?
-     ORDER BY p."createdAt" DESC`,
-    organizationId,
-    purchaseId
-  ).then((rows) =>
-    rows.map((row) => ({
-      id: row.id,
-      amountPaise: row.amountPaise,
-      paymentMethod: row.paymentMethod,
-      notes: row.notes,
-      createdAt: row.createdAt,
-      createdBy: { id: row.createdById, name: row.createdByName },
-    }))
-  );
+  return prisma.shopPurchasePayment.findMany({
+    where: { organizationId, purchaseId },
+    include: { createdBy: { select: { id: true, name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 export async function recordPurchasePayment(input: {

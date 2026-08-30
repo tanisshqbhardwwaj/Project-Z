@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -869,7 +869,15 @@ model ShopHeldBill {
   @@index([organizationId, status, expiresAt])
 }
 
-/// Distributed rate-limit counters (Turso/SQLite). Upstash Redis takes precedence when configured.
+/// Key/value platform config (billing catalog overrides, etc.).
+model PlatformSetting {
+  key         String   @id
+  value       Json
+  updatedAt   DateTime @default(now()) @updatedAt
+  updatedById String?
+}
+
+/// Distributed rate-limit counters. Upstash Redis takes precedence when configured.
 model RateLimitBucket {
   key     String   @id
   count   Int      @default(0)

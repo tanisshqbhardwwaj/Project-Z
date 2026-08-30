@@ -14,13 +14,12 @@ Copy `.env.example` to your hosting provider and set:
 
 | Variable | Required | Notes |
 |----------|----------|-------|
-| `TURSO_DATABASE_URL` | Yes | From Turso dashboard (`libsql://...`) |
-| `TURSO_AUTH_TOKEN` | Yes | From `turso db tokens create` |
-| `DATABASE_URL` | Local only | `file:./dev.db` for local SQLite dev |
+| `DATABASE_URL` | Yes | Prisma Postgres connection string (`postgres://` / `postgresql://`) |
+| `DIRECT_URL` | If pooled | Direct (non-pooled) URL for `prisma migrate deploy`. Copy `DATABASE_URL` if you only have one string. |
 | `AUTH_SECRET` | Yes | `openssl rand -base64 32` |
 | `AUTH_URL` | Yes | Public app URL, e.g. `https://app.example.com` |
 | `NEXT_PUBLIC_APP_URL` | Yes | Same as `AUTH_URL` |
-| `S3_*` | Yes | Production bucket credentials |
+| `S3_*` | Yes | Production bucket credentials (keep existing Cloudflare R2 values) |
 | `RESEND_API_KEY` | Yes | Email delivery |
 | `EMAIL_FROM` | Yes | Verified sender domain |
 | `AI_PROVIDER` | Yes | `groq`, `gemini`, or `manual` |
@@ -31,13 +30,13 @@ Copy `.env.example` to your hosting provider and set:
 
 ## 3. Database Migrations
 
-**Never use `db push` in production.** Run migrations on deploy:
+**Never use `db push` in production.** The Vercel build runs migrations automatically:
 
 ```bash
 npx prisma migrate deploy
 ```
 
-The Docker image runs this automatically before starting the server.
+The Docker image also runs this before starting the server.
 
 ## 4. Docker Deployment
 

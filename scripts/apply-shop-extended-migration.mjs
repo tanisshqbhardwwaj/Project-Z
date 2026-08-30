@@ -1,21 +1,8 @@
-import fs from "fs";
-import { createPrismaClient } from "./lib/prisma-client.mjs";
-
-const prisma = createPrismaClient();
-const sql = fs.readFileSync(
-  "prisma/migrations/20260821100000_shop_purchases_expenses_credit/migration.sql",
-  "utf8"
+/**
+ * Retired: shop/Turso schema was applied with one-off SQLite SQL.
+ * Production and local now use: npx prisma migrate deploy
+ */
+console.error(
+  "This helper targeted Turso/SQLite. Apply schema with: npx prisma migrate deploy"
 );
-const stmts = sql.split(/;\s*\n/).map((s) => s.trim()).filter(Boolean);
-
-for (const stmt of stmts) {
-  try {
-    await prisma.$executeRawUnsafe(stmt);
-    console.log("OK:", stmt.slice(0, 70).replace(/\n/g, " "));
-  } catch (e) {
-    console.log("SKIP:", e.message?.slice(0, 100));
-  }
-}
-
-await prisma.$disconnect();
-console.log("Migration apply done.");
+process.exit(1);

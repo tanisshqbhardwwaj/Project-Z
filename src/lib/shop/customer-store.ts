@@ -1,6 +1,9 @@
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db/prisma";
-import { normalizeShopPhone } from "@/lib/shop/customer";
+import {
+  customerSearchWhere,
+  normalizeShopPhone,
+} from "@/lib/shop/customer";
 import { ensureShopCustomerSchema } from "@/lib/shop/ensure-shop-customer-schema";
 
 export type ShopCustomerRow = {
@@ -20,19 +23,19 @@ export type ShopCustomerWithCount = ShopCustomerRow & {
   _count: { sales: number };
 };
 
-function mapRow(row: Record<string, unknown>): ShopCustomerRow {
-  return {
-    id: String(row.id),
-    organizationId: String(row.organizationId),
-    name: String(row.name),
-    phone: row.phone != null ? String(row.phone) : null,
-    gstin: row.gstin != null ? String(row.gstin) : null,
-    email: row.email != null ? String(row.email) : null,
-    notes: row.notes != null ? String(row.notes) : null,
-    lastSaleAt: row.lastSaleAt ? new Date(String(row.lastSaleAt)) : null,
-    createdAt: new Date(String(row.createdAt)),
-    updatedAt: new Date(String(row.updatedAt)),
-  };
+function mapRow(row: {
+  id: string;
+  organizationId: string;
+  name: string;
+  phone: string | null;
+  gstin: string | null;
+  email: string | null;
+  notes: string | null;
+  lastSaleAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): ShopCustomerRow {
+  return { ...row };
 }
 
 export async function searchCustomersRaw(
@@ -42,51 +45,20 @@ export async function searchCustomersRaw(
 ): Promise<ShopCustomerWithCount[]> {
   await ensureShopCustomerSchema();
   const q = query?.trim() ?? "";
-  const phoneDigits = q.replace(/\D/g, "");
 
-  let rows: Record<string, unknown>[];
-  if (q) {
-    rows = phoneDigits.length >= 4
-      ? await prisma.$queryRawUnsafe(
-          `SELECT c.*,
-            (SELECT COUNT(*) FROM "ShopSale" s WHERE s."customerId" = c.id) AS saleCount
-           FROM "ShopCustomer" c
-           WHERE c."organizationId" = ?
-             AND (c.name LIKE ? COLLATE NOCASE OR c.phone LIKE ?)
-           ORDER BY c."lastSaleAt" IS NULL, c."lastSaleAt" DESC, c."updatedAt" DESC
-           LIMIT ?`,
-          organizationId,
-          `%${q}%`,
-          `%${phoneDigits}%`,
-          limit
-        )
-      : await prisma.$queryRawUnsafe(
-          `SELECT c.*,
-            (SELECT COUNT(*) FROM "ShopSale" s WHERE s."customerId" = c.id) AS saleCount
-           FROM "ShopCustomer" c
-           WHERE c."organizationId" = ? AND c.name LIKE ? COLLATE NOCASE
-           ORDER BY c."lastSaleAt" IS NULL, c."lastSaleAt" DESC, c."updatedAt" DESC
-           LIMIT ?`,
-          organizationId,
-          `%${q}%`,
-          limit
-        );
-  } else {
-    rows = await prisma.$queryRawUnsafe(
-      `SELECT c.*,
-        (SELECT COUNT(*) FROM "ShopSale" s WHERE s."customerId" = c.id) AS saleCount
-       FROM "ShopCustomer" c
-       WHERE c."organizationId" = ?
-       ORDER BY c."lastSaleAt" IS NULL, c."lastSaleAt" DESC, c."updatedAt" DESC
-       LIMIT ?`,
-      organizationId,
-      limit
-    );
-  }
+  const rows = await prisma.shopCustomer.findMany({
+    where: q ? customerSearchWhere(organizationId, q) : { organizationId },
+    take: limit,
+    orderBy: [
+      { lastSaleAt: { sort: "desc", nulls: "last" } },
+      { updatedAt: "desc" },
+    ],
+    include: { _count: { select: { sales: true } } },
+  });
 
   return rows.map((row) => ({
     ...mapRow(row),
-    _count: { sales: Number(row.saleCount ?? 0) },
+    _count: { sales: row._count.sales },
   }));
 }
 
@@ -101,19 +73,14 @@ export async function getCustomerRaw(
   organizationId: string,
   customerId: string
 ): Promise<ShopCustomerWithCount | null> {
-  const rows = (await prisma.$queryRawUnsafe(
-    `SELECT c.*,
-      (SELECT COUNT(*) FROM "ShopSale" s WHERE s."customerId" = c.id) AS saleCount
-     FROM "ShopCustomer" c
-     WHERE c."organizationId" = ? AND c.id = ?`,
-    organizationId,
-    customerId
-  )) as Record<string, unknown>[];
-  const row = rows[0];
+  const row = await prisma.shopCustomer.findFirst({
+    where: { id: customerId, organizationId },
+    include: { _count: { select: { sales: true } } },
+  });
   if (!row) return null;
   return {
     ...mapRow(row),
-    _count: { sales: Number(row.saleCount ?? 0) },
+    _count: { sales: row._count.sales },
   };
 }
 
@@ -132,81 +99,68 @@ export async function upsertCustomerRaw(
 
   const phone = normalizeShopPhone(input.phone);
   const gstin = input.gstin?.trim() || null;
-  const now = new Date().toISOString();
+  const now = new Date();
 
   if (input.customerId) {
     const existing = await getCustomerRaw(organizationId, input.customerId);
     if (existing) {
-      await prisma.$executeRawUnsafe(
-        `UPDATE "ShopCustomer"
-         SET name = ?, phone = COALESCE(?, phone), gstin = COALESCE(?, gstin),
-             "lastSaleAt" = ?, "updatedAt" = ?
-         WHERE id = ? AND "organizationId" = ?`,
-        name,
-        phone,
-        gstin,
-        now,
-        now,
-        existing.id,
-        organizationId
-      );
-      return (await getCustomerRaw(organizationId, existing.id))!;
+      const updated = await prisma.shopCustomer.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          phone: phone ?? existing.phone,
+          gstin: gstin ?? existing.gstin,
+          lastSaleAt: now,
+        },
+      });
+      return mapRow(updated);
     }
   }
 
   if (phone) {
-    const rows = (await prisma.$queryRawUnsafe(
-      `SELECT * FROM "ShopCustomer" WHERE "organizationId" = ? AND phone = ?`,
-      organizationId,
-      phone
-    )) as Record<string, unknown>[];
-    if (rows[0]) {
-      const id = String(rows[0].id);
-      await prisma.$executeRawUnsafe(
-        `UPDATE "ShopCustomer" SET name = ?, gstin = COALESCE(?, gstin),
-         "lastSaleAt" = ?, "updatedAt" = ? WHERE id = ?`,
-        name,
-        gstin,
-        now,
-        now,
-        id
-      );
-      return mapRow((await getCustomerRaw(organizationId, id))!);
+    const existing = await prisma.shopCustomer.findFirst({
+      where: { organizationId, phone },
+    });
+    if (existing) {
+      const updated = await prisma.shopCustomer.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          gstin: gstin ?? existing.gstin,
+          lastSaleAt: now,
+        },
+      });
+      return mapRow(updated);
     }
   } else {
-    const rows = (await prisma.$queryRawUnsafe(
-      `SELECT * FROM "ShopCustomer"
-       WHERE "organizationId" = ? AND phone IS NULL AND lower(name) = lower(?)`,
-      organizationId,
-      name
-    )) as Record<string, unknown>[];
-    if (rows[0]) {
-      const id = String(rows[0].id);
-      await prisma.$executeRawUnsafe(
-        `UPDATE "ShopCustomer" SET gstin = COALESCE(?, gstin),
-         "lastSaleAt" = ?, "updatedAt" = ? WHERE id = ?`,
-        gstin,
-        now,
-        now,
-        id
-      );
-      return mapRow((await getCustomerRaw(organizationId, id))!);
+    const existing = await prisma.shopCustomer.findFirst({
+      where: {
+        organizationId,
+        phone: null,
+        name: { equals: name, mode: "insensitive" },
+      },
+    });
+    if (existing) {
+      const updated = await prisma.shopCustomer.update({
+        where: { id: existing.id },
+        data: {
+          gstin: gstin ?? existing.gstin,
+          lastSaleAt: now,
+        },
+      });
+      return mapRow(updated);
     }
   }
 
-  const id = randomUUID();
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO "ShopCustomer"
-     (id, "organizationId", name, phone, gstin, "lastSaleAt", "createdAt", "updatedAt")
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    id,
-    organizationId,
-    name,
-    phone,
-    gstin,
-    now,
-    now,
-    now
-  );
-  return mapRow((await getCustomerRaw(organizationId, id))!);
+  const created = await prisma.shopCustomer.create({
+    data: {
+      id: randomUUID(),
+      organizationId,
+      name,
+      phone,
+      gstin,
+      lastSaleAt: now,
+    },
+  });
+  return mapRow(created);
 }

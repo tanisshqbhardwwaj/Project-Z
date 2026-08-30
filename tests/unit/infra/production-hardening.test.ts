@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { reservationsFromCart } from "@/lib/inventory/stock-reservation";
 import { getPublicAppHost, getPublicAppUrl } from "@/lib/app/public-url";
-import { hasTursoRateLimit } from "@/lib/rate-limit";
+import { hasDatabaseRateLimit } from "@/lib/rate-limit";
 
 describe("stock reservations", () => {
   it("aggregates cart lines by inventory item", () => {
@@ -18,14 +18,13 @@ describe("stock reservations", () => {
 });
 
 describe("rate limit backends", () => {
-  it("detects Turso when env is set", () => {
-    const prevUrl = process.env.TURSO_DATABASE_URL;
-    const prevToken = process.env.TURSO_AUTH_TOKEN;
-    process.env.TURSO_DATABASE_URL = "libsql://test.turso.io";
-    process.env.TURSO_AUTH_TOKEN = "token";
-    expect(hasTursoRateLimit()).toBe(true);
-    process.env.TURSO_DATABASE_URL = prevUrl;
-    process.env.TURSO_AUTH_TOKEN = prevToken;
+  it("detects Postgres when DATABASE_URL is set", () => {
+    const prevUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "postgresql://projectz:projectz@localhost:5432/projectz";
+    expect(hasDatabaseRateLimit()).toBe(true);
+    process.env.DATABASE_URL = "file:./dev.db";
+    expect(hasDatabaseRateLimit()).toBe(false);
+    process.env.DATABASE_URL = prevUrl;
   });
 });
 

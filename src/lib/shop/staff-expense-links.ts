@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
-import type { PaymentMethod, ShopExpenseType } from "@prisma/client";
+import type { PaymentMethod, Prisma, ShopExpenseType } from "@prisma/client";
 import { ensureShopExtendedSchema } from "@/lib/shop/ensure-shop-extended-schema";
 
-type DbClient = Pick<typeof prisma, "$executeRawUnsafe">;
+type DbClient = Prisma.TransactionClient | typeof prisma;
 
 export type ShopExpenseStaffLinks = {
   staffId?: string | null;
@@ -16,28 +16,16 @@ export async function applyShopExpenseStaffLinks(
   links: ShopExpenseStaffLinks
 ) {
   await ensureShopExtendedSchema();
-  const parts: string[] = [];
-  const values: unknown[] = [];
+  const data: Prisma.ShopExpenseUpdateInput = {};
+  if (links.staffId !== undefined) data.staffId = links.staffId;
+  if (links.staffAdvanceId !== undefined) data.staffAdvanceId = links.staffAdvanceId;
+  if (links.payrollId !== undefined) data.payrollId = links.payrollId;
+  if (Object.keys(data).length === 0) return;
 
-  if (links.staffId !== undefined) {
-    parts.push(`"staffId" = ?`);
-    values.push(links.staffId);
-  }
-  if (links.staffAdvanceId !== undefined) {
-    parts.push(`"staffAdvanceId" = ?`);
-    values.push(links.staffAdvanceId);
-  }
-  if (links.payrollId !== undefined) {
-    parts.push(`"payrollId" = ?`);
-    values.push(links.payrollId);
-  }
-  if (parts.length === 0) return;
-
-  values.push(expenseId);
-  await client.$executeRawUnsafe(
-    `UPDATE "ShopExpense" SET ${parts.join(", ")} WHERE "id" = ?`,
-    ...values
-  );
+  await client.shopExpense.update({
+    where: { id: expenseId },
+    data,
+  });
 }
 
 export async function setStaffAdvanceShopExpenseId(
@@ -46,11 +34,10 @@ export async function setStaffAdvanceShopExpenseId(
   shopExpenseId: string
 ) {
   await ensureShopExtendedSchema();
-  await client.$executeRawUnsafe(
-    `UPDATE "StaffAdvance" SET "shopExpenseId" = ? WHERE "id" = ?`,
-    shopExpenseId,
-    advanceId
-  );
+  await client.staffAdvance.update({
+    where: { id: advanceId },
+    data: { shopExpenseId },
+  });
 }
 
 export async function setPayrollShopExpenseId(
@@ -59,42 +46,23 @@ export async function setPayrollShopExpenseId(
   shopExpenseId: string | null
 ) {
   await ensureShopExtendedSchema();
-  await client.$executeRawUnsafe(
-    `UPDATE "StaffPayroll" SET "shopExpenseId" = ? WHERE "id" = ?`,
-    shopExpenseId,
-    payrollId
-  );
+  await client.staffPayroll.update({
+    where: { id: payrollId },
+    data: { shopExpenseId },
+  });
 }
 
 export async function getPayrollShopExpenseId(payrollId: string): Promise<string | null> {
   await ensureShopExtendedSchema();
-  const rows = await prisma.$queryRawUnsafe<Array<{ shopExpenseId: string | null }>>(
-    `SELECT "shopExpenseId" FROM "StaffPayroll" WHERE "id" = ? LIMIT 1`,
-    payrollId
-  );
-  return rows[0]?.shopExpenseId ?? null;
+  const row = await prisma.staffPayroll.findUnique({
+    where: { id: payrollId },
+    select: { shopExpenseId: true },
+  });
+  return row?.shopExpenseId ?? null;
 }
 
 export async function createShopExpenseWithLinks(
-  client: DbClient & {
-    shopExpense: {
-      create: (args: {
-        data: {
-          organizationId: string;
-          categoryId: string;
-          expenseDate: Date;
-          title: string;
-          description: string | null;
-          amountPaise: bigint;
-          paymentMethod: PaymentMethod;
-          paidBy: string | null;
-          expenseType: ShopExpenseType;
-          notes: string | null;
-          createdById: string;
-        };
-      }) => Promise<{ id: string }>;
-    };
-  },
+  client: DbClient,
   data: {
     organizationId: string;
     categoryId: string;
@@ -118,20 +86,7 @@ export async function createShopExpenseWithLinks(
 }
 
 export async function createShopPurchasePaymentRecord(
-  client: DbClient & {
-    shopPurchasePayment?: {
-      create: (args: {
-        data: {
-          organizationId: string;
-          purchaseId: string;
-          amountPaise: bigint;
-          paymentMethod: PaymentMethod;
-          notes: string | null;
-          createdById: string;
-        };
-      }) => Promise<{ id: string }>;
-    };
-  },
+  client: DbClient,
   data: {
     organizationId: string;
     purchaseId: string;
@@ -142,31 +97,14 @@ export async function createShopPurchasePaymentRecord(
   }
 ) {
   await ensureShopExtendedSchema();
-
-  if (client.shopPurchasePayment?.create) {
-    return client.shopPurchasePayment.create({
-      data: {
-        organizationId: data.organizationId,
-        purchaseId: data.purchaseId,
-        amountPaise: data.amountPaise,
-        paymentMethod: data.paymentMethod,
-        notes: data.notes,
-        createdById: data.createdById,
-      },
-    });
-  }
-
-  const id = crypto.randomUUID();
-  await client.$executeRawUnsafe(
-    `INSERT INTO "ShopPurchasePayment" ("id", "organizationId", "purchaseId", "amountPaise", "paymentMethod", "notes", "createdById", "createdAt")
-     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-    id,
-    data.organizationId,
-    data.purchaseId,
-    data.amountPaise,
-    data.paymentMethod,
-    data.notes,
-    data.createdById
-  );
-  return { id };
+  return client.shopPurchasePayment.create({
+    data: {
+      organizationId: data.organizationId,
+      purchaseId: data.purchaseId,
+      amountPaise: data.amountPaise,
+      paymentMethod: data.paymentMethod,
+      notes: data.notes,
+      createdById: data.createdById,
+    },
+  });
 }

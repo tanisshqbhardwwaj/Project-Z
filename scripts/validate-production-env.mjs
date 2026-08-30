@@ -21,27 +21,30 @@ function isPlaceholder(value) {
   );
 }
 
+function isPostgresUrl(value) {
+  return (
+    typeof value === "string" &&
+    (value.startsWith("postgres://") || value.startsWith("postgresql://"))
+  );
+}
+
 /** @type {Array<{ key: string; label: string; validate: (value: string | undefined, env: NodeJS.ProcessEnv) => string | null }>} */
 const CHECKS = [
   {
-    key: "TURSO_DATABASE_URL",
-    label: "Turso database URL",
+    key: "DATABASE_URL",
+    label: "PostgreSQL database URL",
     validate(value) {
       if (!value) {
-        return "is missing. Create a free database at https://turso.tech → copy the libsql:// URL.";
+        return "is missing. Create a Prisma Postgres Free database in ap-southeast-1 (Singapore) and paste the connection string.";
       }
-      if (!value.startsWith("libsql://")) {
-        return "must start with libsql:// (from Turso dashboard → Connect).";
+      if (value.startsWith("file:") || value.startsWith("libsql://")) {
+        return "must be a PostgreSQL URL (postgres:// or postgresql://), not SQLite or Turso.";
       }
-      return null;
-    },
-  },
-  {
-    key: "TURSO_AUTH_TOKEN",
-    label: "Turso auth token",
-    validate(value) {
-      if (!value) {
-        return "is missing. Run: turso db tokens create YOUR-DB-NAME (or copy from Turso dashboard).";
+      if (!isPostgresUrl(value)) {
+        return "must start with postgres:// or postgresql:// (from the Prisma Postgres console).";
+      }
+      if (isLocalHost(value)) {
+        return "points at localhost. Use the Prisma Postgres connection string on Vercel, not Docker.";
       }
       return null;
     },
@@ -92,7 +95,7 @@ const CHECKS = [
       const plain = /^[^\s<>]+@[^\s<>]+\.[^\s<>]+$/;
       const named = /^.+ <[^\s<>]+@[^\s<>]+\.[^\s<>]+>$/;
       if (!plain.test(from) && !named.test(from)) {
-        return 'has invalid format. Use: onboarding@resend.dev or Project Z <onboarding@resend.dev> (no extra quotes).';
+        return "has invalid format. Use: onboarding@resend.dev or Project Z <onboarding@resend.dev> (no extra quotes).";
       }
       return null;
     },
@@ -136,21 +139,22 @@ export function validateProductionEnv(env = process.env) {
   /** @type {string[]} */
   const errors = [];
 
-  // Block accidental paste of local Postgres URL on Vercel (SQLite file URL is OK for Prisma CLI)
-  if (
-    env.DATABASE_URL &&
-    isLocalHost(env.DATABASE_URL) &&
-    !env.DATABASE_URL.startsWith("file:")
-  ) {
-    errors.push(
-      "DATABASE_URL points to localhost — remove it from Vercel. This app uses Turso (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN) in production."
-    );
-  }
-
   for (const check of CHECKS) {
     const message = check.validate(env[check.key], env);
     if (message) {
       errors.push(`${check.key} (${check.label}): ${message}`);
+    }
+  }
+
+  if (env.DIRECT_URL) {
+    if (!isPostgresUrl(env.DIRECT_URL)) {
+      errors.push(
+        "DIRECT_URL must start with postgres:// or postgresql:// when set (use the direct / non-pooled URL from Prisma Postgres)."
+      );
+    } else if (isLocalHost(env.DIRECT_URL)) {
+      errors.push(
+        "DIRECT_URL points at localhost. Use the Prisma Postgres direct URL on Vercel, or omit it if DATABASE_URL is already direct."
+      );
     }
   }
 
@@ -168,14 +172,14 @@ export function productionEnvWarnings(env = process.env) {
   const warnings = [];
   const hasUpstash =
     env.UPSTASH_REDIS_REST_URL?.trim() && env.UPSTASH_REDIS_REST_TOKEN?.trim();
-  const hasTurso = env.TURSO_DATABASE_URL?.trim() && env.TURSO_AUTH_TOKEN?.trim();
-  if (!hasUpstash && !hasTurso) {
+  if (!hasUpstash) {
     warnings.push(
-      "No distributed rate limit backend. Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (recommended) or TURSO_DATABASE_URL + TURSO_AUTH_TOKEN (Turso bucket fallback)."
+      "Using PostgreSQL for distributed rate limits. Optional: add UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN for lower latency at https://upstash.com"
     );
-  } else if (!hasUpstash && hasTurso) {
+  }
+  if (env.TURSO_DATABASE_URL || env.TURSO_AUTH_TOKEN) {
     warnings.push(
-      "Using Turso for distributed rate limits. Optional: add Upstash Redis for lower latency at https://upstash.com"
+      "TURSO_DATABASE_URL / TURSO_AUTH_TOKEN are unused after the Prisma Postgres switch. Remove them from Vercel."
     );
   }
   if (env.NODE_ENV === "production" && env.ALLOW_BETA_EMAIL_BYPASS === "true") {
@@ -191,7 +195,9 @@ export function printProductionEnvErrors(errors) {
   for (const error of errors) {
     console.error(`  • ${error}`);
   }
-  console.error("\nSee TRIAL_DEPLOY.md for a step-by-step Turso + Vercel setup guide.\n");
+  console.error(
+    "\nSee TRIAL_DEPLOY.md — create Prisma Postgres Free in ap-southeast-1, set DATABASE_URL, run prisma migrate deploy, keep R2 as-is.\n"
+  );
 }
 
 const isDirectRun = process.argv[1]?.endsWith("validate-production-env.mjs");

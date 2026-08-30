@@ -41,11 +41,9 @@ export function hasUpstashRateLimit(): boolean {
   );
 }
 
-export function hasTursoRateLimit(): boolean {
-  return Boolean(
-    process.env.TURSO_DATABASE_URL?.trim() &&
-      process.env.TURSO_AUTH_TOKEN?.trim()
-  );
+export function hasDatabaseRateLimit(): boolean {
+  const url = process.env.DATABASE_URL?.trim() ?? "";
+  return url.startsWith("postgres://") || url.startsWith("postgresql://");
 }
 
 export function checkRateLimit(
@@ -125,7 +123,7 @@ async function checkUpstashRateLimit(
   return { ok: true };
 }
 
-async function checkTursoRateLimit(
+async function checkDatabaseRateLimit(
   key: string,
   limit: number,
   windowMs: number
@@ -171,13 +169,13 @@ async function checkDistributedRateLimit(
     try {
       return await checkUpstashRateLimit(key, limit, windowMs);
     } catch {
-      /* fall through to Turso or memory */
+      /* fall through to Postgres or memory */
     }
   }
 
-  if (hasTursoRateLimit()) {
+  if (hasDatabaseRateLimit()) {
     try {
-      return await checkTursoRateLimit(key, limit, windowMs);
+      return await checkDatabaseRateLimit(key, limit, windowMs);
     } catch {
       /* fall through to memory */
     }

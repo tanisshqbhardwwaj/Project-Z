@@ -1,4 +1,4 @@
-# One-shot startup: migrate Turso (if configured) + run web dev server.
+# One-shot startup: migrate Postgres + run web dev server.
 # Usage:  npm run go
 #         npm run go -- -Port 3001
 
@@ -23,18 +23,9 @@ if (Test-Path ".env") {
 $env:AUTH_URL = "http://localhost:$Port"
 $env:NEXT_PUBLIC_APP_URL = "http://localhost:$Port"
 
-# Turso migrations (safe to re-run)
-if ($env:TURSO_DATABASE_URL -and $env:TURSO_AUTH_TOKEN) {
-  Write-Host "Applying Turso migrations..." -ForegroundColor Yellow
-  node --env-file=.env scripts/turso-migrate-idempotent.mjs
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-} else {
-  Write-Host "No Turso vars — using local SQLite (DATABASE_URL)." -ForegroundColor DarkGray
-  if (-not (Test-Path "prisma\dev.db")) {
-    Write-Host "Running prisma migrate deploy on local db..." -ForegroundColor Yellow
-    npx prisma migrate deploy
-  }
-}
+Write-Host "Applying Prisma migrations..." -ForegroundColor Yellow
+npx prisma migrate deploy
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "`nOpen:" -ForegroundColor Green
 Write-Host "  Dashboard     http://localhost:$Port/dashboard"

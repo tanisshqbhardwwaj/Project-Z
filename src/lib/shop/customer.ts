@@ -26,7 +26,7 @@ export function customerSearchWhere(
 
   const phoneDigits = q.replace(/\D/g, "");
   const or: Prisma.ShopCustomerWhereInput[] = [
-    { name: { contains: q } },
+    { name: { contains: q, mode: "insensitive" } },
   ];
   if (phoneDigits.length >= 4) {
     or.push({ phone: { contains: phoneDigits } });
@@ -47,8 +47,8 @@ export function invoiceSearchWhere(
 
   const phoneDigits = q.replace(/\D/g, "");
   const or: Prisma.ShopSaleWhereInput[] = [
-    { customerName: { contains: q } },
-    { billNumber: { contains: q } },
+    { customerName: { contains: q, mode: "insensitive" } },
+    { billNumber: { contains: q, mode: "insensitive" } },
   ];
   if (phoneDigits.length >= 4) {
     or.push({ customerPhone: { contains: phoneDigits } });

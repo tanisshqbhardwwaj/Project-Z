@@ -28,8 +28,8 @@ if (Test-Path ".env") {
 $env:PROJECT_Z_DESKTOP = "true"
 $env:PROJECT_Z_LOCAL_MODE = "true"
 $env:PROJECT_Z_DATA_DIR = $dataDir
-# Keep Turso for auth/org; local shop DB path for future local-first writes
-$env:DATABASE_URL = "file:$((Join-Path $dataDir 'shop.db'))"
+# Cloud auth/org uses Prisma Postgres (DATABASE_URL from .env). Shop local-first
+# writes still go through the Capacitor/Tauri SQLite adapters.
 $env:AUTH_URL = "http://127.0.0.1:3000"
 $env:NEXT_PUBLIC_APP_URL = "http://127.0.0.1:3000"
 

@@ -17,7 +17,7 @@ Write-Host @"
 
 Before deploy, confirm in Vercel dashboard (Environment Variables):
 
-  TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
+  DATABASE_URL, DIRECT_URL (optional if DATABASE_URL is already direct)
   AUTH_SECRET
   AUTH_URL=https://YOUR-APP.vercel.app   (update after first deploy)
   NEXT_PUBLIC_APP_URL=https://YOUR-APP.vercel.app
@@ -31,8 +31,8 @@ Then update AUTH_URL + NEXT_PUBLIC_APP_URL and redeploy.
 
 "@ -ForegroundColor DarkGray
 
-Write-Host "Running Turso migrations locally first..." -ForegroundColor Yellow
-node --env-file=.env scripts/turso-migrate-idempotent.mjs
+Write-Host "Running prisma migrate deploy..." -ForegroundColor Yellow
+npx prisma migrate deploy
 
 Write-Host "Deploying with npx vercel --prod ..." -ForegroundColor Yellow
 npx vercel --prod

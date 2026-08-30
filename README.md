@@ -29,10 +29,11 @@ Work-order and project orgs keep the original flow: document upload with AI extr
 
 ## Quick Start (Development)
 
-Local default is SQLite. Docker is optional.
+Local default is PostgreSQL via Docker (same engine as production).
 
 ```bash
 cp .env.example .env
+docker compose up -d postgres
 npm install
 npm run db:migrate:dev   # first time only
 npm run dev
@@ -40,7 +41,7 @@ npm run dev
 
 Open http://localhost:3000
 
-Optional local services (MinIO for file uploads, Postgres if you prefer it over SQLite):
+MinIO is optional for local file uploads:
 
 ```bash
 docker compose up -d
@@ -68,7 +69,7 @@ Node 20+ is required. Generate `AUTH_SECRET` with `openssl rand -base64 32`.
 ## Architecture
 
 - **Next.js 16** App Router, React 19, Tailwind 4
-- **PostgreSQL** (prod / Docker) or **SQLite** (local) / **Turso** (Vercel) via Prisma
+- **PostgreSQL** via Prisma (`DATABASE_URL`; Prisma Postgres in production)
 - **S3-compatible storage** (MinIO locally, Cloudflare R2 / AWS S3 in prod)
 - **Auth.js** credentials + email verification (Resend)
 - **AI extraction** — Groq / Gemini / manual fallback, Inngest queue with inline fallback
@@ -84,7 +85,7 @@ This repo includes:
 - CI — migrate, unit tests, build, e2e smoke tests
 - Dockerfile for container deployment
 
-See [DEPLOY.md](./DEPLOY.md) for production steps and [TRIAL_DEPLOY.md](./TRIAL_DEPLOY.md) for a free Vercel + Turso + R2 trial.
+See [DEPLOY.md](./DEPLOY.md) for production steps and [TRIAL_DEPLOY.md](./TRIAL_DEPLOY.md) for a free Vercel + Prisma Postgres + R2 trial.
 
 ## Health Check
 

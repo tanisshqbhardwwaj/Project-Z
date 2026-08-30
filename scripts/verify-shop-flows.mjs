@@ -1,5 +1,5 @@
 /**
- * End-to-end verification against a real SQLite database.
+ * End-to-end verification against a real PostgreSQL database.
  *
  * Exercises the flows this branch changed — product/variant creation, sales
  * from a scanned variant, partial returns, partial exchanges in both money
@@ -11,6 +11,9 @@
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, "..");
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
@@ -43,18 +46,17 @@ function expectThrows(label, fn) {
 }
 
 async function main() {
-  const dbFile = path.join(root, "prisma", "verify.db");
-  process.env.DATABASE_URL = `file:${dbFile}`;
+  const url = process.env.DATABASE_URL ?? "";
+  if (!url.startsWith("postgres://") && !url.startsWith("postgresql://")) {
+    throw new Error(
+      "verify-shop-flows requires DATABASE_URL to be a PostgreSQL URL (see .env.example)."
+    );
+  }
   execSync("npx prisma migrate deploy", {
     cwd: root,
     stdio: "pipe",
     env: process.env,
   });
-
-  // Drive the app's own client through the libSQL adapter, which is the code
-  // path production (Turso) uses.
-  process.env.TURSO_DATABASE_URL = `file:${dbFile}`;
-  process.env.TURSO_AUTH_TOKEN = "local";
 
   const { prisma } = await import("../src/lib/db/prisma.ts");
 
