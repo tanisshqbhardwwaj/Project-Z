@@ -98,7 +98,7 @@ export async function nextProjectBillNumber(
   });
   if (!project) throw new Error("Project not found");
 
-  const projectCode = deriveProjectCode(project);
+  const projectCode = deriveProjectCode({ ...project, projectId: project.id });
   const fiscalYear = fiscalYearLabel();
   const seq = await incrementProjectBillCounter(tx, projectId, fiscalYear);
 

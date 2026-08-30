@@ -81,7 +81,7 @@ export function ProjectInvoiceForm({
   const [taxRatePercent, setTaxRatePercent] = useState(
     String(template.defaultTaxRatePercent || 18)
   );
-  const [taxIncluded, setTaxIncluded] = useState(template.taxIncluded ?? false);
+  const [taxIncluded, setTaxIncluded] = useState(false);
   const [discountRupees, setDiscountRupees] = useState("");
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<{

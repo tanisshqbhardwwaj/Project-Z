@@ -1,6 +1,6 @@
 import "server-only";
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { wrapLibSqlAdapter } from "@/lib/db/libsql-int64";
 import { recordQueryDuration } from "@/lib/db/query-metrics";
@@ -48,14 +48,17 @@ function createPrismaClient() {
 
 function withInteractiveTxDefaults(client: PrismaClient): PrismaClient {
   const runTransaction = client.$transaction.bind(client);
-  client.$transaction = ((arg: unknown, options?: unknown) => {
+  client.$transaction = ((
+    arg: Parameters<PrismaClient["$transaction"]>[0],
+    options?: Parameters<PrismaClient["$transaction"]>[1]
+  ) => {
     if (typeof arg === "function") {
-      return runTransaction(arg, {
+      return runTransaction(arg as (tx: Prisma.TransactionClient) => Promise<unknown>, {
         ...DEFAULT_INTERACTIVE_TX_OPTIONS,
         ...(options as Record<string, unknown> | undefined),
       });
     }
-    return runTransaction(arg as never, options as never);
+    return runTransaction(arg, options);
   }) as typeof client.$transaction;
   return client;
 }

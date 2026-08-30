@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { InvoiceLivePreview } from "@/components/shop/invoice-live-preview";
 import { projectInvoiceToShopInvoice } from "@/lib/project/project-invoice-mapper";
+import type { NormalizedProjectInvoice } from "@/lib/project/project-invoice-mapper";
 import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
 import { getProjectDisplayName } from "@/lib/project/display-name";
 
@@ -55,7 +56,7 @@ function ProjectInvoiceDetailContent() {
 
   const printData = useMemo(() => {
     if (!invoice) return null;
-    return projectInvoiceToShopInvoice(invoice, {
+    return projectInvoiceToShopInvoice(invoice as NormalizedProjectInvoice, {
       orgName: invoice.organization?.name ?? activeOrganizationName,
     });
   }, [invoice, activeOrganizationName]);

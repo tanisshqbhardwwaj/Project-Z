@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { format, parseISO, isValid } from "date-fns";
-import type { DateRange } from "react-day-picker";
+import type { DateRange, Matcher } from "react-day-picker";
 import { CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -62,7 +62,10 @@ export function DatePicker({
           }}
           disabled={
             fromDate || toDate
-              ? { ...(fromDate ? { before: fromDate } : {}), ...(toDate ? { after: toDate } : {}) }
+              ? ({
+                  ...(fromDate ? { before: fromDate } : {}),
+                  ...(toDate ? { after: toDate } : {}),
+                } as Matcher)
               : undefined
           }
           initialFocus
