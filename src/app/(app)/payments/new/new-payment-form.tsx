@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { FormFeedback } from "@/components/ui/form-feedback";
@@ -180,10 +181,9 @@ export default function NewPaymentForm() {
             </div>
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={form.paymentDate}
-                onChange={(e) => setForm({ ...form, paymentDate: e.target.value })}
+                onChange={(paymentDate) => setForm({ ...form, paymentDate })}
               />
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>

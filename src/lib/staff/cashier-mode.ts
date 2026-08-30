@@ -9,6 +9,10 @@ import {
   CalendarDays,
   User,
   Cloud,
+  Package,
+  UsersRound,
+  BarChart3,
+  MapPin,
 } from "lucide-react";
 import { hasPermission } from "@/lib/permissions/rbac";
 import type { StaffAccess } from "@/lib/staff/access";
@@ -29,6 +33,11 @@ export function previewCashierAccess(): StaffAccess {
     canProcessReturns: true,
     canViewOwnSales: true,
     canViewOwnAttendance: true,
+    canManageInventory: false,
+    canViewAllAttendance: false,
+    canViewAllSales: false,
+    canViewOwnDeliveries: false,
+    canUpdateDeliveryStatus: false,
   };
 }
 
@@ -120,6 +129,46 @@ export function cashierNavItems(access: StaffAccess): CashierNavItem[] {
     });
   }
 
+  if (access.canViewAllAttendance) {
+    items.push({
+      href: "/staff",
+      label: "Staff attendance",
+      key: "cashier_all_attendance",
+      icon: UsersRound,
+      description: "View team attendance",
+    });
+  }
+
+  if (access.canViewAllSales) {
+    items.push({
+      href: "/shop/reports",
+      label: "Staff sales",
+      key: "cashier_all_sales",
+      icon: BarChart3,
+      description: "Sales by staff member",
+    });
+  }
+
+  if (access.canManageInventory) {
+    items.push({
+      href: "/shop/inventory",
+      label: "Inventory",
+      key: "cashier_inventory",
+      icon: Package,
+      description: "Manage stock and catalog",
+    });
+  }
+
+  if (access.canViewOwnDeliveries || access.canUpdateDeliveryStatus) {
+    items.push({
+      href: "/deliveries/me",
+      label: "My deliveries",
+      key: "cashier_deliveries",
+      icon: MapPin,
+      description: "Assigned delivery runs",
+    });
+  }
+
   items.push({
     href: "/settings/storage",
     label: "Storage & Sync",
@@ -187,6 +236,33 @@ export function isCashierRouteAllowed(
     }
   }
 
+  if (access.canViewAllAttendance) {
+    if (pathname === "/staff" || pathname.startsWith("/staff/")) {
+      if (pathname === "/staff/me" || pathname.startsWith("/staff/me/")) {
+        return access.canViewOwnAttendance;
+      }
+      return true;
+    }
+  }
+
+  if (access.canViewAllSales) {
+    if (pathname === "/shop/reports" || pathname.startsWith("/shop/reports/")) {
+      return true;
+    }
+  }
+
+  if (access.canManageInventory) {
+    if (pathname === "/shop/inventory" || pathname.startsWith("/shop/inventory/")) {
+      return true;
+    }
+  }
+
+  if (access.canViewOwnDeliveries || access.canUpdateDeliveryStatus) {
+    if (pathname === "/deliveries/me" || pathname.startsWith("/deliveries/me/")) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -201,11 +277,19 @@ export function cashierModeSummary(access: StaffAccess): string[] {
   if (access.canProcessReturns) lines.push("Process returns and exchanges");
   if (access.canViewOwnSales) lines.push("View invoices you created");
   if (access.canViewOwnAttendance) lines.push("Mark and view your attendance");
+  if (access.canViewAllAttendance) lines.push("View all staff attendance");
+  if (access.canViewAllSales) lines.push("View sales by all staff");
+  if (access.canManageInventory) lines.push("Manage inventory");
+  if (access.canViewOwnDeliveries) lines.push("View assigned deliveries");
   if (
     !access.canBill &&
     !access.canProcessReturns &&
     !access.canViewOwnSales &&
-    !access.canViewOwnAttendance
+    !access.canViewOwnAttendance &&
+    !access.canViewAllAttendance &&
+    !access.canViewAllSales &&
+    !access.canManageInventory &&
+    !access.canViewOwnDeliveries
   ) {
     lines.push("No permissions yet — owner must enable login access on Staff");
   }

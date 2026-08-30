@@ -97,7 +97,7 @@ export async function resolveUnreadAlertNotifications(input: {
   if (ids.length === 0) return { updated: 0 };
 
   const result = await prisma.notification.updateMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, organizationId: input.organizationId, userId: input.userId },
     data: { readAt: new Date() },
   });
 
@@ -112,9 +112,13 @@ export async function getNotifications(userId: string, organizationId: string) {
   });
 }
 
-export async function markNotificationRead(id: string, userId: string) {
+export async function markNotificationRead(
+  id: string,
+  userId: string,
+  organizationId: string
+) {
   return prisma.notification.updateMany({
-    where: { id, userId },
+    where: { id, userId, organizationId },
     data: { readAt: new Date() },
   });
 }

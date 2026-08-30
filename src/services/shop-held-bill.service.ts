@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireModule } from "@/lib/org/require-module";
 import { ensureShopFeaturesSchema } from "@/lib/shop/ensure-shop-features-schema";
+import { ensureShopBranchSchema } from "@/lib/shop/ensure-shop-branch-schema";
+import { branchWhere, isBranchAll, type BranchScope } from "@/lib/shop/branch-context";
 import {
   createReservationsForHeldBill,
   purgeStaleStockReservations,
@@ -9,9 +11,24 @@ import {
 import { createAuditLog } from "./audit.service";
 
 const HOLD_TTL_MS = 30 * 60 * 1000;
+const EXPIRE_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+const lastExpireSweep = new Map<string, number>();
+
+async function maybeExpireStaleHeldBills(organizationId: string) {
+  const now = Date.now();
+  const last = lastExpireSweep.get(organizationId) ?? 0;
+  if (now - last < EXPIRE_SWEEP_INTERVAL_MS) return;
+  lastExpireSweep.set(organizationId, now);
+  await expireStaleHeldBills(organizationId);
+}
+
+async function ensureHeldBillSchema(organizationId: string) {
+  await ensureShopFeaturesSchema();
+  await ensureShopBranchSchema(organizationId);
+}
 
 export async function expireStaleHeldBills(organizationId: string) {
-  await ensureShopFeaturesSchema();
+  await ensureHeldBillSchema(organizationId);
   const now = new Date();
   await purgeStaleStockReservations(prisma, organizationId);
 
@@ -42,20 +59,24 @@ export async function expireStaleHeldBills(organizationId: string) {
   return stale.length;
 }
 
-async function nextHoldNumber(organizationId: string): Promise<number> {
+async function nextHoldNumber(organizationId: string, branchId: string): Promise<number> {
   const last = await prisma.shopHeldBill.findFirst({
-    where: { organizationId },
+    where: { organizationId, branchId },
     orderBy: { holdNumber: "desc" },
     select: { holdNumber: true },
   });
   return (last?.holdNumber ?? 0) + 1;
 }
 
-export async function listActiveHeldBills(organizationId: string) {
+export async function listActiveHeldBills(organizationId: string, branchId?: BranchScope) {
   await requireModule(organizationId, "shop_sales");
-  await expireStaleHeldBills(organizationId);
+  await maybeExpireStaleHeldBills(organizationId);
   return prisma.shopHeldBill.findMany({
-    where: { organizationId, status: "ACTIVE" },
+    where: {
+      organizationId,
+      status: "ACTIVE",
+      ...(branchId && !isBranchAll(branchId) ? { branchId } : {}),
+    },
     orderBy: { createdAt: "desc" },
     include: { createdBy: { select: { id: true, name: true } } },
   });
@@ -63,6 +84,7 @@ export async function listActiveHeldBills(organizationId: string) {
 
 export async function createHeldBill(input: {
   organizationId: string;
+  branchId: string;
   userId: string;
   customerId?: string | null;
   customerName?: string | null;
@@ -73,7 +95,8 @@ export async function createHeldBill(input: {
   pricingJson?: unknown;
 }) {
   await requireModule(input.organizationId, "shop_sales");
-  const holdNumber = await nextHoldNumber(input.organizationId);
+  await ensureHeldBillSchema(input.organizationId);
+  const holdNumber = await nextHoldNumber(input.organizationId, input.branchId);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + HOLD_TTL_MS);
 
@@ -83,6 +106,7 @@ export async function createHeldBill(input: {
     const created = await tx.shopHeldBill.create({
       data: {
         organizationId: input.organizationId,
+        branchId: input.branchId,
         holdNumber,
         customerId: input.customerId ?? null,
         customerName: input.customerName?.trim() || null,
@@ -176,6 +200,7 @@ export async function cancelHeldBill(input: {
   heldBillId: string;
 }) {
   await requireModule(input.organizationId, "shop_sales");
+  await ensureHeldBillSchema(input.organizationId);
   const bill = await prisma.shopHeldBill.findFirst({
     where: { id: input.heldBillId, organizationId: input.organizationId },
   });
@@ -203,9 +228,12 @@ export async function cancelHeldBill(input: {
   return updated;
 }
 
-export async function countActiveHeldBills(organizationId: string) {
-  await expireStaleHeldBills(organizationId);
+export async function countActiveHeldBills(
+  organizationId: string,
+  branchScope?: BranchScope
+) {
+  await maybeExpireStaleHeldBills(organizationId);
   return prisma.shopHeldBill.count({
-    where: { organizationId, status: "ACTIVE" },
+    where: { organizationId, status: "ACTIVE", ...branchWhere(branchScope ?? "all") },
   });
 }

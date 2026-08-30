@@ -47,6 +47,26 @@ export type CommissionResult = {
   sales: CommissionSaleBreakdown[];
 };
 
+function lineItemsAssignedToStaff(
+  items: ReturnType<typeof parseSaleItems>,
+  staffId: string,
+  billStaffId: string | null
+): number {
+  return items.reduce((sum, item) => {
+    const assigned = item.staffId ?? billStaffId ?? null;
+    if (assigned === staffId) return sum + item.qty;
+    return sum;
+  }, 0);
+}
+
+function saleAssignedToBillStaff(
+  sale: { staffId: string | null; salesBoyName: string | null },
+  staffId: string,
+  staffName: string
+): boolean {
+  return sale.staffId === staffId || (!sale.staffId && sale.salesBoyName === staffName);
+}
+
 function isNoCommission(config: CommissionConfig): boolean {
   if (config.commissionType === "NONE") return true;
   if (config.commissionType === "PERCENT") {
@@ -170,26 +190,36 @@ export async function computeStaffCommission(input: {
       organizationId: input.organizationId,
       status: "COMPLETED",
       createdAt: { gte: start, lt: end },
-      // Older invoices only recorded a typed name; match those too so switching
-      // on commission does not silently ignore history.
-      OR: [{ staffId: staff.id }, { staffId: null, salesBoyName: staff.name }],
     },
     select: {
       id: true,
       billNumber: true,
       createdAt: true,
       totalPaise: true,
+      staffId: true,
+      salesBoyName: true,
       itemsJson: true,
     },
     orderBy: { createdAt: "asc" },
   });
 
-  if (sales.length === 0) return empty;
+  const relevantSales =
+    config.commissionType === "FIXED_PER_ITEM"
+      ? sales.filter((sale) => {
+          const items = parseSaleItems(sale.itemsJson);
+          return (
+            lineItemsAssignedToStaff(items, staff.id, sale.staffId) > 0 ||
+            saleAssignedToBillStaff(sale, staff.id, staff.name)
+          );
+        })
+      : sales.filter((sale) => saleAssignedToBillStaff(sale, staff.id, staff.name));
+
+  if (relevantSales.length === 0) return empty;
 
   const returns = await prisma.shopSaleReturn.findMany({
     where: {
       organizationId: input.organizationId,
-      shopSaleId: { in: sales.map((s) => s.id) },
+      shopSaleId: { in: relevantSales.map((s) => s.id) },
     },
     select: {
       shopSaleId: true,
@@ -228,40 +258,71 @@ export async function computeStaffCommission(input: {
   let fullCommissionPaise = BigInt(0);
   const breakdown: CommissionSaleBreakdown[] = [];
 
-  for (const sale of sales) {
+  for (const sale of relevantSales) {
     const adjustments = returnsBySale.get(sale.id);
     const returned = adjustments?.returned ?? BigInt(0);
     const exchanged = adjustments?.exchanged ?? BigInt(0);
     const returnedQty = adjustments?.returnedQty ?? 0;
     const exchangedQty = adjustments?.exchangedQty ?? 0;
 
-    const itemCount = parseSaleItems(sale.itemsJson).reduce(
-      (sum, item) => sum + item.qty,
-      0
-    );
+    const items = parseSaleItems(sale.itemsJson);
+    const itemCount = items.reduce((sum, item) => sum + item.qty, 0);
+    const billStaff = saleAssignedToBillStaff(sale, staff.id, staff.name);
+    const eligibleItems =
+      config.commissionType === "FIXED_PER_ITEM"
+        ? Math.max(
+            0,
+            lineItemsAssignedToStaff(items, staff.id, billStaff ? sale.staffId : null) -
+              returnedQty +
+              exchangedQty
+          )
+        : Math.max(0, itemCount - returnedQty + exchangedQty);
 
-    // Value the customer kept: what was billed, minus goods returned, plus the
-    // value of any replacement goods they walked out with.
     const rawEligible = sale.totalPaise - returned + exchanged;
-    const eligible = rawEligible > BigInt(0) ? rawEligible : BigInt(0);
-    const eligibleItems = Math.max(0, itemCount - returnedQty + exchangedQty);
+    const eligible =
+      config.commissionType === "FIXED_PER_ITEM" || billStaff
+        ? rawEligible > BigInt(0)
+          ? rawEligible
+          : BigInt(0)
+        : BigInt(0);
 
-    const saleCommission = commissionForSale(config, {
-      eligiblePaise: eligible,
-      saleTotalPaise: sale.totalPaise,
-      eligibleItemCount: eligibleItems,
-    });
+    const saleCommission =
+      config.commissionType === "FIXED_PER_ITEM"
+        ? commissionForSale(config, {
+            eligiblePaise: eligible,
+            saleTotalPaise: sale.totalPaise,
+            eligibleItemCount: eligibleItems,
+          })
+        : billStaff
+          ? commissionForSale(config, {
+              eligiblePaise: eligible,
+              saleTotalPaise: sale.totalPaise,
+              eligibleItemCount: eligibleItems,
+            })
+          : BigInt(0);
 
-    grossSalesPaise += sale.totalPaise;
-    returnedValuePaise += returned;
-    exchangeValuePaise += exchanged;
+    if (config.commissionType !== "FIXED_PER_ITEM" && !billStaff) continue;
+
+    grossSalesPaise += billStaff ? sale.totalPaise : BigInt(0);
+    returnedValuePaise += billStaff ? returned : BigInt(0);
+    exchangeValuePaise += billStaff ? exchanged : BigInt(0);
     eligibleSalesPaise += eligible;
     eligibleItemCount += eligibleItems;
     commissionPaise += saleCommission;
-    fullCommissionPaise += commissionBeforeReturns(config, {
-      saleTotalPaise: sale.totalPaise,
-      itemCount,
-    });
+    fullCommissionPaise += billStaff
+      ? commissionBeforeReturns(config, {
+          saleTotalPaise: sale.totalPaise,
+          itemCount,
+        })
+      : commissionForSale(config, {
+          eligiblePaise: sale.totalPaise,
+          saleTotalPaise: sale.totalPaise,
+          eligibleItemCount: lineItemsAssignedToStaff(
+            items,
+            staff.id,
+            billStaff ? sale.staffId : null
+          ),
+        });
 
     breakdown.push({
       saleId: sale.id,
@@ -290,7 +351,7 @@ export async function computeStaffCommission(input: {
 
   return {
     ...empty,
-    invoiceCount: sales.length,
+    invoiceCount: relevantSales.length,
     grossSalesPaise,
     returnedValuePaise,
     exchangeValuePaise,

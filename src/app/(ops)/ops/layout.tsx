@@ -2,24 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/use-require-auth";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiFetch } from "@/lib/api/client";
 import { PageLoader } from "@/components/ui/page-loader";
-import { cn } from "@/lib/utils";
-
-const NAV = [
-  { href: "/ops", label: "Overview" },
-  { href: "/ops/customers", label: "Organizations" },
-  { href: "/ops/users", label: "Users" },
-  { href: "/ops/requests", label: "Plan requests" },
-  { href: "/ops/plans", label: "Pricing catalog" },
-];
+import { OpsShell } from "@/components/ops/ops-shell";
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const { loading, authenticated } = useRequireAuth();
   const isPlatformAdmin = useAuthStore((s) => s.isPlatformAdmin);
   const status = useAuthStore((s) => s.status);
@@ -68,39 +59,5 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-6">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Operator
-            </p>
-            <h1 className="text-lg font-semibold">Project Z Ops</h1>
-          </div>
-          <nav className="flex flex-wrap gap-2">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-sm",
-                  pathname === item.href ||
-                    (item.href !== "/ops" && pathname.startsWith(`${item.href}/`))
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          <Link href="/dashboard" className="text-sm text-muted-foreground underline">
-            Back to app
-          </Link>
-        </div>
-      </header>
-      <main className="mx-auto max-w-7xl p-4 md:p-6">{children}</main>
-    </div>
-  );
+  return <OpsShell>{children}</OpsShell>;
 }

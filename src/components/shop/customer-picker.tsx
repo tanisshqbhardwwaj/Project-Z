@@ -31,6 +31,7 @@ type CustomerPickerProps = {
   onCustomerPhoneChange: (value: string) => void;
   onCustomerGstinChange: (value: string) => void;
   onSelectCustomer: (customer: ShopCustomerOption | null) => void;
+  compact?: boolean;
 };
 
 export function CustomerPicker({
@@ -42,6 +43,7 @@ export function CustomerPicker({
   onCustomerPhoneChange,
   onCustomerGstinChange,
   onSelectCustomer,
+  compact = false,
 }: CustomerPickerProps) {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
   const [open, setOpen] = useState(false);
@@ -96,11 +98,16 @@ export function CustomerPicker({
   }
 
   return (
-    <div ref={containerRef} className="space-y-3">
+    <div ref={containerRef} className={cn("space-y-2", compact && "space-y-1.5")}>
       {selectedCustomerId ? (
-        <div className="flex items-center justify-between rounded-xl border bg-primary/5 px-3 py-2 text-sm">
-          <span className="flex items-center gap-2">
-            <UserRound className="h-4 w-4 text-primary" />
+        <div
+          className={cn(
+            "flex items-center justify-between rounded-lg border bg-primary/5 px-2.5 text-sm",
+            compact ? "py-1" : "rounded-xl px-3 py-2"
+          )}
+        >
+          <span className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <UserRound className="h-3.5 w-3.5 text-primary" />
             Saved customer linked
           </span>
           <button
@@ -113,9 +120,14 @@ export function CustomerPicker({
         </div>
       ) : null}
 
-      <div className="relative grid gap-3 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Customer</Label>
+      <div
+        className={cn(
+          "relative grid gap-2",
+          compact ? "sm:grid-cols-3" : "gap-3 sm:grid-cols-2"
+        )}
+      >
+        <div className={cn("space-y-1", !compact && "space-y-2")}>
+          <Label className={compact ? "text-xs" : undefined}>Customer</Label>
           <Input
             value={customerName}
             onChange={(e) => {
@@ -125,13 +137,13 @@ export function CustomerPicker({
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
-            className="h-11 rounded-xl"
-            placeholder="Search name or pick walk-in"
+            className={cn("rounded-lg", compact ? "h-9 text-sm" : "h-11 rounded-xl")}
+            placeholder="Search name or walk-in"
             autoComplete="off"
           />
         </div>
-        <div className="space-y-2">
-          <Label>Phone</Label>
+        <div className={cn("space-y-1", !compact && "space-y-2")}>
+          <Label className={compact ? "text-xs" : undefined}>Phone</Label>
           <Input
             value={customerPhone}
             onChange={(e) => {
@@ -141,14 +153,31 @@ export function CustomerPicker({
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
-            className="h-11 rounded-xl"
-            placeholder="Mobile (distinguishes same name)"
+            className={cn("rounded-lg", compact ? "h-9 text-sm" : "h-11 rounded-xl")}
+            placeholder="Mobile"
             autoComplete="off"
           />
         </div>
 
+        {compact ? (
+          <div className="space-y-1">
+            <Label className="text-xs">GSTIN</Label>
+            <Input
+              value={customerGstin}
+              onChange={(e) => onCustomerGstinChange(e.target.value)}
+              className="h-9 rounded-lg text-sm"
+              placeholder="Optional"
+            />
+          </div>
+        ) : null}
+
         {open && debouncedTerm.length >= 1 && suggestions.length > 0 ? (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border bg-popover shadow-lg sm:col-span-2">
+          <div
+            className={cn(
+              "absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border bg-popover shadow-lg",
+              compact ? "sm:col-span-3" : "sm:col-span-2"
+            )}
+          >
             {suggestions.map((customer) => (
               <button
                 key={customer.id}
@@ -172,15 +201,17 @@ export function CustomerPicker({
         ) : null}
       </div>
 
-      <div className="space-y-2">
-        <Label>GSTIN</Label>
-        <Input
-          value={customerGstin}
-          onChange={(e) => onCustomerGstinChange(e.target.value)}
-          className="h-11 rounded-xl font-mono uppercase"
-          placeholder="Customer GSTIN (optional)"
-        />
-      </div>
+      {!compact ? (
+        <div className="space-y-2">
+          <Label>GSTIN</Label>
+          <Input
+            value={customerGstin}
+            onChange={(e) => onCustomerGstinChange(e.target.value)}
+            className="h-11 rounded-xl font-mono uppercase"
+            placeholder="Customer GSTIN (optional)"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -90,11 +90,12 @@ function isUniqueViolation(err: unknown): boolean {
 async function incrementBillCounter(
   tx: Tx,
   organizationId: string,
+  branchId: string,
   fiscalYear: string,
   legacySeed: number
 ): Promise<number> {
   const where = {
-    organizationId_fiscalYear: { organizationId, fiscalYear },
+    organizationId_branchId_fiscalYear: { organizationId, branchId, fiscalYear },
   } as const;
   for (let attempt = 0; attempt < 5; attempt++) {
     const existing = await tx.shopBillCounter.findUnique({ where });
@@ -109,6 +110,7 @@ async function incrementBillCounter(
       const created = await tx.shopBillCounter.create({
         data: {
           organizationId,
+          branchId,
           fiscalYear,
           seq: Math.max(0, Math.floor(legacySeed)) + 1,
         },
@@ -145,21 +147,29 @@ export function resolveStoreCode(
 export async function nextShopBillNumber(
   tx: Tx,
   organizationId: string,
+  branchId: string,
   cashierCode?: string | null
 ): Promise<string> {
   const org = await tx.organization.findUnique({
     where: { id: organizationId },
     select: { name: true, settings: true },
   });
+  const branch = await tx.shopBranch.findFirst({
+    where: { id: branchId, organizationId },
+    select: { code: true },
+  });
   const settings = (org?.settings ?? {}) as Record<string, unknown>;
   const shop = (settings.shop ?? {}) as Record<string, unknown>;
   const invoice = (shop.invoice ?? {}) as Record<string, unknown>;
-  const storeCode = resolveStoreCode(invoice, org?.name);
+  const storeCode =
+    branch?.code ||
+    resolveStoreCode(invoice, org?.name);
 
   const fiscalYear = fiscalYearLabel();
   const seq = await incrementBillCounter(
     tx,
     organizationId,
+    branchId,
     fiscalYear,
     readBillSeqByFy(shop, fiscalYear)
   );

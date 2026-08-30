@@ -150,6 +150,22 @@ export default function ProjectDetailContent() {
       >(`/api/v1/activity?projectId=${id}`)
   );
 
+  const { data: invoicesData } = useFetch(
+    tab === "invoices" ? `project:${id}:invoices` : null,
+    () =>
+      apiFetch<{
+        items: Array<{
+          id: string;
+          billNumber: string;
+          clientName: string | null;
+          totalPaise: string;
+          paymentMethod: string;
+          createdAt: string;
+          createdBy: { name: string };
+        }>;
+      }>(`/api/v1/projects/${id}/invoices`)
+  );
+
   const latestOwnExpenseId = useMemo(() => {
     if (!expenses?.length || !user?.id) return null;
     const own = expenses.filter((e) => e.createdBy.id === user.id);
@@ -206,6 +222,11 @@ export default function ProjectDetailContent() {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href={`/projects/${id}/invoices/new`}>
+            <Button variant="outline" className="h-11 rounded-xl px-5">
+              Client invoice
+            </Button>
+          </Link>
           <Link href={`/expenses/new?projectId=${id}`}>
             <Button className="h-11 rounded-xl px-5">Add Expense</Button>
           </Link>
@@ -325,6 +346,54 @@ export default function ProjectDetailContent() {
               </>
             ) : (
               <p className="text-muted-foreground">No work order document linked yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === "invoices" && (
+        <Card className="rounded-2xl border-0 shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Client invoices</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Tax invoices billed to the client — numbered per project.
+              </p>
+            </div>
+            <Link href={`/projects/${id}/invoices/new`}>
+              <Button className="h-10 rounded-xl">New invoice</Button>
+            </Link>
+          </CardHeader>
+          <CardContent className="p-0">
+            {!invoicesData?.items?.length ? (
+              <div className="space-y-4 p-6 text-center">
+                <p className="text-muted-foreground">
+                  No client invoices yet. Bill progress, milestones, or final amounts here.
+                </p>
+                <Link href={`/projects/${id}/invoices/new`}>
+                  <Button className="h-11 rounded-xl">Create first invoice</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {invoicesData.items.map((inv) => (
+                  <Link
+                    key={inv.id}
+                    href={`/projects/${id}/invoices/${inv.id}`}
+                    className="flex flex-wrap items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40 sm:p-5"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">{inv.billNumber}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {inv.clientName ?? "—"} ·{" "}
+                        {new Date(inv.createdAt).toLocaleDateString("en-IN")} ·{" "}
+                        {String(inv.paymentMethod).replace(/_/g, " ")} · {inv.createdBy.name}
+                      </p>
+                    </div>
+                    <MoneyDisplay paise={inv.totalPaise} />
+                  </Link>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

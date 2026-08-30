@@ -15,6 +15,10 @@ import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { formatINR } from "@/lib/finance/money";
+import { useActivePlan } from "@/hooks/use-active-plan";
+import { canAccessReportFeature } from "@/lib/billing/report-entitlements";
+import { shareInvoiceOnWhatsApp, hasWhatsAppPhone } from "@/lib/shop/invoice-share";
+import { MessageCircle } from "lucide-react";
 
 type LedgerData = {
   credit: {
@@ -48,6 +52,8 @@ type LedgerData = {
 export default function CustomerLedgerPage() {
   const { id } = useParams<{ id: string }>();
   const orgId = useAuthStore((s) => s.activeOrganizationId);
+  const plan = useActivePlan();
+  const remindersEnabled = canAccessReportFeature(plan, "payment-reminders");
   const qc = useQueryClient();
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -68,6 +74,24 @@ export default function CustomerLedgerPage() {
       }
       setPaymentAmount("");
     },
+  });
+
+  const remindMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<{ message: string; phone: string | null }>(
+        `/api/v1/shop/udhaar/${id}/remind`,
+        { method: "POST" }
+      ),
+    onSuccess: (result) => {
+      shareInvoiceOnWhatsApp(result.message, result.phone, {
+        directToContact: hasWhatsAppPhone(result.phone),
+      });
+      if (orgId) {
+        qc.invalidateQueries({ queryKey: queryKeys.modules.shop.creditLedger(orgId, id) });
+        qc.invalidateQueries({ queryKey: queryKeys.modules.shop.paymentReminders(orgId) });
+      }
+    },
+    onError: applyError,
   });
 
   if (isLoading) return <PageLoader label="Loading ledger..." />;
@@ -110,7 +134,20 @@ export default function CustomerLedgerPage() {
           <h1 className="text-2xl font-bold">{credit.customerName}</h1>
           <p className="text-sm text-muted-foreground">{credit.phone ?? "No phone"}</p>
         </div>
-        <Link href="/shop/udhaar"><Button variant="outline" className="rounded-xl">Back</Button></Link>
+        <div className="flex gap-2">
+          {remindersEnabled && Number(credit.balancePaise) > 0 ? (
+            <Button
+              variant="outline"
+              className="rounded-xl gap-1"
+              disabled={remindMutation.isPending}
+              onClick={() => remindMutation.mutate(undefined)}
+            >
+              <MessageCircle className="h-4 w-4" />
+              {remindMutation.isPending ? "Sending…" : "Remind"}
+            </Button>
+          ) : null}
+          <Link href="/shop/udhaar"><Button variant="outline" className="rounded-xl">Back</Button></Link>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

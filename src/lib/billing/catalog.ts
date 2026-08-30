@@ -14,10 +14,10 @@ const ALL_MODULE_KEYS = MODULE_REGISTRY.map((m) => m.key) as ModuleKey[];
 
 export const PLAN_MODULE_OPTIONS: Array<{ key: ModuleKey; label: string }> =
   MODULE_REGISTRY.filter((m) =>
-    m.availableFor.includes("SHOPKEEPER")
+    m.availableFor.includes("SHOPKEEPER") || m.availableFor.includes("SERVICE")
   ).map((m) => ({
     key: m.key,
-    label: m.label.SHOPKEEPER,
+    label: m.label.SHOPKEEPER ?? m.label.SERVICE ?? m.key,
   }));
 
 type StoredCatalog = Partial<Record<BillingPlan, Partial<PlanDefinition>>>;

@@ -35,14 +35,41 @@ function mapRow(row: Record<string, unknown>): ShopCustomerRow {
   };
 }
 
+export type CustomerBranchScope = {
+  branchId?: string | null;
+  isolated?: boolean;
+};
+
+function branchSqlFilter(scope?: CustomerBranchScope): { sql: string; params: unknown[] } {
+  if (scope?.isolated && scope.branchId) {
+    return { sql: ` AND c."branchId" = ?`, params: [scope.branchId] };
+  }
+  if (scope?.isolated === false || !scope?.isolated) {
+    return { sql: ` AND c."branchId" IS NULL`, params: [] };
+  }
+  return { sql: "", params: [] };
+}
+
+function branchWhere(scope?: CustomerBranchScope): { sql: string; params: unknown[] } {
+  if (scope?.isolated && scope.branchId) {
+    return { sql: ` AND "branchId" = ?`, params: [scope.branchId] };
+  }
+  if (scope?.isolated === false || !scope?.isolated) {
+    return { sql: ` AND "branchId" IS NULL`, params: [] };
+  }
+  return { sql: "", params: [] };
+}
+
 export async function searchCustomersRaw(
   organizationId: string,
   query: string | undefined,
-  limit: number
+  limit: number,
+  scope?: CustomerBranchScope
 ): Promise<ShopCustomerWithCount[]> {
   await ensureShopCustomerSchema();
   const q = query?.trim() ?? "";
   const phoneDigits = q.replace(/\D/g, "");
+  const branchFilter = branchSqlFilter(scope);
 
   let rows: Record<string, unknown>[];
   if (q) {
@@ -52,23 +79,25 @@ export async function searchCustomersRaw(
             (SELECT COUNT(*) FROM "ShopSale" s WHERE s."customerId" = c.id) AS saleCount
            FROM "ShopCustomer" c
            WHERE c."organizationId" = ?
-             AND (c.name LIKE ? COLLATE NOCASE OR c.phone LIKE ?)
+             AND (c.name LIKE ? COLLATE NOCASE OR c.phone LIKE ?)${branchFilter.sql}
            ORDER BY c."lastSaleAt" IS NULL, c."lastSaleAt" DESC, c."updatedAt" DESC
            LIMIT ?`,
           organizationId,
           `%${q}%`,
           `%${phoneDigits}%`,
+          ...branchFilter.params,
           limit
         )
       : await prisma.$queryRawUnsafe(
           `SELECT c.*,
             (SELECT COUNT(*) FROM "ShopSale" s WHERE s."customerId" = c.id) AS saleCount
            FROM "ShopCustomer" c
-           WHERE c."organizationId" = ? AND c.name LIKE ? COLLATE NOCASE
+           WHERE c."organizationId" = ? AND c.name LIKE ? COLLATE NOCASE${branchFilter.sql}
            ORDER BY c."lastSaleAt" IS NULL, c."lastSaleAt" DESC, c."updatedAt" DESC
            LIMIT ?`,
           organizationId,
           `%${q}%`,
+          ...branchFilter.params,
           limit
         );
   } else {
@@ -76,10 +105,11 @@ export async function searchCustomersRaw(
       `SELECT c.*,
         (SELECT COUNT(*) FROM "ShopSale" s WHERE s."customerId" = c.id) AS saleCount
        FROM "ShopCustomer" c
-       WHERE c."organizationId" = ?
+       WHERE c."organizationId" = ?${branchFilter.sql}
        ORDER BY c."lastSaleAt" IS NULL, c."lastSaleAt" DESC, c."updatedAt" DESC
        LIMIT ?`,
       organizationId,
+      ...branchFilter.params,
       limit
     );
   }
@@ -92,9 +122,10 @@ export async function searchCustomersRaw(
 
 export async function listCustomersRaw(
   organizationId: string,
-  limit: number
+  limit: number,
+  scope?: CustomerBranchScope
 ): Promise<ShopCustomerWithCount[]> {
-  return searchCustomersRaw(organizationId, undefined, limit);
+  return searchCustomersRaw(organizationId, undefined, limit, scope);
 }
 
 export async function getCustomerRaw(
@@ -124,7 +155,8 @@ export async function upsertCustomerRaw(
     name?: string | null;
     phone?: string | null;
     gstin?: string | null;
-  }
+  },
+  scope?: CustomerBranchScope
 ): Promise<ShopCustomerRow | null> {
   await ensureShopCustomerSchema();
   const name = input.name?.trim();
@@ -133,6 +165,8 @@ export async function upsertCustomerRaw(
   const phone = normalizeShopPhone(input.phone);
   const gstin = input.gstin?.trim() || null;
   const now = new Date().toISOString();
+  const branchId = scope?.isolated ? scope.branchId ?? null : null;
+  const branchFilter = branchWhere(scope);
 
   if (input.customerId) {
     const existing = await getCustomerRaw(organizationId, input.customerId);
@@ -156,9 +190,10 @@ export async function upsertCustomerRaw(
 
   if (phone) {
     const rows = (await prisma.$queryRawUnsafe(
-      `SELECT * FROM "ShopCustomer" WHERE "organizationId" = ? AND phone = ?`,
+      `SELECT * FROM "ShopCustomer" WHERE "organizationId" = ? AND phone = ?${branchFilter.sql}`,
       organizationId,
-      phone
+      phone,
+      ...branchFilter.params
     )) as Record<string, unknown>[];
     if (rows[0]) {
       const id = String(rows[0].id);
@@ -197,10 +232,11 @@ export async function upsertCustomerRaw(
   const id = randomUUID();
   await prisma.$executeRawUnsafe(
     `INSERT INTO "ShopCustomer"
-     (id, "organizationId", name, phone, gstin, "lastSaleAt", "createdAt", "updatedAt")
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     (id, "organizationId", "branchId", name, phone, gstin, "lastSaleAt", "createdAt", "updatedAt")
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     organizationId,
+    branchId,
     name,
     phone,
     gstin,

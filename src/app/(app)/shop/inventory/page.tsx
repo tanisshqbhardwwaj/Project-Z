@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
+import { resolveShopBusinessTypes } from "@/lib/org/shop-settings";
 import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
@@ -19,6 +20,11 @@ import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory";
 import { FolderPlus, Plus, Wrench, FileText } from "lucide-react";
 import { BarcodeLabelPreview } from "@/components/shop/barcode-label";
 import { InventoryInsightsPanel } from "@/components/shop/inventory-insights-panel";
+import { useActivePlan } from "@/hooks/use-active-plan";
+import {
+  canAccessReportFeature,
+  minimumPlanLabelForReportFeature,
+} from "@/lib/billing/report-entitlements";
 import { InventoryToolsDialog } from "@/components/shop/inventory-tools-dialog";
 import { LabelCopiesActions } from "@/components/shop/label-copies-actions";
 import { LabelHeaderPicker } from "@/components/shop/label-header-picker";
@@ -71,9 +77,13 @@ type InventoryItem = {
 
 export default function ShopInventoryPage() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
-  const { activeBusinessType, activeShopSector, enabledModules } = useAuthStore();
+  const { activeBusinessType, activeShopSector, activeOrgSettings, enabledModules } = useAuthStore();
   const moduleEnabled = isModuleEnabled(enabledModules, "shop_inventory");
-  const title = moduleLabel("shop_inventory", activeBusinessType ?? "SHOPKEEPER");
+  const plan = useActivePlan();
+  const productAnalyticsEnabled =
+    moduleEnabled && canAccessReportFeature(plan, "product-analytics");
+  const shopSectors = resolveShopBusinessTypes(activeOrgSettings?.shop, activeShopSector);
+  const title = moduleLabel("shop_inventory", activeBusinessType ?? "SHOPKEEPER", shopSectors);
 
   const { warning, error, clear, applyError } = useFormFeedback();
   const qc = useQueryClient();
@@ -534,7 +544,26 @@ export default function ShopInventoryPage() {
         </Card>
 
         <aside className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
-          <InventoryInsightsPanel orgId={orgId} enabled={moduleEnabled} />
+          {productAnalyticsEnabled ? (
+            <InventoryInsightsPanel orgId={orgId} enabled />
+          ) : moduleEnabled ? (
+            <Card className="rounded-2xl border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-base">Product analytics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Top sellers, slow movers, and stock snapshot are on the{" "}
+                  {minimumPlanLabelForReportFeature("product-analytics")} plan.
+                </p>
+                <Link href="/settings/billing">
+                  <Button variant="outline" size="sm" className="rounded-xl">
+                    View plans
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : null}
         </aside>
       </div>
 

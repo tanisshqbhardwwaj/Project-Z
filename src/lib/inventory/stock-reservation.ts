@@ -115,9 +115,29 @@ export async function atomicDeductInventory(input: {
   organizationId: string;
   inventoryItemId: string;
   deductQty: number;
+  branchId?: string | null;
   now?: Date;
 }): Promise<boolean> {
   const now = input.now ?? new Date();
+  if (input.branchId != null) {
+    const result = await input.tx.$executeRaw`
+      UPDATE "InventoryItem"
+      SET "quantity" = "quantity" - ${input.deductQty},
+          "updatedAt" = ${now}
+      WHERE "id" = ${input.inventoryItemId}
+        AND "organizationId" = ${input.organizationId}
+        AND "branchId" = ${input.branchId}
+        AND "quantity" >= ${input.deductQty} + COALESCE((
+          SELECT SUM(r."quantity")
+          FROM "InventoryStockReservation" r
+          INNER JOIN "ShopHeldBill" h ON h."id" = r."heldBillId"
+          WHERE r."inventoryItemId" = ${input.inventoryItemId}
+            AND h."status" = 'ACTIVE'
+            AND r."expiresAt" > ${now}
+        ), 0)
+    `;
+    return result > 0;
+  }
   const result = await input.tx.$executeRaw`
     UPDATE "InventoryItem"
     SET "quantity" = "quantity" - ${input.deductQty},

@@ -150,12 +150,13 @@ export function calculateMonthlyPayrollPaise(input: {
 }
 
 async function getStaffWageForDay(
+  organizationId: string,
   staffId: string,
   dayKey: string
 ): Promise<{ wagePaise: bigint | null; wagePeriod: string | null; overtimeRatePaise: bigint | null }> {
   const date = dayKeyToUtcDate(dayKey);
   const history = await prisma.staffWage.findFirst({
-    where: { staffId, effectiveFrom: { lte: date } },
+    where: { organizationId, staffId, effectiveFrom: { lte: date } },
     orderBy: { effectiveFrom: "desc" },
   });
   if (history) {
@@ -165,8 +166,8 @@ async function getStaffWageForDay(
       overtimeRatePaise: history.overtimeRatePaise,
     };
   }
-  const staff = await prisma.staffMember.findUnique({
-    where: { id: staffId },
+  const staff = await prisma.staffMember.findFirst({
+    where: { id: staffId, organizationId },
     select: { wagePaise: true, wagePeriod: true, overtimeRatePaise: true },
   });
   return {
@@ -290,18 +291,42 @@ export async function bulkMarkAttendance(input: {
     ? rows.filter((r) => input.staffIds!.includes(r.staff.id))
     : rows;
 
-  const results = [];
-  for (const { staff } of targets) {
-    results.push(
-      await upsertAttendance({
-        organizationId: input.organizationId,
-        staffId: staff.id,
-        date: input.date,
-        status: input.status,
-        markedById: input.markedById,
-      })
-    );
+  if (targets.length === 0) return [];
+
+  const { org } = await getOrgModuleContext(input.organizationId);
+  if (isFutureDayKey(input.date, org.timezone)) {
+    throw new Error("Cannot mark attendance for a future date");
   }
+
+  const dayDate = dayKeyToUtcDate(input.date);
+  const results = await prisma.$transaction(
+    targets.map(({ staff }) =>
+      prisma.staffAttendance.upsert({
+        where: { staffId_date: { staffId: staff.id, date: dayDate } },
+        create: {
+          organizationId: input.organizationId,
+          staffId: staff.id,
+          date: dayDate,
+          status: input.status,
+          markedById: input.markedById,
+        },
+        update: {
+          status: input.status,
+          markedById: input.markedById,
+        },
+      })
+    )
+  );
+
+  await createAuditLog({
+    organizationId: input.organizationId,
+    userId: input.markedById,
+    action: "attendance.bulk_marked",
+    entityType: "StaffAttendance",
+    entityId: input.date,
+    after: { status: input.status, staffCount: targets.length },
+  });
+
   return results;
 }
 
@@ -535,6 +560,7 @@ async function computeStaffMonthStats(input: {
   }
 
   const wage = await getStaffWageForDay(
+    input.organizationId,
     input.staffId,
     input.monthDayKeys[input.monthDayKeys.length - 1] ??
       `${input.year}-${String(input.month).padStart(2, "0")}-01`

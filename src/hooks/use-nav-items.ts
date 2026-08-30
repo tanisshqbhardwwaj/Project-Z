@@ -13,8 +13,11 @@ import {
   Tag,
   RotateCcw,
   Users,
+  BarChart3,
   Building2,
   UsersRound,
+  CalendarDays,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import type { OrgRole } from "@prisma/client";
@@ -22,6 +25,9 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useBusinessType } from "@/hooks/use-business-type";
 import { useModuleNav } from "@/hooks/use-module-nav";
 import { useCashierMode } from "@/hooks/use-cashier-mode";
+import { isShopVertical } from "@/lib/org/business-type";
+import { isServiceVerticalEnabled } from "@/lib/org/service-vertical";
+import { resolveShopBusinessTypes } from "@/lib/org/shop-settings";
 import { canAccessProjectsNav, hasPermission } from "@/lib/permissions/rbac";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { CASHIER_HOME_ICON } from "@/lib/staff/cashier-mode";
@@ -44,15 +50,20 @@ export function useNavGroups(): NavGroups {
   const biz = useBusinessType();
   const role = useAuthStore((s) => s.role) as OrgRole | null;
   const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
+  const activeShopSector = useAuthStore((s) => s.activeShopSector);
+  const activeOrgSettings = useAuthStore((s) => s.activeOrgSettings);
   const enabledModules = useAuthStore((s) => s.enabledModules);
   const isPlatformAdmin = useAuthStore((s) => s.isPlatformAdmin);
   const moduleNav = useModuleNav();
   const { active: cashierMode, navItems: cashierNav } = useCashierMode();
-  const isShopkeeper = activeBusinessType === "SHOPKEEPER";
+  const isShopVerticalOrg = isShopVertical(activeBusinessType);
+  const isServiceOrg = activeBusinessType === "SERVICE" && isServiceVerticalEnabled();
+  const shopSectors = resolveShopBusinessTypes(activeOrgSettings?.shop, activeShopSector);
+  const isRestaurantSector = shopSectors.includes("RESTAURANT");
   const showProjects =
-    role && !isShopkeeper ? canAccessProjectsNav(role) : false;
+    role && !isShopVerticalOrg ? canAccessProjectsNav(role) : false;
   const showDashboard =
-    (role && canAccessProjectsNav(role)) || isShopkeeper;
+    (role && canAccessProjectsNav(role)) || isShopVerticalOrg;
 
   return useMemo(() => {
     if (cashierMode) {
@@ -103,7 +114,7 @@ export function useNavGroups(): NavGroups {
       });
       if (
         m.key === "shop_sales" &&
-        isShopkeeper &&
+        isShopVerticalOrg &&
         isModuleEnabled(enabledModules, "shop_sales") &&
         role &&
         hasPermission(role, "shop.sales")
@@ -121,10 +132,48 @@ export function useNavGroups(): NavGroups {
           key: "shop_returns",
         });
         modules.push({
-          href: "/shop/customers",
+          href: isServiceOrg ? "/shop/customers" : "/shop/customers",
           icon: Users,
           label: "Customers",
           key: "shop_customers",
+        });
+        if (hasPermission(role, "shop.sales") || hasPermission(role, "shop.profit.view")) {
+          modules.push({
+            href: "/shop/reports",
+            icon: BarChart3,
+            label: "Reports",
+            key: "shop_reports",
+          });
+        }
+      }
+
+      if (
+        isServiceOrg &&
+        m.key === "service_appointments" &&
+        isModuleEnabled(enabledModules, "service_appointments") &&
+        role &&
+        hasPermission(role, "service.appointments.manage")
+      ) {
+        modules.push({
+          href: "/service/appointments/new",
+          icon: CalendarDays,
+          label: "New booking",
+          key: "service_new_booking",
+        });
+      }
+
+      if (
+        isServiceOrg &&
+        m.key === "deliveries" &&
+        isModuleEnabled(enabledModules, "deliveries") &&
+        role &&
+        hasPermission(role, "delivery.view_own")
+      ) {
+        modules.push({
+          href: "/deliveries/me",
+          icon: MapPin,
+          label: "My deliveries",
+          key: "deliveries_me",
         });
       }
     }
@@ -132,7 +181,8 @@ export function useNavGroups(): NavGroups {
     const tools: NavItem[] = [];
 
     if (
-      isShopkeeper &&
+      isShopVerticalOrg &&
+      !isServiceOrg &&
       (isModuleEnabled(enabledModules, "shop_sales") ||
         isModuleEnabled(enabledModules, "shop_inventory"))
     ) {
@@ -141,6 +191,20 @@ export function useNavGroups(): NavGroups {
         icon: ScanBarcode,
         label: "Scan",
         key: "scan",
+      });
+    }
+
+    if (
+      isRestaurantSector &&
+      isModuleEnabled(enabledModules, "deliveries") &&
+      role &&
+      hasPermission(role, "delivery.manage")
+    ) {
+      tools.push({
+        href: "/deliveries",
+        icon: MapPin,
+        label: "Delivery board",
+        key: "delivery_board",
       });
     }
 
@@ -198,9 +262,13 @@ export function useNavGroups(): NavGroups {
     showProjects,
     biz.workItemPlural,
     moduleNav,
-    isShopkeeper,
+    isShopVerticalOrg,
+    isServiceOrg,
+    isRestaurantSector,
     enabledModules,
     role,
     isPlatformAdmin,
+    activeOrgSettings,
+    activeShopSector,
   ]);
 }

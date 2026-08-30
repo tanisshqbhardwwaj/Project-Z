@@ -13,6 +13,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
@@ -287,7 +288,7 @@ export default function ContractorBoqPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Date</Label>
-                        <Input type="date" value={measDate} onChange={(e) => setMeasDate(e.target.value)} className="h-12 rounded-xl" />
+                        <DatePicker value={measDate} onChange={setMeasDate} className="h-12 rounded-xl" />
                       </div>
                     </div>
                     <Button type="submit" className="h-12 w-full rounded-xl" disabled={createMeasMutation.isPending}>

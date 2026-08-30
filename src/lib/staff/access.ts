@@ -4,6 +4,11 @@ export type StaffAccess = {
   canProcessReturns: boolean;
   canViewOwnAttendance: boolean;
   canViewOwnSales: boolean;
+  canManageInventory: boolean;
+  canViewAllAttendance: boolean;
+  canViewAllSales: boolean;
+  canViewOwnDeliveries: boolean;
+  canUpdateDeliveryStatus: boolean;
 };
 
 export type StaffAccessKey = keyof StaffAccess;
@@ -14,6 +19,11 @@ export function defaultStaffAccess(): StaffAccess {
     canProcessReturns: false,
     canViewOwnAttendance: false,
     canViewOwnSales: false,
+    canManageInventory: false,
+    canViewAllAttendance: false,
+    canViewAllSales: false,
+    canViewOwnDeliveries: false,
+    canUpdateDeliveryStatus: false,
   };
 }
 
@@ -26,14 +36,77 @@ export function parseStaffAccess(raw: unknown): StaffAccess {
     canProcessReturns: o.canProcessReturns === true,
     canViewOwnAttendance: o.canViewOwnAttendance === true,
     canViewOwnSales: o.canViewOwnSales === true,
+    canManageInventory: o.canManageInventory === true,
+    canViewAllAttendance: o.canViewAllAttendance === true,
+    canViewAllSales: o.canViewAllSales === true,
+    canViewOwnDeliveries: o.canViewOwnDeliveries === true,
+    canUpdateDeliveryStatus: o.canUpdateDeliveryStatus === true,
   };
 }
 
 export function staffAccessFromForm(input: Partial<StaffAccess>): StaffAccess {
-  return {
-    canBill: input.canBill === true,
-    canProcessReturns: input.canProcessReturns === true,
-    canViewOwnAttendance: input.canViewOwnAttendance === true,
-    canViewOwnSales: input.canViewOwnSales === true,
-  };
+  return parseStaffAccess(input);
+}
+
+export type StaffRoleKey =
+  | "OWNER"
+  | "MANAGER"
+  | "SALES_STAFF"
+  | "CASHIER"
+  | "ACCOUNTANT"
+  | "INVENTORY_MANAGER"
+  | "DELIVERY_STAFF"
+  | "WAITER"
+  | "CUSTOM";
+
+/** Default capability bundles when a role preset is chosen (owner can override). */
+export const STAFF_ROLE_ACCESS_PRESETS: Record<
+  StaffRoleKey,
+  Partial<StaffAccess>
+> = {
+  OWNER: {},
+  MANAGER: {
+    canViewAllAttendance: true,
+    canViewAllSales: true,
+  },
+  SALES_STAFF: {
+    canViewOwnAttendance: true,
+    canViewOwnSales: true,
+  },
+  CASHIER: {
+    canBill: true,
+    canViewOwnAttendance: true,
+    canViewOwnSales: true,
+  },
+  ACCOUNTANT: {
+    canViewAllSales: true,
+    canViewOwnAttendance: true,
+  },
+  INVENTORY_MANAGER: {
+    canManageInventory: true,
+    canViewOwnAttendance: true,
+  },
+  DELIVERY_STAFF: {
+    canViewOwnDeliveries: true,
+    canUpdateDeliveryStatus: true,
+    canViewOwnAttendance: true,
+  },
+  WAITER: {
+    canBill: true,
+    canViewOwnAttendance: true,
+    canViewOwnSales: true,
+  },
+  CUSTOM: {
+    canViewOwnAttendance: true,
+    canViewOwnSales: true,
+  },
+};
+
+export function accessPresetForRole(
+  roleKey: string | null | undefined
+): Partial<StaffAccess> {
+  if (!roleKey || !(roleKey in STAFF_ROLE_ACCESS_PRESETS)) {
+    return STAFF_ROLE_ACCESS_PRESETS.CUSTOM;
+  }
+  return STAFF_ROLE_ACCESS_PRESETS[roleKey as StaffRoleKey];
 }

@@ -4,10 +4,12 @@ import { invoiceSearchWhere } from "@/lib/shop/customer";
 import {
   getCustomerRaw,
   searchCustomersRaw,
+  type CustomerBranchScope,
 } from "@/lib/shop/customer-store";
 import { ensureShopCustomerSchema } from "@/lib/shop/ensure-shop-customer-schema";
 import { ensureShopSaleSchema } from "@/lib/shop/ensure-shop-sale-schema";
 import { requireModule } from "@/lib/org/require-module";
+import { isBranchAll, type BranchScope } from "@/lib/shop/branch-context";
 
 export type ShopCustomerWithCount = Awaited<
   ReturnType<typeof searchCustomersRaw>
@@ -18,6 +20,7 @@ export async function listShopSales(
   opts?: {
     q?: string;
     customerId?: string;
+    branchId?: BranchScope;
     limit?: number;
     staffId?: string;
     cursor?: string;
@@ -31,6 +34,9 @@ export async function listShopSales(
     opts?.q ?? "",
     opts?.customerId
   );
+  if (opts?.branchId && !isBranchAll(opts.branchId)) {
+    where.branchId = opts.branchId;
+  }
   if (opts?.staffId) {
     where.staffId = opts.staffId;
   }
@@ -47,30 +53,32 @@ export async function searchShopCustomers(
   organizationId: string,
   query?: string,
   limit = 20,
-  cursor?: string
+  cursor?: string,
+  scope?: CustomerBranchScope
 ): Promise<CursorPage<ShopCustomerWithCount>> {
   await requireModule(organizationId, "shop_sales");
-  return listShopCustomersPage(organizationId, { q: query, limit, cursor });
+  return listShopCustomersPage(organizationId, { q: query, limit, cursor, scope });
 }
 
 export async function listShopCustomers(
   organizationId: string,
   limit = 25,
-  cursor?: string
+  cursor?: string,
+  scope?: CustomerBranchScope
 ): Promise<CursorPage<ShopCustomerWithCount>> {
   await requireModule(organizationId, "shop_sales");
-  return listShopCustomersPage(organizationId, { limit, cursor });
+  return listShopCustomersPage(organizationId, { limit, cursor, scope });
 }
 
 async function listShopCustomersPage(
   organizationId: string,
-  opts: { q?: string; limit?: number; cursor?: string }
+  opts: { q?: string; limit?: number; cursor?: string; scope?: CustomerBranchScope }
 ): Promise<CursorPage<ShopCustomerWithCount>> {
   const limit = Math.min(100, Math.max(1, opts.limit ?? 25));
   const q = opts.q?.trim() ?? "";
 
   if (q) {
-    const rows = await searchCustomersRaw(organizationId, q, limit + 1);
+    const rows = await searchCustomersRaw(organizationId, q, limit + 1, opts.scope);
     const filtered = opts.cursor
       ? rows.slice(rows.findIndex((r) => r.id === opts.cursor) + 1)
       : rows;
@@ -78,8 +86,14 @@ async function listShopCustomersPage(
   }
 
   await ensureShopCustomerSchema();
+  const branchWhere =
+    opts.scope?.isolated && opts.scope.branchId
+      ? { branchId: opts.scope.branchId }
+      : opts.scope?.isolated
+        ? {}
+        : { branchId: null };
   const rows = await prisma.shopCustomer.findMany({
-    where: { organizationId },
+    where: { organizationId, ...branchWhere },
     orderBy: [{ lastSaleAt: "desc" }, { updatedAt: "desc" }],
     take: limit + 1,
     ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),

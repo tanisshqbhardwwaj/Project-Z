@@ -7,6 +7,7 @@ import {
 import { hasPermission } from "@/lib/permissions/rbac";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { parseShopDashboardPeriod } from "@/lib/shop/dashboard-period";
+import { getShopBranchContext } from "@/lib/shop/branch-context";
 import { getShopDashboard } from "@/services/shop.service";
 
 export async function GET(request: Request) {
@@ -18,12 +19,21 @@ export async function GET(request: Request) {
     ) {
       requirePermission(ctx, "shop.sales");
     }
-    const { searchParams } = new URL(request.url);
-    const { period, date } = parseShopDashboardPeriod(
-      searchParams.get("period"),
-      searchParams.get("date")
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
     );
-    const data = await getShopDashboard(ctx.organizationId, period, date);
+    const { searchParams } = new URL(request.url);
+    const { period, date, from, to } = parseShopDashboardPeriod(
+      searchParams.get("period"),
+      searchParams.get("date"),
+      searchParams.get("from"),
+      searchParams.get("to")
+    );
+    const data = await getShopDashboard(ctx.organizationId, period, date, {
+      from,
+      to,
+    }, shopCtx.branchId);
     return apiSuccess(serializeBigInt(data));
   });
 }

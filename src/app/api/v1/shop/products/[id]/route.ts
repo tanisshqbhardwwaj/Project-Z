@@ -17,6 +17,7 @@ import {
   getShopProduct,
   updateShopProduct,
 } from "@/services/shop-product.service";
+import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch-context";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -56,12 +57,21 @@ export async function POST(request: Request, context: RouteContext) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     requirePermission(ctx, "shop.inventory.manage");
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
+    );
+    const branchId = isBranchAll(shopCtx.branchId)
+      ? await ensureDefaultBranch(ctx.organizationId)
+      : shopCtx.branchId;
+
     const { id } = await context.params;
     const data = addVariantsSchema.parse(await request.json());
     const variants = await addProductVariants({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       productId: id,
+      branchId,
       autoBarcode: data.autoBarcode,
       autoSku: data.autoSku,
       variants: data.variants.map((variant) => ({

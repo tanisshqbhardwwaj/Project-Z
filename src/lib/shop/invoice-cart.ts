@@ -18,6 +18,9 @@ export type SaleLine = {
   color?: string;
   variantLabel?: string;
   unit?: string;
+  staffId?: string;
+  staffName?: string;
+  itemKind?: import("@/lib/shop/sector-mode").ShopItemKind;
 };
 
 export type HeldBill = {
@@ -55,10 +58,12 @@ export function mergeLineIntoCart(
   const existingIdx = cart.findIndex((l) =>
     line.inventoryItemId
       ? l.inventoryItemId === line.inventoryItemId &&
-        l.priceRupees === line.priceRupees
+        l.priceRupees === line.priceRupees &&
+        (l.staffId ?? "") === (line.staffId ?? "")
       : l.name === line.name &&
         l.priceRupees === line.priceRupees &&
-        !l.inventoryItemId
+        !l.inventoryItemId &&
+        (l.staffId ?? "") === (line.staffId ?? "")
   );
   if (existingIdx >= 0) {
     return cart.map((l, i) =>
@@ -83,6 +88,9 @@ export function mergeCarts(base: SaleLine[], incoming: SaleLine[]): SaleLine[] {
         color: line.color,
         variantLabel: line.variantLabel,
         unit: line.unit,
+        staffId: line.staffId,
+        staffName: line.staffName,
+        itemKind: line.itemKind,
       }),
     base
   );

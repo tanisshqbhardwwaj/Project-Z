@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -69,7 +70,7 @@ export default function NewProjectPage() {
             </div>
             <div className="space-y-2">
               <Label>Work Order Date</Label>
-              <Input type="date" value={form.workOrderDate} onChange={(e) => setForm({ ...form, workOrderDate: e.target.value })} />
+              <DatePicker value={form.workOrderDate} onChange={(workOrderDate) => setForm({ ...form, workOrderDate })} />
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>Create Project</Button>
           </form>

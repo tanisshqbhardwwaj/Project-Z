@@ -39,6 +39,7 @@ export const STAFF_ROLE_KEYS = [
   "ACCOUNTANT",
   "INVENTORY_MANAGER",
   "DELIVERY_STAFF",
+  "WAITER",
   "CUSTOM",
 ] as const;
 
@@ -81,6 +82,11 @@ export const createStaffSchema = z
         canProcessReturns: z.boolean().optional(),
         canViewOwnAttendance: z.boolean().optional(),
         canViewOwnSales: z.boolean().optional(),
+        canManageInventory: z.boolean().optional(),
+        canViewAllAttendance: z.boolean().optional(),
+        canViewAllSales: z.boolean().optional(),
+        canViewOwnDeliveries: z.boolean().optional(),
+        canUpdateDeliveryStatus: z.boolean().optional(),
       })
       .optional(),
   })
@@ -138,6 +144,11 @@ export const updateStaffSchema = z.object({
       canProcessReturns: z.boolean().optional(),
       canViewOwnAttendance: z.boolean().optional(),
       canViewOwnSales: z.boolean().optional(),
+      canManageInventory: z.boolean().optional(),
+      canViewAllAttendance: z.boolean().optional(),
+      canViewAllSales: z.boolean().optional(),
+      canViewOwnDeliveries: z.boolean().optional(),
+      canUpdateDeliveryStatus: z.boolean().optional(),
     })
     .optional(),
 });

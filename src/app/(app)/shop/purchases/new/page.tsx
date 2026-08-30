@@ -12,6 +12,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
@@ -228,7 +229,7 @@ export default function NewPurchasePage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Purchase date</Label>
-                <Input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} className="h-11 rounded-xl" required />
+                <DatePicker value={purchaseDate} onChange={setPurchaseDate} className="h-11 rounded-xl" />
               </div>
               <div className="space-y-2">
                 <Label>Bill / invoice number</Label>

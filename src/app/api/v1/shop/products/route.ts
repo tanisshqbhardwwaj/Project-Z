@@ -13,6 +13,7 @@ import {
   listShopProducts,
   type ProductVariantInput,
 } from "@/services/shop-product.service";
+import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch-context";
 
 function toVariantInput(
   variant: (typeof createProductSchema)["_output"]["variants"][number]
@@ -52,11 +53,20 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     requirePermission(ctx, "shop.inventory.manage");
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
+    );
+    const branchId = isBranchAll(shopCtx.branchId)
+      ? await ensureDefaultBranch(ctx.organizationId)
+      : shopCtx.branchId;
+
     const data = createProductSchema.parse(await request.json());
 
     const product = await createShopProduct({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
+      branchId,
       name: data.name,
       description: data.description,
       brand: data.brand,
@@ -72,6 +82,7 @@ export async function POST(request: Request) {
       defaultSellRupees: data.defaultSellRupees,
       defaultCostRupees: data.defaultCostRupees,
       defaultReorderLevel: data.defaultReorderLevel,
+      itemKind: data.itemKind,
       variants: data.variants.map(toVariantInput),
       autoBarcode: data.autoBarcode,
       autoSku: data.autoSku,

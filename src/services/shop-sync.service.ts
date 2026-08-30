@@ -13,6 +13,7 @@ import { upsertCustomerRaw } from "@/lib/shop/customer-store";
 import { parseShopInvoiceSettings } from "@/lib/org/shop-settings";
 import { fiscalYearLabel, resolveStoreCode } from "@/lib/shop/bill-number";
 import { ensureSyncSchema } from "@/lib/shop/ensure-sync-schema";
+import { resolveBranchId } from "@/lib/shop/branch-context";
 import type { SyncKind, SyncPullSnapshot, SyncPushResult } from "@/lib/sync/kinds";
 
 function sinceDate(since: string | null, windowDays: number): Date {
@@ -100,8 +101,10 @@ async function applyOne(input: {
         });
         if (dup) return dup.id;
       }
+      const branchId = await resolveBranchId(input.organizationId);
       const sale = await createShopSale({
         organizationId: input.organizationId,
+        branchId,
         createdById: input.userId,
         clientId: typeof p.clientId === "string" ? p.clientId : input.clientId,
         customerId: (p.customerId as string | null) ?? null,
@@ -245,10 +248,13 @@ export async function pullShopSnapshot(input: {
   });
   if (!org) throw new ApiError(404, "NOT_FOUND", "Organization not found");
 
+  const defaultBranchId = await resolveBranchId(input.organizationId);
+
   const billCounter = await prisma.shopBillCounter.findUnique({
     where: {
-      organizationId_fiscalYear: {
+      organizationId_branchId_fiscalYear: {
         organizationId: input.organizationId,
+        branchId: defaultBranchId,
         fiscalYear: fiscalYearLabel(),
       },
     },

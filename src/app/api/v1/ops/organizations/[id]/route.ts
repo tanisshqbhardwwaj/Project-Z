@@ -1,14 +1,16 @@
 import { z } from "zod";
-import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
+import { handleApi, apiSuccess } from "@/lib/api/context";
 import { requirePlatformAdmin } from "@/lib/billing/platform-admin";
 import { serializeBigInt } from "@/lib/db/prisma";
 import {
   activatePlanAfterPayment,
+  cancelOrganizationSubscription,
   markSetupFeePaid,
   reactivateOrganization,
   updateOrgBillingFromOps,
 } from "@/services/billing.service";
-import { getOpsOrganizationDetail } from "@/services/ops.service";
+import { grantOrgAddon, revokeOrgAddon } from "@/lib/billing/org-addon.service";
+import { getOpsOrganizationDetail, updateOpsOrganizationModules } from "@/services/ops.service";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -31,6 +33,22 @@ const patchSchema = z.object({
   onboardingComplete: z.boolean().optional(),
   activatePlan: z.boolean().optional(),
   reactivate: z.boolean().optional(),
+  accessExpiresAt: z.string().datetime().nullable().optional(),
+  extendPeriodDays: z.number().int().min(1).max(365).optional(),
+  suspend: z.boolean().optional(),
+  settings: z
+    .object({
+      modules: z.record(z.string(), z.boolean()).optional(),
+    })
+    .optional(),
+  grantAddon: z
+    .object({
+      addonKey: z.string().min(1).max(80),
+      quantity: z.number().int().min(1).max(99).optional(),
+      validUntil: z.string().datetime().nullable().optional(),
+    })
+    .optional(),
+  revokeAddon: z.string().min(1).max(80).optional(),
 });
 
 export async function PATCH(request: Request, { params }: RouteParams) {
@@ -70,16 +88,65 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       });
     }
 
-    const org = await updateOrgBillingFromOps({
-      organizationId: id,
-      actorUserId: admin.userId,
-      plan: body.plan,
-      subscriptionStatus: body.subscriptionStatus,
-      storageQuotaBytes: body.storageQuotaBytes ? BigInt(body.storageQuotaBytes) : undefined,
-      setupFeeStatus: body.setupFeeStatus,
-      onboardingComplete: body.onboardingComplete,
-    });
+    if (body.suspend) {
+      await cancelOrganizationSubscription({
+        organizationId: id,
+        userId: admin.userId,
+        reason: "Suspended by platform ops",
+      });
+      const detail = await getOpsOrganizationDetail(id);
+      return apiSuccess(serializeBigInt(detail));
+    }
 
-    return apiSuccess(serializeBigInt(org));
+    if (body.settings?.modules) {
+      await updateOpsOrganizationModules({
+        organizationId: id,
+        modules: body.settings.modules,
+      });
+    }
+
+    if (body.grantAddon) {
+      await grantOrgAddon({
+        organizationId: id,
+        addonKey: body.grantAddon.addonKey,
+        quantity: body.grantAddon.quantity,
+        validUntil: body.grantAddon.validUntil
+          ? new Date(body.grantAddon.validUntil)
+          : null,
+      });
+    }
+
+    if (body.revokeAddon) {
+      await revokeOrgAddon(id, body.revokeAddon);
+    }
+
+    const hasBillingPatch =
+      body.plan !== undefined ||
+      body.subscriptionStatus !== undefined ||
+      body.storageQuotaBytes !== undefined ||
+      body.onboardingComplete !== undefined ||
+      body.accessExpiresAt !== undefined ||
+      body.extendPeriodDays !== undefined;
+
+    if (hasBillingPatch) {
+      await updateOrgBillingFromOps({
+        organizationId: id,
+        actorUserId: admin.userId,
+        plan: body.plan,
+        subscriptionStatus: body.subscriptionStatus,
+        storageQuotaBytes: body.storageQuotaBytes ? BigInt(body.storageQuotaBytes) : undefined,
+        onboardingComplete: body.onboardingComplete,
+        accessExpiresAt:
+          body.accessExpiresAt === undefined
+            ? undefined
+            : body.accessExpiresAt
+              ? new Date(body.accessExpiresAt)
+              : null,
+        extendPeriodDays: body.extendPeriodDays,
+      });
+    }
+
+    const detail = await getOpsOrganizationDetail(id);
+    return apiSuccess(serializeBigInt(detail));
   });
 }

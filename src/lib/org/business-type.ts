@@ -5,8 +5,8 @@ export type { BusinessType };
 export const BUSINESS_TYPES = [
   "CONTRACTOR",
   "ARCHITECT",
-  "BUILDER",
   "SHOPKEEPER",
+  "SERVICE",
 ] as const satisfies readonly BusinessType[];
 
 export type BusinessTypeConfig = {
@@ -75,6 +75,23 @@ const SHOP_CATEGORIES = [
   "Miscellaneous",
 ];
 
+const SERVICE_CATEGORIES = [
+  "Consumables",
+  "Rent",
+  "Utilities",
+  "Staff wages",
+  "Marketing",
+  "Travel",
+  "Miscellaneous",
+];
+
+/** Shop-style verticals: retail, service business, etc. */
+export function isShopVertical(
+  type: BusinessType | string | null | undefined
+): boolean {
+  return type === "SHOPKEEPER" || type === "SERVICE";
+}
+
 export const BUSINESS_TYPE_CONFIG: Record<BusinessType, BusinessTypeConfig> = {
   CONTRACTOR: {
     id: "CONTRACTOR",
@@ -126,31 +143,6 @@ export const BUSINESS_TYPE_CONFIG: Record<BusinessType, BusinessTypeConfig> = {
     showPartners: true,
     expenseCategories: ARCHITECT_CATEGORIES,
   },
-  BUILDER: {
-    id: "BUILDER",
-    label: "Builder",
-    description: "Site projects, budgets, vendors, and partner accounting",
-    workItemPlural: "Sites",
-    workItemSingular: "Site",
-    workItemSingularLower: "site",
-    newWorkItemLabel: "New Site",
-    uploadWorkItemLabel: "Upload Site Order",
-    manualCreateLabel: "Manual Site",
-    contractTotalLabel: "Total Contract",
-    activeCountLabel: "Active Sites",
-    recentListLabel: "Recent Sites",
-    emptyActiveMessage: "No active sites.",
-    emptyCompletedMessage: "No completed sites yet.",
-    partnerLabel: "Partner",
-    partnerPluralLabel: "Partners",
-    teamHint:
-      "Org-level access. To add partners to a specific site, use the Partners button on that project.",
-    onboardingBlurb: "Manage sites, budgets, vendors, and partner settlements",
-    showDocumentUpload: true,
-    showManualCreate: true,
-    showPartners: true,
-    expenseCategories: CONSTRUCTION_CATEGORIES,
-  },
   SHOPKEEPER: {
     id: "SHOPKEEPER",
     label: "Retail Store Management",
@@ -175,6 +167,31 @@ export const BUSINESS_TYPE_CONFIG: Record<BusinessType, BusinessTypeConfig> = {
     showManualCreate: true,
     showPartners: true,
     expenseCategories: SHOP_CATEGORIES,
+  },
+  SERVICE: {
+    id: "SERVICE",
+    label: "Service Business",
+    description: "Salon, repairs, consulting — services, staff, and billing",
+    workItemPlural: "Bookings",
+    workItemSingular: "Booking",
+    workItemSingularLower: "booking",
+    newWorkItemLabel: "New Booking",
+    uploadWorkItemLabel: "Upload Invoice",
+    manualCreateLabel: "Manual Booking",
+    contractTotalLabel: "Total Service Value",
+    activeCountLabel: "Active Bookings",
+    recentListLabel: "Recent Bookings",
+    emptyActiveMessage: "No active bookings.",
+    emptyCompletedMessage: "No completed bookings yet.",
+    partnerLabel: "Co-owner",
+    partnerPluralLabel: "Co-owners",
+    teamHint:
+      "Org-level access. To add co-owners, use the Partners button on organization settings.",
+    onboardingBlurb: "Bill services, track staff, expenses, and customer credit",
+    showDocumentUpload: false,
+    showManualCreate: false,
+    showPartners: true,
+    expenseCategories: SERVICE_CATEGORIES,
   },
 };
 

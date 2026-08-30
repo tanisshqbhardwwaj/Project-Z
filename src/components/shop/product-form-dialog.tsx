@@ -7,6 +7,7 @@ import { queryKeys } from "@/lib/query/keys";
 import { Button } from "@/components/ui/button";
 import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +23,20 @@ import {
 import { formatINR } from "@/lib/finance/money";
 import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory";
 import { attributeLabel } from "@/lib/shop/variant-display";
+import {
+  addItemLabelForKind,
+  defaultItemKindForSectors,
+  hasMenuBilling,
+  hasRecipeConsumption,
+  hasServiceCatalog,
+  isNonStockItemKind,
+  type ShopItemKind,
+} from "@/lib/shop/sector-mode";
+import {
+  parseRecipeFromAttributes,
+  serializeRecipeToAttributes,
+  type RecipeIngredient,
+} from "@/lib/shop/recipe";
 import {
   defaultVariantAxisForSectors,
   sizePresetsForSectors,
@@ -133,9 +148,52 @@ export function ProductFormDialog({
   const [singleQuantity, setSingleQuantity] = useState("0");
   const [singleBarcode, setSingleBarcode] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
+  const [itemKind, setItemKind] = useState<ShopItemKind>(() =>
+    defaultItemKindForSectors(businessTypes)
+  );
+  const serviceMode = isNonStockItemKind(itemKind);
+  const showItemKindPicker =
+    hasServiceCatalog(businessTypes) || hasMenuBilling(businessTypes);
+  const itemKindOptions = useMemo(() => {
+    const opts: ShopItemKind[] = ["PRODUCT"];
+    if (hasServiceCatalog(businessTypes)) opts.push("SERVICE");
+    if (hasMenuBilling(businessTypes)) opts.push("MENU_ITEM");
+    return opts;
+  }, [businessTypes]);
   const [duplicatePrompt, setDuplicatePrompt] = useState<SimilarProduct[] | null>(
     null
   );
+  const [recipeRows, setRecipeRows] = useState<
+    Array<{ rowId: string; inventoryItemId: string; qtyPerServe: string; name: string }>
+  >([]);
+
+  const showRecipeEditor =
+    itemKind === "MENU_ITEM" && hasRecipeConsumption(businessTypes);
+
+  const ingredientsQuery = useQuery({
+    queryKey:
+      orgId && showRecipeEditor
+        ? [...queryKeys.modules.shop.inventory(orgId), "recipe-ingredients"]
+        : ["disabled"],
+    queryFn: () =>
+      apiFetch<
+        Array<{
+          id: string;
+          name: string;
+          unit: string;
+          product?: { name: string; categoryKey?: string | null; itemKind?: string | null } | null;
+        }>
+      >("/api/v1/shop/inventory"),
+    enabled: open && !!orgId && showRecipeEditor,
+  });
+
+  const ingredientOptions = useMemo(() => {
+    return (ingredientsQuery.data ?? []).filter((row) => {
+      const kind = row.product?.itemKind;
+      const cat = row.product?.categoryKey;
+      return kind === "PRODUCT" || cat === "raw";
+    });
+  }, [ingredientsQuery.data]);
 
   const showExpiry = attributeFields.includes("expiryDate");
   const freeAttributes = attributeFields.filter(
@@ -169,6 +227,8 @@ export function ProductFormDialog({
     setSingleQuantity("0");
     setSingleBarcode("");
     setExpiryDate("");
+    setItemKind(defaultItemKindForSectors(businessTypes));
+    setRecipeRows([]);
     setDuplicatePrompt(null);
     clear();
   }
@@ -222,8 +282,10 @@ export function ProductFormDialog({
             color: row.color.trim() || null,
             barcode: row.barcode.trim() || null,
             sku: row.sku.trim() || null,
-            quantity: Number(row.quantity) || 0,
-            reorderLevel: Number(reorderLevel) || 0,
+            quantity: serviceMode
+              ? INFINITE_STOCK_QTY
+              : Number(row.quantity) || 0,
+            reorderLevel: serviceMode ? 0 : Number(reorderLevel) || 0,
             sellRupees: numberOrNull(row.sellRupees) ?? numberOrNull(defaultSell),
             costRupees: numberOrNull(row.costRupees) ?? numberOrNull(defaultCost),
             expiryDate: showExpiry && expiryDate ? expiryDate : null,
@@ -231,8 +293,8 @@ export function ProductFormDialog({
       : [
           {
             barcode: singleBarcode.trim() || null,
-            quantity: Number(singleQuantity) || 0,
-            reorderLevel: Number(reorderLevel) || 0,
+            quantity: serviceMode ? INFINITE_STOCK_QTY : Number(singleQuantity) || 0,
+            reorderLevel: serviceMode ? 0 : Number(reorderLevel) || 0,
             sellRupees: numberOrNull(defaultSell),
             costRupees: numberOrNull(defaultCost),
             expiryDate: showExpiry && expiryDate ? expiryDate : null,
@@ -241,6 +303,7 @@ export function ProductFormDialog({
 
     return {
       name: name.trim(),
+      itemKind,
       description: description.trim() || null,
       brand: brand.trim() || null,
       categoryKey: effectiveCategoryKey || null,
@@ -250,7 +313,18 @@ export function ProductFormDialog({
       variantAxis: hasVariants ? variantAxis : null,
       supplierName: supplierName.trim() || null,
       batchNo: batchNo.trim() || null,
-      attributes,
+      attributes: serializeRecipeToAttributes(
+        recipeRows
+          .filter((r) => r.inventoryItemId && Number(r.qtyPerServe) > 0)
+          .map(
+            (r): RecipeIngredient => ({
+              inventoryItemId: r.inventoryItemId,
+              qtyPerServe: Number(r.qtyPerServe),
+              name: r.name || undefined,
+            })
+          ),
+        attributes
+      ),
       notes: notes.trim() || null,
       defaultSellRupees: numberOrNull(defaultSell),
       defaultCostRupees: numberOrNull(defaultCost),
@@ -314,10 +388,11 @@ export function ProductFormDialog({
     >
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Add product</DialogTitle>
+          <DialogTitle>{addItemLabelForKind(itemKind)}</DialogTitle>
           <DialogDescription>
-            One product, one row in your stock list. If it comes in several sizes,
-            each size gets its own barcode and stock count.
+            {serviceMode
+              ? "Bill by service or menu item — stock tracking is optional and unlimited by default."
+              : "One product, one row in your stock list. If it comes in several sizes, each size gets its own barcode and stock count."}
           </DialogDescription>
         </DialogHeader>
 
@@ -345,6 +420,33 @@ export function ProductFormDialog({
                 />
               </div>
             </div>
+
+            {showItemKindPicker && itemKindOptions.length > 1 ? (
+              <div className="space-y-1.5">
+                <Label>Item type</Label>
+                <div className="flex flex-wrap gap-2">
+                  {itemKindOptions.map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => setItemKind(kind)}
+                      className={cn(
+                        "rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+                        itemKind === kind
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border hover:bg-muted"
+                      )}
+                    >
+                      {kind === "MENU_ITEM"
+                        ? "Menu item"
+                        : kind === "SERVICE"
+                          ? "Service"
+                          : "Product"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {(similarQuery.data ?? []).length > 0 ? (
               <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900 dark:bg-amber-950/30">
@@ -491,7 +593,9 @@ export function ProductFormDialog({
                         {showColorColumn ? (
                           <th className="pb-2 pr-2 font-medium">Colour</th>
                         ) : null}
-                        <th className="pb-2 pr-2 font-medium">Stock</th>
+                        {!serviceMode ? (
+                          <th className="pb-2 pr-2 font-medium">Stock</th>
+                        ) : null}
                         <th className="pb-2 pr-2 font-medium">Sell ₹</th>
                         <th className="pb-2 pr-2 font-medium">Barcode</th>
                         <th className="w-8" />
@@ -534,6 +638,7 @@ export function ProductFormDialog({
                             />
                           </td>
                           ) : null}
+                          {!serviceMode ? (
                           <td className="py-1.5 pr-2">
                             <Input
                               type="number"
@@ -551,6 +656,7 @@ export function ProductFormDialog({
                               className="h-9 w-20 rounded-lg"
                             />
                           </td>
+                          ) : null}
                           <td className="py-1.5 pr-2">
                             <Input
                               type="number"
@@ -617,13 +723,15 @@ export function ProductFormDialog({
                     Add {axisColumnLabel.toLowerCase()}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    {filledRowCount} variant{filledRowCount === 1 ? "" : "s"} ·{" "}
-                    {totalUnits} units · barcodes auto-generated where blank
+                    {filledRowCount} variant{filledRowCount === 1 ? "" : "s"}
+                    {!serviceMode ? ` · ${totalUnits} units` : ""} · barcodes
+                    auto-generated where blank
                   </p>
                 </div>
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
+                {!serviceMode ? (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Stock quantity</Label>
                   <Input
@@ -637,6 +745,7 @@ export function ProductFormDialog({
                     Use {INFINITE_STOCK_QTY} for unlimited
                   </p>
                 </div>
+                ) : null}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Barcode</Label>
                   <Input
@@ -651,7 +760,7 @@ export function ProductFormDialog({
           </section>
 
           {/* Pricing and stock defaults */}
-          <section className="grid gap-3 sm:grid-cols-4">
+          <section className={cn("grid gap-3", serviceMode ? "sm:grid-cols-3" : "sm:grid-cols-4")}>
             <div className="space-y-1.5">
               <Label className="text-xs">Sell price ₹</Label>
               <Input
@@ -674,6 +783,7 @@ export function ProductFormDialog({
                 className="h-10 rounded-xl"
               />
             </div>
+            {!serviceMode ? (
             <div className="space-y-1.5">
               <Label className="text-xs">Reorder at</Label>
               <Input
@@ -684,6 +794,7 @@ export function ProductFormDialog({
                 className="h-10 rounded-xl"
               />
             </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label className="text-xs">Unit</Label>
               <Input
@@ -694,6 +805,103 @@ export function ProductFormDialog({
               />
             </div>
           </section>
+
+          {showRecipeEditor ? (
+            <section className="space-y-3 rounded-2xl border p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">Recipe (per serve)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Raw ingredients deducted from stock when this menu item is sold.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl"
+                  onClick={() =>
+                    setRecipeRows((prev) => [
+                      ...prev,
+                      {
+                        rowId: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                        inventoryItemId: "",
+                        qtyPerServe: "1",
+                        name: "",
+                      },
+                    ])
+                  }
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  Add ingredient
+                </Button>
+              </div>
+              {recipeRows.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Optional — link raw stock items consumed per plate.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {recipeRows.map((row) => (
+                    <div key={row.rowId} className="grid gap-2 sm:grid-cols-[1fr_120px_auto]">
+                      <select
+                        value={row.inventoryItemId}
+                        onChange={(e) => {
+                          const picked = ingredientOptions.find((i) => i.id === e.target.value);
+                          setRecipeRows((prev) =>
+                            prev.map((r) =>
+                              r.rowId === row.rowId
+                                ? {
+                                    ...r,
+                                    inventoryItemId: e.target.value,
+                                    name:
+                                      picked?.product?.name ??
+                                      picked?.name ??
+                                      "",
+                                  }
+                                : r
+                            )
+                          );
+                        }}
+                        className="h-10 rounded-xl border bg-background px-2 text-sm"
+                      >
+                        <option value="">Pick ingredient…</option>
+                        {ingredientOptions.map((opt) => (
+                          <option key={opt.id} value={opt.id}>
+                            {opt.product?.name ?? opt.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={row.qtyPerServe}
+                        onChange={(e) =>
+                          setRecipeRows((prev) =>
+                            prev.map((r) =>
+                              r.rowId === row.rowId
+                                ? { ...r, qtyPerServe: e.target.value }
+                                : r
+                            )
+                          )
+                        }
+                        className="h-10 rounded-xl"
+                        placeholder="Qty / serve"
+                      />
+                      <DeleteIconButton
+                        variant="ghost"
+                        onClick={() =>
+                          setRecipeRows((prev) => prev.filter((r) => r.rowId !== row.rowId))
+                        }
+                        aria-label="Remove ingredient"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : null}
 
           {/* Business-type specific attributes */}
           {freeAttributes.length > 0 || showExpiry ? (
@@ -718,10 +926,9 @@ export function ProductFormDialog({
                 {showExpiry ? (
                   <div className="space-y-1.5">
                     <Label className="text-xs">Expiry date</Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={expiryDate}
-                      onChange={(e) => setExpiryDate(e.target.value)}
+                      onChange={setExpiryDate}
                       className="h-10 rounded-xl"
                     />
                   </div>

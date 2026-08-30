@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { formatINR } from "@/lib/finance/money";
@@ -161,6 +161,8 @@ export function VariantSearchPicker({
   maxResults = 40,
   autoFocus,
   className,
+  searchMode = false,
+  onServerSearch,
 }: {
   options: VariantOption[];
   onSelect: (option: VariantOption) => void;
@@ -169,9 +171,38 @@ export function VariantSearchPicker({
   maxResults?: number;
   autoFocus?: boolean;
   className?: string;
+  /** When true, queries are sent to the server instead of filtering the local list. */
+  searchMode?: boolean;
+  onServerSearch?: (query: string) => Promise<VariantOption[]>;
 }) {
   const [query, setQuery] = useState("");
+  const [serverResults, setServerResults] = useState<VariantOption[]>([]);
+  const [serverLoading, setServerLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!searchMode || !onServerSearch) return;
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setServerResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setServerLoading(true);
+      void onServerSearch(trimmed)
+        .then((rows) => {
+          if (!cancelled) setServerResults(rows.slice(0, maxResults));
+        })
+        .finally(() => {
+          if (!cancelled) setServerLoading(false);
+        });
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query, searchMode, onServerSearch, maxResults]);
 
   const indexed = useMemo(
     () =>
@@ -183,12 +214,15 @@ export function VariantSearchPicker({
   );
 
   const results = useMemo(() => {
+    if (searchMode && onServerSearch) {
+      return query.trim() ? serverResults : [];
+    }
     const trimmed = query.trim();
     const filtered = trimmed
       ? indexed.filter((entry) => matchesVariantSearch(entry.haystack, trimmed))
       : indexed;
     return filtered.slice(0, maxResults).map((entry) => entry.option);
-  }, [indexed, query, maxResults]);
+  }, [indexed, query, maxResults, searchMode, onServerSearch, serverResults]);
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -211,7 +245,9 @@ export function VariantSearchPicker({
         />
       </div>
 
-      {results.length === 0 ? (
+      {serverLoading ? (
+        <p className="text-center text-xs text-muted-foreground py-4">Searching…</p>
+      ) : results.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-8 text-center">
           <Package className="h-7 w-7 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground">{emptyLabel}</p>

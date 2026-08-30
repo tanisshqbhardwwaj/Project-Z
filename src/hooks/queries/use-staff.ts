@@ -51,6 +51,9 @@ export type AttendanceRow = {
     status: AttendanceStatus;
     overtimeHours: number;
     notes: string | null;
+    checkInAt?: string | null;
+    checkOutAt?: string | null;
+    geoVerified?: boolean | null;
   } | null;
 };
 
@@ -382,6 +385,126 @@ export function useCreateStaffAdvance() {
         qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
         qc.invalidateQueries({ queryKey: queryKeys.modules.shop.expenses(orgId) });
       }
+    },
+  });
+}
+
+export type AttendanceCheckInRow = {
+  id: string;
+  status: AttendanceStatus;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  geoVerified: boolean | null;
+};
+
+async function attendanceGeoPayload() {
+  const { readClientGeo } = await import("@/lib/staff/attendance-geo-client");
+  const geo = await readClientGeo();
+  return {
+    latitude: geo.latitude,
+    longitude: geo.longitude,
+  };
+}
+
+export function useSelfAttendanceCheckIn() {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (action: "check_in" | "check_out") => {
+      const geo = action === "check_in" ? await attendanceGeoPayload() : {};
+      return apiFetch<AttendanceCheckInRow>("/api/v1/staff/me/attendance", {
+        method: "POST",
+        body: JSON.stringify({ action, ...geo }),
+      });
+    },
+    onSuccess: () => {
+      if (orgId) {
+        qc.invalidateQueries({ queryKey: [...queryKeys.org(orgId), "staff", "me", "attendance"] });
+        qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+      }
+    },
+  });
+}
+
+export function useStaffCheckIn(date: string) {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  const attendanceKey = orgId ? queryKeys.staff.attendance(orgId, date) : null;
+  return useMutation({
+    mutationFn: async (staffId: string) => {
+      const geo = await attendanceGeoPayload();
+      return apiFetch<AttendanceCheckInRow>("/api/v1/staff/attendance", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "check_in",
+          staffId,
+          method: "GEO",
+          ...geo,
+        }),
+      });
+    },
+    onSuccess: () => {
+      if (attendanceKey) qc.invalidateQueries({ queryKey: attendanceKey });
+      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+    },
+  });
+}
+
+export function useStaffCheckOut(date: string) {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  const attendanceKey = orgId ? queryKeys.staff.attendance(orgId, date) : null;
+  return useMutation({
+    mutationFn: (staffId: string) =>
+      apiFetch<AttendanceCheckInRow>("/api/v1/staff/attendance", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "check_out",
+          staffId,
+          method: "GEO",
+        }),
+      }),
+    onSuccess: () => {
+      if (attendanceKey) qc.invalidateQueries({ queryKey: attendanceKey });
+      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+    },
+  });
+}
+
+export function usePinCheckIn(date: string) {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  const attendanceKey = orgId ? queryKeys.staff.attendance(orgId, date) : null;
+  return useMutation({
+    mutationFn: async (pin: string) => {
+      const geo = await attendanceGeoPayload();
+      return apiFetch<AttendanceCheckInRow>("/api/v1/staff/attendance", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "pin_check_in",
+          pin,
+          ...geo,
+        }),
+      });
+    },
+    onSuccess: () => {
+      if (attendanceKey) qc.invalidateQueries({ queryKey: attendanceKey });
+      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+    },
+  });
+}
+
+export function useSetAttendancePin() {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ staffId, pin }: { staffId: string; pin: string }) =>
+      apiFetch(`/api/v1/staff/${staffId}/attendance-pin`, {
+        method: "POST",
+        body: JSON.stringify({ pin }),
+      }),
+    onSuccess: () => {
+      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
     },
   });
 }

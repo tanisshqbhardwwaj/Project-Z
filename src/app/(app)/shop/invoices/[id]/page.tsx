@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -52,10 +52,21 @@ export default function ShopInvoicePage() {
   const userName = useAuthStore((s) => s.user?.name);
   const template = useShopInvoiceTemplate();
   const layout = resolvePaperLayout(template.paperSize, template.printMarginMm);
-  const { printInvoice, PrintLayer } = useShopInvoicePrint();
+  const [duplicateCopy, setDuplicateCopy] = useState(false);
+  const { printInvoice, printing, PrintLayer } = useShopInvoicePrint({
+    onComplete: () => setDuplicateCopy(false),
+  });
   const { toast } = useToast();
   const [returnOpen, setReturnOpen] = useState(false);
   const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
+
+  const printDuplicateCopy = useCallback(async () => {
+    setDuplicateCopy(true);
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    await printInvoice();
+  }, [printInvoice]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: orgId ? [...queryKeys.modules.shop.invoices(orgId), "detail", id] : ["disabled"],
@@ -215,16 +226,16 @@ export default function ShopInvoicePage() {
             <MessageCircle className="mr-1 h-3.5 w-3.5 shrink-0" />
             {sharingWhatsApp ? "…" : "WhatsApp"}
           </Button>
-          <Link href={`/shop/invoices/new?duplicate=${sale.id}`} className="min-w-0">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
-            >
-              <Copy className="mr-1 h-3.5 w-3.5 shrink-0" />
-              Duplicate
-            </Button>
-          </Link>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
+            disabled={printing}
+            onClick={() => void printDuplicateCopy()}
+          >
+            <Copy className="mr-1 h-3.5 w-3.5 shrink-0" />
+            {printing && duplicateCopy ? "…" : "Duplicate"}
+          </Button>
           <Button
             size="sm"
             className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
@@ -273,6 +284,7 @@ export default function ShopInvoicePage() {
               template={template}
               compact={layout.compact}
               barcodeHeight={layout.barcodeHeight}
+              duplicateCopy={duplicateCopy}
             />
           </InvoicePreviewRoot>
         </div>

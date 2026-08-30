@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api/client";
 import { PageLoader } from "@/components/ui/page-loader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OpsPageHeader } from "@/components/ops/ops-page-header";
+import { OpsPlanPill, OpsStatusPill } from "@/components/ops/ops-status-pill";
 import { formatStorageBytes } from "@/lib/billing/plans";
 import { getShopSectorConfig } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import {
   UserCog,
   Wallet,
 } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 type RecentOrg = {
   id: string;
@@ -29,6 +31,16 @@ type RecentOrg = {
   plan: string;
   subscriptionStatus: string;
   createdAt: string;
+  owner: { name: string; email: string; phone: string | null } | null;
+};
+
+type ExpiringOrg = {
+  id: string;
+  name: string;
+  plan: string;
+  subscriptionStatus: string;
+  expiresAt: string;
+  expireReason: string;
   owner: { name: string; email: string; phone: string | null } | null;
 };
 
@@ -52,6 +64,7 @@ type Summary = {
   activeUsers30d: number;
   inactiveOrgs30d: number;
   recentOrganizations: RecentOrg[];
+  expiringSoon: ExpiringOrg[];
   platformFeed: Array<{
     id: string;
     type: string;
@@ -61,13 +74,7 @@ type Summary = {
   }>;
 };
 
-const STATUS_STYLES: Record<string, string> = {
-  ACTIVE: "bg-emerald-100 text-emerald-800",
-  TRIAL: "bg-sky-100 text-sky-800",
-  PENDING_PAYMENT: "bg-amber-100 text-amber-900",
-  PAST_DUE: "bg-amber-100 text-amber-900",
-  CANCELLED: "bg-muted text-muted-foreground",
-};
+const PLAN_COLORS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899"];
 
 export default function OpsOverviewPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -90,15 +97,24 @@ export default function OpsOverviewPage() {
     void load();
   }, [load]);
 
+  const planChartData = useMemo(() => {
+    if (!summary) return [];
+    return Object.entries(summary.byPlan).map(([name, value]) => ({ name, value }));
+  }, [summary]);
+
   if (!summary) {
     return loadError ? (
-      <p className="p-6 text-sm text-destructive">{loadError}</p>
+      <p className="text-sm text-destructive">{loadError}</p>
     ) : (
       <PageLoader label="Loading summary…" />
     );
   }
 
   const activity = summary.activity;
+  const expiringCount = summary.expiringSoon.filter(
+    (o) => new Date(o.expiresAt) >= new Date()
+  ).length;
+
   const attention: Array<{ label: string; href: string; count: number }> = [
     {
       label: "plan requests waiting",
@@ -106,9 +122,9 @@ export default function OpsOverviewPage() {
       count: summary.pendingRequests,
     },
     {
-      label: "trials ending within 7 days",
-      href: "/ops/customers",
-      count: activity.trialsExpiringSoon,
+      label: "orgs expiring within 7 days",
+      href: "/ops/expiring",
+      count: expiringCount,
     },
     {
       label: "setup fees unpaid",
@@ -118,33 +134,28 @@ export default function OpsOverviewPage() {
   ].filter((item) => item.count > 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-2xl font-semibold">Overview</h2>
-          <p className="text-sm text-muted-foreground">
-            Billing and adoption across the platform. Shop sales and stock stay
-            inside each organization.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          className="rounded-xl"
-          disabled={refreshing}
-          onClick={() => void load()}
-        >
-          <RefreshCw
-            className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")}
-          />
-          Refresh
-        </Button>
-      </div>
+    <div className="mx-auto max-w-7xl space-y-6">
+      <OpsPageHeader
+        title="Overview"
+        description="Billing and adoption across the platform. Shop sales and stock stay inside each organization."
+        actions={
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            disabled={refreshing}
+            onClick={() => void load()}
+          >
+            <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
+            Refresh
+          </Button>
+        }
+      />
 
       {attention.length > 0 ? (
-        <Card className="rounded-2xl border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
+        <Card className="rounded-2xl border-amber-300/60 bg-amber-500/5 dark:border-amber-900/60">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               Needs attention
             </CardTitle>
           </CardHeader>
@@ -153,7 +164,7 @@ export default function OpsOverviewPage() {
               <Link
                 key={item.label}
                 href={item.href}
-                className="rounded-full border border-amber-400/60 bg-background/70 px-3 py-1.5 text-xs font-medium hover:bg-background"
+                className="rounded-full border border-amber-400/40 bg-background/80 px-3 py-1.5 text-xs font-medium hover:bg-background"
               >
                 {item.count} {item.label}
               </Link>
@@ -225,6 +236,168 @@ export default function OpsOverviewPage() {
         </div>
       </section>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="rounded-2xl lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Newest organizations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summary.recentOrganizations.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No organizations yet.
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {summary.recentOrganizations.map((org) => (
+                  <li
+                    key={org.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <Link
+                        href={`/ops/customers/${org.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {org.name}
+                      </Link>
+                      <p className="text-xs text-muted-foreground">
+                        {org.owner?.name ?? "No owner"}
+                        {org.owner?.email ? ` · ${org.owner.email}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <OpsPlanPill plan={org.plan} />
+                      <OpsStatusPill status={org.subscriptionStatus} />
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(org.createdAt).toLocaleDateString("en-IN")}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Plans distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {planChartData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No plan data.</p>
+            ) : (
+              <>
+                <div className="h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={planChartData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={48}
+                        outerRadius={72}
+                        paddingAngle={2}
+                      >
+                        {planChartData.map((_, i) => (
+                          <Cell key={i} fill={PLAN_COLORS[i % PLAN_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value, name) => [
+                          String(value ?? 0),
+                          String(name ?? "").replace(/_/g, " "),
+                        ]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {planChartData.map((item, i) => (
+                    <li key={item.name} className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: PLAN_COLORS[i % PLAN_COLORS.length] }}
+                        />
+                        {item.name.replace(/_/g, " ")}
+                      </span>
+                      <span className="font-medium tabular-nums">{item.value}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">Expiring soon</CardTitle>
+            <Link href="/ops/expiring" className="text-xs text-primary hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {summary.expiringSoon.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No orgs expiring in the next 7 days.</p>
+            ) : (
+              <ul className="space-y-2">
+                {summary.expiringSoon.slice(0, 6).map((org) => {
+                  const expired = new Date(org.expiresAt) < new Date();
+                  return (
+                    <li
+                      key={org.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
+                    >
+                      <div>
+                        <Link
+                          href={`/ops/customers/${org.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {org.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {org.owner?.email ?? "No owner email"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <OpsStatusPill status={org.subscriptionStatus} />
+                        <span
+                          className={cn(
+                            "text-xs font-medium",
+                            expired ? "text-destructive" : "text-amber-600 dark:text-amber-400"
+                          )}
+                        >
+                          {expired ? "Expired" : "Expires"}{" "}
+                          {new Date(org.expiresAt).toLocaleDateString("en-IN")}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">By status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {Object.entries(summary.byStatus).map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between text-sm">
+                <OpsStatusPill status={k} />
+                <span className="font-medium tabular-nums">{v}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className="rounded-2xl">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Platform activity</CardTitle>
@@ -255,99 +428,6 @@ export default function OpsOverviewPage() {
           )}
         </CardContent>
       </Card>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="rounded-2xl lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Newest organizations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {summary.recentOrganizations.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No organizations yet.
-              </p>
-            ) : (
-              <ul className="divide-y">
-                {summary.recentOrganizations.map((org) => (
-                  <li
-                    key={org.id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2.5"
-                  >
-                    <div className="min-w-0">
-                      <Link
-                        href={`/ops/customers/${org.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {org.name}
-                      </Link>
-                      <p className="text-xs text-muted-foreground">
-                        {org.owner?.name ?? "No owner"}
-                        {org.owner?.email ? ` · ${org.owner.email}` : ""}
-                        {org.owner?.phone ? ` · ${org.owner.phone}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {org.shopSector ? (
-                        <Badge variant="outline" className="rounded-full text-[10px]">
-                          {getShopSectorConfig(org.shopSector).label}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="rounded-full text-[10px]">
-                          {org.businessType}
-                        </Badge>
-                      )}
-                      <Badge variant="secondary" className="rounded-full text-[10px]">
-                        {org.plan}
-                      </Badge>
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                          STATUS_STYLES[org.subscriptionStatus] ??
-                            "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {org.subscriptionStatus.replace("_", " ")}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {new Date(org.createdAt).toLocaleDateString("en-IN")}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          <Card className="rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">By plan</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              {Object.entries(summary.byPlan).map(([k, v]) => (
-                <div key={k} className="flex justify-between">
-                  <span>{k}</span>
-                  <span className="font-medium tabular-nums">{v}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-          <Card className="rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">By status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              {Object.entries(summary.byStatus).map(([k, v]) => (
-                <div key={k} className="flex justify-between">
-                  <span>{k.replace("_", " ")}</span>
-                  <span className="font-medium tabular-nums">{v}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
     </div>
   );
 }
@@ -375,9 +455,7 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <p className="text-2xl font-bold tabular-nums">{value}</p>
-        {hint ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
-        ) : null}
+        {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
       </CardContent>
     </Card>
   );

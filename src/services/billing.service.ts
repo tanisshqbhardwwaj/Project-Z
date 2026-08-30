@@ -17,6 +17,7 @@ import {
 import { effectiveModulesForPlan } from "@/lib/billing/entitlements";
 import { resolveEnabledModules } from "@/lib/org/modules";
 import type { OrgSettingsJson } from "@/lib/org/modules";
+import { isShopVertical } from "@/lib/org/business-type";
 
 export type PaymentActivationInput = {
   provider: "manual" | "razorpay" | string;
@@ -310,6 +311,12 @@ export async function markSetupFeePaid(input: {
   return updated;
 }
 
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
 export async function updateOrgBillingFromOps(input: {
   organizationId: string;
   actorUserId: string;
@@ -318,13 +325,48 @@ export async function updateOrgBillingFromOps(input: {
   storageQuotaBytes?: bigint;
   setupFeeStatus?: SetupFeeStatus;
   onboardingComplete?: boolean;
+  accessExpiresAt?: Date | null;
+  extendPeriodDays?: number;
+  suspend?: boolean;
 }) {
-  const data: Record<string, unknown> = {};
+  const existing = await prisma.organization.findUnique({
+    where: { id: input.organizationId },
+    select: { currentPeriodEnd: true, subscriptionStatus: true },
+  });
+  if (!existing) throw new Error("Organization not found");
+
+  const data: Prisma.OrganizationUpdateInput = {};
   if (input.plan) data.plan = input.plan;
   if (input.subscriptionStatus) data.subscriptionStatus = input.subscriptionStatus;
   if (input.storageQuotaBytes !== undefined) data.storageQuotaBytes = input.storageQuotaBytes;
   if (input.setupFeeStatus) data.setupFeeStatus = input.setupFeeStatus;
-  if (input.onboardingComplete) data.onboardingCompleteAt = new Date();
+  if (input.onboardingComplete !== undefined) {
+    data.onboardingCompleteAt = input.onboardingComplete ? new Date() : null;
+  }
+  if (input.accessExpiresAt !== undefined) data.accessExpiresAt = input.accessExpiresAt;
+
+  if (input.extendPeriodDays !== undefined && input.extendPeriodDays > 0) {
+    const base =
+      existing.currentPeriodEnd && existing.currentPeriodEnd > new Date()
+        ? existing.currentPeriodEnd
+        : new Date();
+    data.currentPeriodEnd = addDays(base, input.extendPeriodDays);
+  }
+
+  if (input.suspend) {
+    const now = new Date();
+    data.subscriptionStatus = "CANCELLED";
+    data.cancelledAt = now;
+    data.cancelReason = "Suspended by platform ops";
+  }
+
+  if (Object.keys(data).length === 0) {
+    const unchanged = await prisma.organization.findUnique({
+      where: { id: input.organizationId },
+    });
+    if (!unchanged) throw new Error("Organization not found");
+    return unchanged;
+  }
 
   const updated = await prisma.organization.update({
     where: { id: input.organizationId },
@@ -340,6 +382,38 @@ export async function updateOrgBillingFromOps(input: {
     });
   }
 
+  if (input.suspend) {
+    await logBillingEvent({
+      organizationId: input.organizationId,
+      type: "CANCELLED",
+      actorUserId: input.actorUserId,
+      metadata: { reason: "Suspended by platform ops" },
+    });
+  }
+
+  if (input.extendPeriodDays !== undefined && input.extendPeriodDays > 0) {
+    await logBillingEvent({
+      organizationId: input.organizationId,
+      type: "PLAN_ACTIVATED",
+      actorUserId: input.actorUserId,
+      metadata: {
+        extendPeriodDays: input.extendPeriodDays,
+        currentPeriodEnd: updated.currentPeriodEnd?.toISOString() ?? null,
+      },
+    });
+  }
+
+  if (input.accessExpiresAt !== undefined) {
+    await logBillingEvent({
+      organizationId: input.organizationId,
+      type: "PLAN_CHANGED",
+      actorUserId: input.actorUserId,
+      metadata: {
+        accessExpiresAt: input.accessExpiresAt?.toISOString() ?? null,
+      },
+    });
+  }
+
   return updated;
 }
 
@@ -352,12 +426,12 @@ export function billingModulesForOrg(org: {
 }) {
   const settings = (org.settings ?? {}) as OrgSettingsJson;
   const enabled = resolveEnabledModules({
-    businessType: org.businessType as "SHOPKEEPER" | "CONTRACTOR" | "ARCHITECT" | "BUILDER",
+    businessType: org.businessType as import("@prisma/client").BusinessType,
     shopSector: org.shopSector as import("@prisma/client").ShopSector | null,
     settings,
     enableStaffLegacy: org.enableStaff,
   });
-  if (org.businessType !== "SHOPKEEPER") return enabled;
+  if (!isShopVertical(org.businessType)) return enabled;
   return effectiveModulesForPlan(org.plan, enabled);
 }
 
@@ -390,12 +464,13 @@ export async function getOpsSummary() {
   }
 
   const setupOutstanding = await prisma.organization.count({
-    where: { setupFeeStatus: "UNPAID", businessType: "SHOPKEEPER" },
+    where: { setupFeeStatus: "UNPAID", businessType: { in: ["SHOPKEEPER", "SERVICE"] } },
   });
 
   const ops = await getOpsActivitySignals();
   const recentOrganizations = await listRecentOpsOrganizations(8);
   const platformFeed = await listOpsPlatformFeed(12);
+  const expiringSoon = await listExpiringSoonOrgs(20);
 
   const [totalUsers, totalStaff, activeUsers30d, inactiveOrgs30d] = await Promise.all([
     prisma.organizationMember
@@ -441,8 +516,83 @@ export async function getOpsSummary() {
     inactiveOrgs30d,
     recentOrganizations,
     platformFeed,
+    expiringSoon,
     ...ops,
   };
+}
+
+export type ExpiringOrgRow = {
+  id: string;
+  name: string;
+  plan: BillingPlan;
+  subscriptionStatus: SubscriptionStatus;
+  currentPeriodEnd: string | null;
+  accessExpiresAt: string | null;
+  expiresAt: string;
+  expireReason: "trial" | "access" | "both";
+  owner: { name: string; email: string; phone: string | null } | null;
+};
+
+/** Organizations with currentPeriodEnd or accessExpiresAt within 7 days (or already past). */
+export async function listExpiringSoonOrgs(take = 50): Promise<ExpiringOrgRow[]> {
+  const now = new Date();
+  const in7Days = new Date(now.getTime() + 7 * 86_400_000);
+
+  const orgs = await prisma.organization.findMany({
+    where: {
+      OR: [
+        { currentPeriodEnd: { lte: in7Days } },
+        { accessExpiresAt: { lte: in7Days } },
+      ],
+    },
+    orderBy: [{ accessExpiresAt: "asc" }, { currentPeriodEnd: "asc" }],
+    take,
+    select: {
+      id: true,
+      name: true,
+      plan: true,
+      subscriptionStatus: true,
+      currentPeriodEnd: true,
+      accessExpiresAt: true,
+      members: {
+        where: { role: "OWNER", status: "ACTIVE" },
+        take: 1,
+        select: { user: { select: { name: true, email: true, phone: true } } },
+      },
+    },
+  });
+
+  const rows: ExpiringOrgRow[] = [];
+  for (const org of orgs) {
+    const periodEnd = org.currentPeriodEnd;
+    const accessEnd = org.accessExpiresAt;
+    const candidates: Date[] = [];
+    if (periodEnd) candidates.push(periodEnd);
+    if (accessEnd) candidates.push(accessEnd);
+    if (candidates.length === 0) continue;
+
+    const earliest = candidates.reduce((a, b) => (a < b ? a : b));
+    const trialSoon = periodEnd && periodEnd <= in7Days;
+    const accessSoon = accessEnd && accessEnd <= in7Days;
+    const expireReason: ExpiringOrgRow["expireReason"] =
+      trialSoon && accessSoon ? "both" : accessSoon ? "access" : "trial";
+
+    rows.push({
+      id: org.id,
+      name: org.name,
+      plan: org.plan,
+      subscriptionStatus: org.subscriptionStatus,
+      currentPeriodEnd: periodEnd?.toISOString() ?? null,
+      accessExpiresAt: accessEnd?.toISOString() ?? null,
+      expiresAt: earliest.toISOString(),
+      expireReason,
+      owner: org.members[0]?.user ?? null,
+    });
+  }
+
+  return rows.sort(
+    (a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime()
+  );
 }
 
 function startOfDay(daysAgo = 0): Date {

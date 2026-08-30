@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ChevronRight,
   FileText,
+  BarChart3,
   Package,
   Plus,
   Receipt,
@@ -15,14 +16,17 @@ import {
   Users,
   Tag,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, getActiveBranchId, BRANCH_ALL } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  ReportDateRangeBar,
+  type ReportPeriodPreset,
+} from "@/components/shop/report-date-range";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { formatINR } from "@/lib/finance/money";
 import { formatCustomerLabel } from "@/lib/shop/customer";
@@ -83,24 +87,58 @@ export function ShopkeeperDashboard() {
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
   const inventoryEnabled = isModuleEnabled(enabledModules, "shop_inventory");
   const udhaarEnabled = isModuleEnabled(enabledModules, "shop_udhaar");
-  const [period, setPeriod] = useState<DashboardPeriod>("today");
+  const [period, setPeriod] = useState<ReportPeriodPreset>("today");
   const [exactDate, setExactDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
   );
+  const [rangeFrom, setRangeFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [rangeTo, setRangeTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoicePayment, setInvoicePayment] = useState("all");
   const [invoiceSort, setInvoiceSort] = useState<InvoiceSort>("newest");
   const [staffPanelOpen, setStaffPanelOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
 
+  const activeBranchId = getActiveBranchId();
+
+  const { data: branchConfig } = useQuery({
+    queryKey: ["shop", "branches", orgId, "config"],
+    queryFn: () =>
+      apiFetch<{ branches: Array<{ id: string; name: string }> }>(
+        "/api/v1/shop/branches?config=1"
+      ),
+    enabled: !!orgId,
+  });
+
+  const branchScopeLabel =
+    activeBranchId === BRANCH_ALL
+      ? "All branches"
+      : (branchConfig?.branches.find((b) => b.id === activeBranchId)?.name ??
+        "Branch");
+
   const dashboardQueryKey =
     orgId && salesEnabled
-      ? [...queryKeys.modules.shop.dashboard(orgId), period, period === "date" ? exactDate : ""]
+      ? [
+          ...queryKeys.modules.shop.dashboard(orgId),
+          activeBranchId ?? "",
+          period,
+          period === "date" ? exactDate : "",
+          period === "range" ? `${rangeFrom}-${rangeTo}` : "",
+        ]
       : ["disabled"];
 
   const { data, isLoading, error } = useQuery({
     queryKey: dashboardQueryKey,
     queryFn: () => {
+      if (period === "range") {
+        return apiFetch<ShopDashboardData>(
+          `/api/v1/shop/dashboard?from=${rangeFrom}&to=${rangeTo}`
+        );
+      }
       const params = new URLSearchParams({ period });
       if (period === "date") params.set("date", exactDate);
       return apiFetch<ShopDashboardData>(`/api/v1/shop/dashboard?${params}`);
@@ -108,7 +146,11 @@ export function ShopkeeperDashboard() {
     enabled: !!orgId && salesEnabled,
   });
 
-  const periodLabel = resolveShopDashboardBounds(period, exactDate).label;
+  const periodLabel = resolveShopDashboardBounds(
+    period,
+    exactDate,
+    period === "range" ? { from: rangeFrom, to: rangeTo } : undefined
+  ).label;
 
   const paymentMethods = useMemo(
     () => Object.keys(data?.paymentSplit ?? {}).sort(),
@@ -153,36 +195,23 @@ export function ShopkeeperDashboard() {
           <h1 className="text-2xl font-bold sm:text-3xl">Shop dashboard</h1>
           <p className="text-sm text-muted-foreground">
             Sales, staff performance, and recent invoices
+            {activeBranchId ? (
+              <span className="text-foreground/70"> · {branchScopeLabel}</span>
+            ) : null}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-xl border p-1">
-              {(["today", "month", "date"] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPeriod(p)}
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                    period === p
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {p === "today" ? "Today" : p === "month" ? "This month" : "Date"}
-                </button>
-              ))}
-            </div>
-            {period === "date" ? (
-              <Input
-                type="date"
-                value={exactDate}
-                onChange={(e) => setExactDate(e.target.value)}
-                className="h-10 w-auto rounded-xl"
-              />
-            ) : null}
-          </div>
+          <ReportDateRangeBar
+            preset={period}
+            onPresetChange={setPeriod}
+            date={exactDate}
+            onDateChange={setExactDate}
+            from={rangeFrom}
+            to={rangeTo}
+            onFromChange={setRangeFrom}
+            onToChange={setRangeTo}
+            presets={["today", "week", "month", "date", "range"]}
+          />
           <Link href="/shop/invoices/new" className="w-full sm:w-auto">
             <Button size="lg" className="w-full rounded-xl sm:w-auto">
               <Plus className="mr-2 h-5 w-5" />
@@ -496,6 +525,8 @@ export function ShopkeeperDashboard() {
         open={staffPanelOpen}
         period={period}
         exactDate={exactDate}
+        rangeFrom={rangeFrom}
+        rangeTo={rangeTo}
         periodLabel={periodLabel}
         staffList={data.salesByStaff}
         paymentMethods={paymentMethods}
@@ -540,6 +571,12 @@ export function ShopkeeperDashboard() {
               </Button>
             </Link>
           ) : null}
+          <Link href="/shop/reports">
+            <Button variant="outline" className="h-14 w-full justify-start rounded-xl">
+              <BarChart3 className="mr-3 h-5 w-5" />
+              All reports
+            </Button>
+          </Link>
           <Link href="/shop/offers">
             <Button variant="outline" className="h-14 w-full justify-start rounded-xl">
               <Tag className="mr-3 h-5 w-5" />

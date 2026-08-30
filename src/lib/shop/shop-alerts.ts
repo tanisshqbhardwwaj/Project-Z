@@ -3,7 +3,9 @@ export const SHOP_ALERT = {
   EXPIRING: "shop.inventory.expiring",
   NO_BARCODE: "shop.inventory.no_barcode",
   RECURRING_EXPENSE_DUE: "shop.expense.recurring_due",
+  UDHAAR_PAYMENT_DUE: "shop.udhaar.payment_due",
 } as const;
 
 export const SHOP_INVENTORY_ALERT_HREF = "/shop/inventory";
 export const SHOP_RECURRING_EXPENSE_ALERT_HREF = "/shop/expenses?tab=add";
+export const SHOP_UDHAAR_REMINDER_HREF = "/shop/udhaar";

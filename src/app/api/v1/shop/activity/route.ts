@@ -4,6 +4,7 @@ import {
   requirePermission,
   apiSuccess,
 } from "@/lib/api/context";
+import { requireReportFeature } from "@/lib/billing/require-report-feature";
 import {
   ACTIVITY_MODULE_FILTERS,
   getShopActivityActors,
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     requirePermission(ctx, "shop.activity.view");
+    await requireReportFeature(ctx.organizationId, "activity-trail");
     const { searchParams } = new URL(request.url);
 
     if (searchParams.get("actors") === "1") {

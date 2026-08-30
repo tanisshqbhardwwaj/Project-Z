@@ -7,15 +7,27 @@ import {
   Package,
   HardHat,
   Ruler,
-  Building2,
   Palette,
   Truck,
   Wallet,
   ClipboardList,
+  CalendarDays,
+  FileText,
+  Gift,
+  Percent,
+  UtensilsCrossed,
+  ChefHat,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions/rbac";
 import { hasPermission } from "@/lib/permissions/rbac";
+import { catalogLabelForSectors } from "@/lib/shop/sector-mode";
+import {
+  isServiceModuleKey,
+  isServiceVerticalEnabled,
+  stripDisabledServiceModules,
+} from "@/lib/org/service-vertical";
 
 export type ModuleKey =
   | "staff"
@@ -25,10 +37,16 @@ export type ModuleKey =
   | "shop_purchases"
   | "shop_expenses"
   | "shop_activity"
+  | "service_appointments"
+  | "service_packages"
+  | "service_contracts"
+  | "service_commissions"
+  | "deliveries"
+  | "restaurant_tables"
+  | "restaurant_kitchen"
   | "contractor_boq"
   | "contractor_material"
-  | "architect_stages"
-  | "builder_units";
+  | "architect_stages";
 
 export type ModuleDefinition = {
   key: ModuleKey;
@@ -36,6 +54,8 @@ export type ModuleDefinition = {
   description: string;
   icon: LucideIcon;
   route: string;
+  /** Override route for specific business types */
+  routeByBusinessType?: Partial<Record<BusinessType, string>>;
   availableFor: BusinessType[];
   /** Default on when org is created with this business type */
   defaultOn: Partial<Record<BusinessType, boolean>>;
@@ -48,113 +68,221 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     key: "staff",
     label: {
       SHOPKEEPER: "Staff",
+      SERVICE: "Staff",
       CONTRACTOR: "Labour",
-      BUILDER: "Labour",
       ARCHITECT: "Staff",
     },
     description: "People, daily attendance, and monthly payroll",
     icon: UsersRound,
     route: "/staff",
-    availableFor: ["SHOPKEEPER", "CONTRACTOR", "BUILDER", "ARCHITECT"],
-    defaultOn: { SHOPKEEPER: false },
+    availableFor: ["SHOPKEEPER", "SERVICE", "CONTRACTOR", "ARCHITECT"],
+    defaultOn: { SHOPKEEPER: false, SERVICE: false },
     requiredPermission: "staff.view",
   },
   {
     key: "shop_sales",
     label: {
       SHOPKEEPER: "Invoices",
+      SERVICE: "Invoices",
       CONTRACTOR: "Counter Sales",
-      BUILDER: "Counter Sales",
       ARCHITECT: "Counter Sales",
     },
     description: "Recent invoices and shop billing",
     icon: ShoppingCart,
     route: "/shop/invoices",
-    availableFor: ["SHOPKEEPER"],
-    defaultOn: { SHOPKEEPER: true },
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: true, SERVICE: true },
     requiredPermission: "shop.sales",
   },
   {
     key: "shop_inventory",
     label: {
       SHOPKEEPER: "Inventory",
+      SERVICE: "Services",
       CONTRACTOR: "Inventory",
-      BUILDER: "Inventory",
       ARCHITECT: "Inventory",
     },
     description: "Stock levels and low-stock alerts",
     icon: Package,
     route: "/shop/inventory",
-    availableFor: ["SHOPKEEPER"],
-    defaultOn: { SHOPKEEPER: true },
+    routeByBusinessType: { SERVICE: "/service/catalog" },
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: true, SERVICE: true },
     requiredPermission: "shop.inventory.manage",
   },
   {
     key: "shop_udhaar",
     label: {
       SHOPKEEPER: "Udhaar",
+      SERVICE: "Udhaar",
       CONTRACTOR: "Udhaar",
-      BUILDER: "Udhaar",
       ARCHITECT: "Udhaar",
     },
     description: "Customer credit ledger (udhaar)",
     icon: UsersRound,
     route: "/shop/udhaar",
-    availableFor: ["SHOPKEEPER"],
-    defaultOn: { SHOPKEEPER: false },
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: false, SERVICE: false },
     requiredPermission: "financial.view",
   },
   {
     key: "shop_purchases",
     label: {
       SHOPKEEPER: "Purchases",
+      SERVICE: "Purchases",
       CONTRACTOR: "Purchases",
-      BUILDER: "Purchases",
       ARCHITECT: "Purchases",
     },
     description: "Stock purchase entry and supplier bills",
     icon: Truck,
     route: "/shop/purchases",
-    availableFor: ["SHOPKEEPER"],
-    defaultOn: { SHOPKEEPER: true },
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: true, SERVICE: true },
     requiredPermission: "shop.purchase.view",
   },
   {
     key: "shop_expenses",
     label: {
       SHOPKEEPER: "Expenses",
+      SERVICE: "Expenses",
       CONTRACTOR: "Expenses",
-      BUILDER: "Expenses",
       ARCHITECT: "Expenses",
     },
     description: "Daily and monthly store expenses",
     icon: Wallet,
     route: "/shop/expenses",
-    availableFor: ["SHOPKEEPER"],
-    defaultOn: { SHOPKEEPER: true },
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: true, SERVICE: true },
     requiredPermission: "shop.expense.view",
   },
   {
     key: "shop_activity",
     label: {
       SHOPKEEPER: "Activity Trail",
+      SERVICE: "Activity Trail",
       CONTRACTOR: "Activity Trail",
-      BUILDER: "Activity Trail",
       ARCHITECT: "Activity Trail",
     },
     description: "Owner audit trail of shop actions with filters",
     icon: ClipboardList,
     route: "/shop/activity",
-    availableFor: ["SHOPKEEPER"],
-    defaultOn: { SHOPKEEPER: true },
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: true, SERVICE: true },
     requiredPermission: "shop.activity.view",
+  },
+  {
+    key: "service_appointments",
+    label: {
+      SHOPKEEPER: "Appointments",
+      SERVICE: "Bookings",
+      CONTRACTOR: "Appointments",
+      ARCHITECT: "Appointments",
+    },
+    description: "Schedule and manage service appointments",
+    icon: CalendarDays,
+    route: "/service/appointments",
+    availableFor: ["SERVICE"],
+    defaultOn: { SERVICE: false },
+    requiredPermission: "service.appointments.manage",
+  },
+  {
+    key: "service_packages",
+    label: {
+      SHOPKEEPER: "Packages",
+      SERVICE: "Packages",
+      CONTRACTOR: "Packages",
+      ARCHITECT: "Packages",
+    },
+    description: "Service packages and memberships",
+    icon: Gift,
+    route: "/service/packages",
+    availableFor: ["SERVICE"],
+    defaultOn: { SERVICE: false },
+    requiredPermission: "service.packages.manage",
+  },
+  {
+    key: "service_contracts",
+    label: {
+      SHOPKEEPER: "AMC Contracts",
+      SERVICE: "AMC Contracts",
+      CONTRACTOR: "Contracts",
+      ARCHITECT: "Contracts",
+    },
+    description: "Annual maintenance and recurring service contracts",
+    icon: FileText,
+    route: "/service/contracts",
+    availableFor: ["SERVICE"],
+    defaultOn: { SERVICE: false },
+    requiredPermission: "service.contracts.manage",
+  },
+  {
+    key: "service_commissions",
+    label: {
+      SHOPKEEPER: "Commissions",
+      SERVICE: "Commissions",
+      CONTRACTOR: "Commissions",
+      ARCHITECT: "Commissions",
+    },
+    description: "Staff commission by service",
+    icon: Percent,
+    route: "/service/commissions",
+    availableFor: ["SERVICE"],
+    defaultOn: { SERVICE: false },
+    requiredPermission: "service.commission.view",
+  },
+  {
+    key: "deliveries",
+    label: {
+      SHOPKEEPER: "Deliveries",
+      SERVICE: "Deliveries",
+      CONTRACTOR: "Deliveries",
+      ARCHITECT: "Deliveries",
+    },
+    description: "Delivery assignment and tracking",
+    icon: MapPin,
+    route: "/deliveries",
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: false, SERVICE: false },
+    requiredPermission: "delivery.manage",
+  },
+  {
+    key: "restaurant_tables",
+    label: {
+      SHOPKEEPER: "Tables",
+      SERVICE: "Tables",
+      CONTRACTOR: "Tables",
+      ARCHITECT: "Tables",
+    },
+    description: "Restaurant table and floor management",
+    icon: UtensilsCrossed,
+    route: "/restaurant/tables",
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: false, SERVICE: false },
+    requiredPermission: "shop.sales",
+    sectorOnly: ["RESTAURANT"],
+  },
+  {
+    key: "restaurant_kitchen",
+    label: {
+      SHOPKEEPER: "Kitchen",
+      SERVICE: "Kitchen",
+      CONTRACTOR: "Kitchen",
+      ARCHITECT: "Kitchen",
+    },
+    description: "Kitchen display and KOT queue",
+    icon: ChefHat,
+    route: "/restaurant/kitchen",
+    availableFor: ["SHOPKEEPER", "SERVICE"],
+    defaultOn: { SHOPKEEPER: false, SERVICE: false },
+    requiredPermission: "shop.sales",
+    sectorOnly: ["RESTAURANT"],
   },
   {
     key: "contractor_boq",
     label: {
       SHOPKEEPER: "BOQ",
+      SERVICE: "BOQ",
       CONTRACTOR: "BOQ & Measurements",
-      BUILDER: "BOQ",
       ARCHITECT: "BOQ",
     },
     description: "Bill of quantities and measurement book",
@@ -168,23 +296,23 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     key: "contractor_material",
     label: {
       SHOPKEEPER: "Material",
+      SERVICE: "Material",
       CONTRACTOR: "Material Issue",
-      BUILDER: "Material",
       ARCHITECT: "Material",
     },
     description: "Material issue and consumption tracking",
     icon: HardHat,
     route: "/contractor/material",
-    availableFor: ["CONTRACTOR", "BUILDER"],
-    defaultOn: { CONTRACTOR: true, BUILDER: true },
+    availableFor: ["CONTRACTOR"],
+    defaultOn: { CONTRACTOR: true },
     requiredPermission: "expense.create",
   },
   {
     key: "architect_stages",
     label: {
       SHOPKEEPER: "Design Stages",
+      SERVICE: "Design Stages",
       CONTRACTOR: "Design Stages",
-      BUILDER: "Design Stages",
       ARCHITECT: "Design Stages",
     },
     description: "Design milestones and drawing revisions",
@@ -194,21 +322,6 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultOn: { ARCHITECT: true },
     requiredPermission: "project.view_all",
   },
-  {
-    key: "builder_units",
-    label: {
-      SHOPKEEPER: "Units",
-      CONTRACTOR: "Units",
-      BUILDER: "Units & Bookings",
-      ARCHITECT: "Units",
-    },
-    description: "Flat inventory, bookings, and collections",
-    icon: Building2,
-    route: "/builder/units",
-    availableFor: ["BUILDER"],
-    defaultOn: { BUILDER: true },
-    requiredPermission: "project.view_all",
-  },
 ];
 
 export type OrgSettingsJson = {
@@ -216,12 +329,34 @@ export type OrgSettingsJson = {
   weeklyOffDays?: number[];
   unmarkedDayPolicy?: "PRESENT" | "ABSENT" | "EXCLUDED";
   payrollRoundTo?: number;
+  /** Optional shop geofence for staff check-in (lat/lng + radius in meters). */
+  attendanceGeofence?: {
+    latitude: number;
+    longitude: number;
+    radiusMeters?: number;
+    required?: boolean;
+  };
   shop?: {
     brandName?: string;
     logoUrl?: string | null;
     invoice?: import("@/lib/org/shop-settings").ShopInvoiceSettings;
+    multiStore?: import("@/lib/shop/multi-store").MultiStoreSettings;
   };
 };
+
+export function moduleRoute(
+  def: ModuleDefinition,
+  businessType: BusinessType
+): string {
+  if (
+    def.key === "shop_inventory" &&
+    businessType === "SERVICE" &&
+    !isServiceVerticalEnabled()
+  ) {
+    return def.route;
+  }
+  return def.routeByBusinessType?.[businessType] ?? def.route;
+}
 
 export function getModuleDefinition(key: ModuleKey): ModuleDefinition | undefined {
   return MODULE_REGISTRY.find((m) => m.key === key);
@@ -233,6 +368,7 @@ export function modulesForBusinessType(
 ): ModuleDefinition[] {
   return MODULE_REGISTRY.filter((m) => {
     if (!m.availableFor.includes(businessType)) return false;
+    if (!isServiceVerticalEnabled() && isServiceModuleKey(m.key)) return false;
     if (m.sectorOnly && shopSector && !m.sectorOnly.includes(shopSector)) return false;
     return true;
   });
@@ -264,13 +400,17 @@ export function resolveEnabledModules(input: {
       merged[m.key] = false;
     }
   }
-  return merged;
+  return stripDisabledServiceModules(merged);
 }
 
 export function moduleLabel(
   key: ModuleKey,
-  businessType: BusinessType
+  businessType: BusinessType,
+  shopSectors?: readonly string[] | null
 ): string {
+  if (key === "shop_inventory" && shopSectors?.length) {
+    return catalogLabelForSectors(shopSectors);
+  }
   const def = getModuleDefinition(key);
   return def?.label[businessType] ?? key;
 }
