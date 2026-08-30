@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import type { PaymentMethod, Prisma } from "@prisma/client";
+import { Prisma, type PaymentMethod } from "@prisma/client";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { isInfiniteStock } from "@/lib/shop/inventory";
 import { sumActiveReservedQty, atomicDeductInventory } from "@/lib/inventory/stock-reservation";
@@ -10,6 +10,8 @@ import {
   normalizeBillScan,
 } from "@/lib/shop/bill-barcode";
 import { nextShopBillNumber } from "@/lib/shop/bill-number";
+import { ensureShopBranchSchema, backfillOrgBranchIds } from "@/lib/shop/ensure-shop-branch-schema";
+import { branchWhere, type BranchScope } from "@/lib/shop/branch-context";
 import {
   customerSearchWhere,
 } from "@/lib/shop/customer";
@@ -48,7 +50,21 @@ import {
   parseSaleItemsJson,
   type SaleLineInput,
 } from "@/lib/shop/inventory-analytics";
+import { getCachedOrganization } from "@/lib/db/request-cache";
 import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
+import {
+  applyAuthoritativePrices,
+  enrichItemsWithVariantRows,
+  computeCostFromInventoryMap,
+  loadSaleInventoryMap,
+} from "@/lib/shop/sale-inventory-context";
+import { resolveShopBusinessTypes } from "@/lib/org/shop-settings";
+import {
+  aggregateRecipeDeductions,
+  parseRecipeFromAttributes,
+} from "@/lib/shop/recipe";
+import { buildKotPayload } from "@/lib/shop/kot";
+import { hasKot, hasRecipeConsumption } from "@/lib/shop/sector-mode";
 import {
   hasVariantAttributes,
   variantDisplayName,
@@ -75,6 +91,9 @@ export type ShopSaleItem = {
   variantLabel?: string;
   unit?: string;
   costPaisePerUnit?: number;
+  staffId?: string;
+  staffName?: string;
+  itemKind?: import("@/lib/shop/sector-mode").ShopItemKind;
 };
 
 /**
@@ -102,6 +121,7 @@ async function enrichSaleItemsWithVariants(
       sku: true,
       barcode: true,
       unit: true,
+      product: { select: { itemKind: true } },
     },
   });
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -119,6 +139,7 @@ async function enrichSaleItemsWithVariants(
       sku: item.sku ?? row.sku ?? undefined,
       barcode: item.barcode ?? row.barcode ?? undefined,
       unit: item.unit ?? row.unit ?? undefined,
+      itemKind: item.itemKind ?? row.product?.itemKind ?? undefined,
     };
   });
 }
@@ -323,55 +344,53 @@ export async function resolveBarcodeScan(
 export async function getShopDashboard(
   organizationId: string,
   period: ShopDashboardPeriod = "today",
-  date?: string | null
+  date?: string | null,
+  range?: { from?: string | null; to?: string | null },
+  branchScope?: BranchScope
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopSaleSchema();
   await ensureShopExtendedSchema();
+  await ensureShopBranchSchema(organizationId);
+
+  const branchFilter = branchWhere(branchScope ?? "all");
 
   const { start: periodStart, end: periodEnd } = resolveShopDashboardBounds(
     period,
-    date
+    date,
+    range
   );
 
-  const org = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { settings: true },
-  });
+  const org = await getCachedOrganization(organizationId);
   const invoiceSettings = parseShopInvoiceSettings(org?.settings ?? {});
   const defaultStaffTarget =
     invoiceSettings.defaultStaffMonthlyTargetRupees ?? 0;
   const staffTargets = invoiceSettings.staffMonthlyTargets ?? {};
 
-  const [periodSales, recentInvoices, inventorySnapshot, profitToday, purchaseSummary, expenseSummary, outstandingCreditPaise, totalCustomers, totalStaff, heldBillsCount, activeOffersCount, recentReturnsCount, topCustomer] =
+  const [periodSalesRows, inventorySnapshot, profitToday, outstandingCreditPaise, totalCustomers, totalStaff, heldBillsCount, activeOffersCount, recentReturnsCount, topCustomer] =
     await Promise.all([
     prisma.shopSale.findMany({
       where: {
         organizationId,
+        ...branchFilter,
         createdAt: { gte: periodStart, lte: periodEnd },
       },
-      select: { totalPaise: true, totalCostPaise: true, paymentMethod: true, salesBoyName: true },
-    }),
-    prisma.shopSale.findMany({
-      where: {
-        organizationId,
-        createdAt: { gte: periodStart, lte: periodEnd },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
       select: {
         id: true,
+        totalPaise: true,
+        totalCostPaise: true,
+        paymentMethod: true,
+        salesBoyName: true,
         billNumber: true,
         customerName: true,
         customerPhone: true,
-        totalPaise: true,
-        paymentMethod: true,
         createdAt: true,
       },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.inventoryItem
       .findMany({
-        where: { organizationId },
+        where: { organizationId, ...branchFilter },
         select: {
           quantity: true,
           reorderLevel: true,
@@ -385,39 +404,29 @@ export async function getShopDashboard(
       try {
         const { getShopProfitAnalytics } = await import("./shop-profit.service");
         return getShopProfitAnalytics(
-          period === "date"
-            ? {
-                organizationId,
-                period: "custom",
-                from: periodStart,
-                to: periodEnd,
-              }
-            : {
-                organizationId,
-                period: period === "today" ? "today" : "month",
-              }
+          period === "today"
+            ? { organizationId, period: "today", branchScope }
+            : period === "month"
+              ? { organizationId, period: "month", branchScope }
+              : {
+                  organizationId,
+                  period: "custom",
+                  from: periodStart,
+                  to: periodEnd,
+                  branchScope,
+                }
         );
       } catch {
         return null;
       }
     })(),
-    getPurchaseSummary(organizationId, periodStart, periodEnd).catch(() => ({
-      purchaseCount: 0,
-      totalPaise: "0",
-    })),
-    getExpenseSummary(organizationId, periodStart, periodEnd).catch(() => ({
-      expenseCount: 0,
-      totalPaise: "0",
-      byCategory: [],
-      monthlyFixedPaise: "0",
-    })),
     getTotalOutstandingCredit(organizationId).catch(() => "0"),
     prisma.shopCustomer.count({ where: { organizationId } }).catch(() => 0),
     prisma.staffMember.count({ where: { organizationId, status: "ACTIVE" } }).catch(() => 0),
     (async () => {
       try {
         const { countActiveHeldBills } = await import("./shop-held-bill.service");
-        return countActiveHeldBills(organizationId);
+        return countActiveHeldBills(organizationId, branchScope);
       } catch {
         return 0;
       }
@@ -441,12 +450,34 @@ export async function getShopDashboard(
     (async () => {
       try {
         const { getTopCustomerSummary } = await import("./shop-customer-analytics.service");
-        return getTopCustomerSummary(organizationId);
+        return getTopCustomerSummary(organizationId, branchScope);
       } catch {
         return null;
       }
     })(),
   ]);
+
+  const periodSales = periodSalesRows;
+  const recentInvoices = periodSalesRows.slice(0, 100);
+  const purchaseSummary = profitToday
+    ? {
+        purchaseCount: profitToday.purchaseCount,
+        totalPaise: profitToday.purchaseTotalPaise,
+      }
+    : { purchaseCount: 0, totalPaise: "0" };
+  const expenseSummary = profitToday
+    ? {
+        expenseCount: profitToday.expenseCount ?? 0,
+        totalPaise: profitToday.expensePaise,
+        byCategory: profitToday.expensesByCategory ?? [],
+        monthlyFixedPaise: profitToday.monthlyFixedExpensesPaise ?? "0",
+      }
+    : {
+        expenseCount: 0,
+        totalPaise: "0",
+        byCategory: [],
+        monthlyFixedPaise: "0",
+      };
 
   let salesPaise = BigInt(0);
   const paymentSplit: Record<string, number> = {};
@@ -525,19 +556,25 @@ export async function getStaffSalesInvoices(
   organizationId: string,
   period: ShopDashboardPeriod,
   staffName: string,
-  date?: string | null
+  date?: string | null,
+  range?: { from?: string | null; to?: string | null },
+  branchScope?: BranchScope
 ) {
   await requireModule(organizationId, "shop_sales");
   await ensureShopSaleSchema();
 
+  const branchFilter = branchWhere(branchScope ?? "all");
+
   const { start: periodStart, end: periodEnd } = resolveShopDashboardBounds(
     period,
-    date
+    date,
+    range
   );
 
   const sales = await prisma.shopSale.findMany({
     where: {
       organizationId,
+      ...branchFilter,
       createdAt: { gte: periodStart, lte: periodEnd },
       ...(staffName === "Unassigned"
         ? { OR: [{ salesBoyName: null }, { salesBoyName: "" }] }
@@ -652,6 +689,9 @@ export async function createShopSale(input: {
   /** Client-generated UUID so offline push is idempotent. */
   clientId?: string | null;
   organizationId: string;
+  branchId: string;
+  /** Set when customerScope is ISOLATED; null when SHARED. */
+  customerBranchId?: string | null;
   createdById: string;
   customerId?: string | null;
   customerName?: string | null;
@@ -686,6 +726,7 @@ export async function createShopSale(input: {
 }) {
   await requireModule(input.organizationId, "shop_sales");
   await ensureShopSaleSchema();
+  await ensureShopBranchSchema(input.organizationId);
   await ensureShopExtendedSchema();
   await ensureCatalogSchema();
 
@@ -696,11 +737,20 @@ export async function createShopSale(input: {
     if (existing) return existing;
   }
 
-  const org = await prisma.organization.findUnique({
-    where: { id: input.organizationId },
-    select: { settings: true },
-  });
-  const invoiceSettings = parseShopInvoiceSettings(org?.settings ?? {});
+  const org = await getCachedOrganization(input.organizationId);
+  if (!org) throw new Error("Organization not found");
+  const invoiceSettings = parseShopInvoiceSettings(org.settings ?? {});
+  const shopSectors = resolveShopBusinessTypes(org.settings, org.shopSector);
+
+  const initialInventoryIds = input.items
+    .map((i) => i.inventoryItemId)
+    .filter((id): id is string => !!id);
+
+  let saleInventoryMap = await loadSaleInventoryMap(
+    input.organizationId,
+    initialInventoryIds,
+    input.branchId
+  );
 
   const { staffId, staffName, cashierCode } = await resolveSaleStaff(
     input.organizationId,
@@ -711,10 +761,7 @@ export async function createShopSale(input: {
     }
   );
 
-  const pricedItems = await resolveAuthoritativeSalePrices(
-    input.organizationId,
-    input.items
-  );
+  const pricedItems = applyAuthoritativePrices(input.items, saleInventoryMap);
 
   let appliedOffers: { offerId: string; name: string; discountRupees: number }[] = [];
   let offerDiscountRupees = 0;
@@ -724,7 +771,8 @@ export async function createShopSale(input: {
     const offerResult = await computeOfferDiscountForSale(
       input.organizationId,
       pricedItems,
-      { selectedOfferId: input.selectedOfferId ?? null, skipOffer: input.skipOffer }
+      { selectedOfferId: input.selectedOfferId ?? null, skipOffer: input.skipOffer },
+      saleInventoryMap
     );
     offerDiscountRupees = offerResult.offerDiscountRupees;
     offerLineDiscountRupees = offerResult.lineDiscountRupees;
@@ -827,12 +875,19 @@ export async function createShopSale(input: {
     ...(input.terminalPayment ? { terminalPayment: input.terminalPayment } : {}),
   };
 
-  const customer = await upsertCustomerRaw(input.organizationId, {
-    customerId: input.customerId,
-    name: input.customerName,
-    phone: input.customerPhone,
-    gstin: input.customerGstin,
-  });
+  const customer = await upsertCustomerRaw(
+    input.organizationId,
+    {
+      customerId: input.customerId,
+      name: input.customerName,
+      phone: input.customerPhone,
+      gstin: input.customerGstin,
+    },
+    {
+      branchId: input.branchId,
+      isolated: input.customerBranchId != null,
+    }
+  );
 
   const customerName = input.customerName?.trim() || customer?.name || null;
   const customerPhone = input.customerPhone?.trim() || customer?.phone || null;
@@ -848,14 +903,94 @@ export async function createShopSale(input: {
     }
   }
 
-  const enrichedItems = await enrichSaleItemsWithVariants(
-    input.organizationId,
-    pricedItems
+  const enrichedItems = enrichItemsWithVariantRows(pricedItems, saleInventoryMap);
+
+  const productIds = [
+    ...new Set(
+      enrichedItems.map((i) => i.productId).filter((id): id is string => !!id)
+    ),
+  ];
+  const recipesByProductId = new Map<
+    string,
+    ReturnType<typeof parseRecipeFromAttributes>
+  >();
+  if (productIds.length > 0 && hasRecipeConsumption(shopSectors)) {
+    const products = await prisma.shopProduct.findMany({
+      where: { id: { in: productIds }, organizationId: input.organizationId },
+      select: { id: true, attributes: true },
+    });
+    for (const product of products) {
+      const recipe = parseRecipeFromAttributes(product.attributes);
+      if (recipe.length > 0) {
+        recipesByProductId.set(product.id, recipe);
+      }
+    }
+  }
+
+  const recipeDeductions =
+    recipesByProductId.size > 0
+      ? aggregateRecipeDeductions(enrichedItems, recipesByProductId)
+      : new Map<string, number>();
+  for (const [invId, qty] of recipeDeductions) {
+    deductions.set(invId, (deductions.get(invId) ?? 0) + qty);
+  }
+
+  const extraRecipeIds = [...recipeDeductions.keys()].filter((id) => !saleInventoryMap.has(id));
+  if (extraRecipeIds.length > 0) {
+    const extraMap = await loadSaleInventoryMap(
+      input.organizationId,
+      extraRecipeIds,
+      input.branchId
+    );
+    for (const [id, row] of extraMap) saleInventoryMap.set(id, row);
+  }
+
+  const { totalCostPaise, itemsWithCost } = computeCostFromInventoryMap(
+    enrichedItems,
+    saleInventoryMap
   );
-  const { totalCostPaise, itemsWithCost } = await computeSaleCostPaise(
-    input.organizationId,
-    enrichedItems
-  );
+
+  const lineStaffIds = [
+    ...new Set(
+      itemsWithCost.map((i) => i.staffId).filter((id): id is string => !!id)
+    ),
+  ];
+  let itemsForSave = itemsWithCost;
+  if (lineStaffIds.length > 0) {
+    const staffRows = await prisma.staffMember.findMany({
+      where: {
+        id: { in: lineStaffIds },
+        organizationId: input.organizationId,
+      },
+      select: { id: true, name: true },
+    });
+    const staffNameById = new Map(staffRows.map((s) => [s.id, s.name]));
+    itemsForSave = itemsWithCost.map((item) => ({
+      ...item,
+      staffName:
+        item.staffName ??
+        (item.staffId ? staffNameById.get(item.staffId) : undefined),
+    }));
+  }
+
+  let kotPayload = null;
+  if (hasKot(shopSectors)) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const kotCount = await prisma.shopSale.count({
+      where: {
+        organizationId: input.organizationId,
+        createdAt: { gte: todayStart },
+        kotJson: { not: Prisma.DbNull },
+      },
+    });
+    kotPayload = buildKotPayload({
+      ticketNo: kotCount + 1,
+      billNumber: input.billNumber?.trim() || null,
+      customerName,
+      lines: itemsForSave,
+    });
+  }
 
   const paidPaise =
     input.paidRupees != null
@@ -886,34 +1021,36 @@ export async function createShopSale(input: {
   const sale = await prisma.$transaction(async (tx) => {
     if (deductions.size > 0) {
       const inventoryIds = [...deductions.keys()];
-      const inventoryItems = await tx.inventoryItem.findMany({
-        where: {
-          id: { in: inventoryIds },
-          organizationId: input.organizationId,
-        },
-      });
+      const inventoryItems = inventoryIds
+        .map((id) => saleInventoryMap.get(id))
+        .filter((row): row is NonNullable<typeof row> => !!row);
 
       if (inventoryItems.length !== inventoryIds.length) {
         throw new Error("One or more inventory items were not found");
       }
 
-      for (const inv of inventoryItems) {
-        const deductQty = deductions.get(inv.id)!;
-        if (isInfiniteStock(inv.quantity)) continue;
-        const ok = await atomicDeductInventory({
-          tx,
-          organizationId: input.organizationId,
-          inventoryItemId: inv.id,
-          deductQty,
-        });
-        if (!ok) {
-          const reserved = await sumActiveReservedQty(tx, input.organizationId, inv.id);
-          const available = Math.max(0, inv.quantity - reserved);
-          throw new Error(
-            `Not enough stock for "${inv.name}" (available ${available}, need ${deductQty})`
-          );
-        }
-      }
+      const deductResults = await Promise.all(
+        inventoryItems.map(async (inv) => {
+          const deductQty = deductions.get(inv.id)!;
+          if (isInfiniteStock(inv.quantity)) return true;
+          const ok = await atomicDeductInventory({
+            tx,
+            organizationId: input.organizationId,
+            inventoryItemId: inv.id,
+            deductQty,
+            branchId: input.branchId,
+          });
+          if (!ok) {
+            const reserved = await sumActiveReservedQty(tx, input.organizationId, inv.id);
+            const available = Math.max(0, inv.quantity - reserved);
+            throw new Error(
+              `Not enough stock for "${inv.name}" (available ${available}, need ${deductQty})`
+            );
+          }
+          return true;
+        })
+      );
+      void deductResults;
     }
 
     const customerRecord = customer;
@@ -922,6 +1059,7 @@ export async function createShopSale(input: {
       data: {
         ...(input.clientId ? { id: input.clientId } : {}),
         organizationId: input.organizationId,
+        branchId: input.branchId,
         createdById: input.createdById,
         customerId: customerRecord?.id ?? null,
         customerName,
@@ -931,7 +1069,7 @@ export async function createShopSale(input: {
         salesBoyName: staffName,
         billNumber:
           input.billNumber?.trim() ||
-          (await nextShopBillNumber(tx, input.organizationId, cashierCode)),
+          (await nextShopBillNumber(tx, input.organizationId, input.branchId, cashierCode)),
         issueInvoice: input.issueInvoice !== false,
         totalPaise,
         gstPaise: pricing.gstPaise,
@@ -939,7 +1077,8 @@ export async function createShopSale(input: {
         totalCostPaise,
         paymentStatus,
         paymentMethod: resolvedPaymentMethod,
-        itemsJson: itemsWithCost,
+        itemsJson: itemsForSave,
+        kotJson: kotPayload ?? undefined,
         notes: input.notes?.trim() || null,
         pricingJson,
       },
@@ -1003,44 +1142,172 @@ export async function createShopSale(input: {
   return sale;
 }
 
+export const BILLING_INVENTORY_FULL_THRESHOLD = 400;
+
+const BILLING_PRODUCT_SELECT = {
+  id: true,
+  name: true,
+  brand: true,
+  hasVariants: true,
+  variantAxis: true,
+  categoryKey: true,
+  subCategoryKey: true,
+  itemKind: true,
+} as const;
+
+const BILLING_ITEM_SELECT = {
+  id: true,
+  name: true,
+  barcode: true,
+  sku: true,
+  size: true,
+  color: true,
+  variantLabel: true,
+  quantity: true,
+  sellPaise: true,
+  unit: true,
+  attributes: true,
+  productId: true,
+  product: { select: BILLING_PRODUCT_SELECT },
+} as const;
+
+export async function countInventoryItems(
+  organizationId: string,
+  branchScope?: BranchScope
+) {
+  await requireModule(organizationId, "shop_inventory");
+  await backfillOrgBranchIds(organizationId);
+  const branchFilter = branchWhere(branchScope ?? "all");
+  return prisma.inventoryItem.count({
+    where: { organizationId, ...branchFilter },
+  });
+}
+
+export async function searchInventoryForBilling(
+  organizationId: string,
+  branchScope: BranchScope | undefined,
+  input: { q?: string; limit?: number; cursor?: string | null }
+) {
+  await requireModule(organizationId, "shop_inventory");
+  await ensureCatalogSchema();
+  await backfillOrgBranchIds(organizationId);
+  const branchFilter = branchWhere(branchScope ?? "all");
+  const limit = Math.min(Math.max(input.limit ?? 40, 1), 100);
+  const q = input.q?.trim();
+
+  const where: Prisma.InventoryItemWhereInput = {
+    organizationId,
+    ...branchFilter,
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q } },
+            { barcode: { contains: q } },
+            { sku: { contains: q } },
+            { size: { contains: q } },
+            { color: { contains: q } },
+            { variantLabel: { contains: q } },
+          ],
+        }
+      : {}),
+    ...(input.cursor ? { id: { gt: input.cursor } } : {}),
+  };
+
+  const rows = await prisma.inventoryItem.findMany({
+    where,
+    select: BILLING_ITEM_SELECT,
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: limit + 1,
+  });
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? page[page.length - 1]?.id ?? null : null;
+
+  return {
+    items: page.map(withVariantDisplay),
+    nextCursor,
+    hasMore,
+  };
+}
+
+export async function listInventoryForBilling(
+  organizationId: string,
+  branchScope?: BranchScope
+) {
+  const totalCount = await countInventoryItems(organizationId, branchScope);
+  const searchMode = totalCount > BILLING_INVENTORY_FULL_THRESHOLD;
+
+  if (searchMode) {
+    return { items: [], totalCount, searchMode: true as const };
+  }
+
+  await requireModule(organizationId, "shop_inventory");
+  await ensureCatalogSchema();
+  await backfillOrgBranchIds(organizationId);
+  const branchFilter = branchWhere(branchScope ?? "all");
+  const items = await prisma.inventoryItem.findMany({
+    where: { organizationId, ...branchFilter },
+    select: BILLING_ITEM_SELECT,
+    orderBy: [{ name: "asc" }, { size: "asc" }],
+  });
+
+  return {
+    items: items.map(withVariantDisplay),
+    totalCount,
+    searchMode: false as const,
+  };
+}
+
 /**
  * Every inventory row is a sellable variant. Rows come back with the resolved
  * variant display name so any product selector in the app can show
  * "T-Shirt — Black — Size M" without duplicating the formatting rules.
  */
-export async function listInventoryItems(organizationId: string) {
+export async function listInventoryItems(
+  organizationId: string,
+  branchScope?: BranchScope
+) {
   await requireModule(organizationId, "shop_inventory");
   await ensureCatalogSchema();
+  await backfillOrgBranchIds(organizationId);
+  const branchFilter = branchWhere(branchScope ?? "all");
   const items = await prisma.inventoryItem.findMany({
-    where: { organizationId },
-    include: {
-      product: {
-        select: {
-          id: true,
-          name: true,
-          brand: true,
-          hasVariants: true,
-          variantAxis: true,
-          categoryKey: true,
-          subCategoryKey: true,
-        },
-      },
+    where: { organizationId, ...branchFilter },
+    select: {
+      ...BILLING_ITEM_SELECT,
+      description: true,
+      reorderLevel: true,
+      costPaise: true,
+      sectorMeta: true,
+      batchNo: true,
+      expiryDate: true,
+      supplierName: true,
+      branchId: true,
+      createdAt: true,
+      updatedAt: true,
     },
     orderBy: [{ name: "asc" }, { size: "asc" }],
   });
   return items.map(withVariantDisplay);
 }
 
-export async function getInventoryAnalytics(organizationId: string, salesDays = 30) {
+export async function getInventoryAnalytics(
+  organizationId: string,
+  salesDays = 30,
+  branchScope?: BranchScope
+) {
   await requireModule(organizationId, "shop_inventory");
+  await ensureShopBranchSchema(organizationId);
 
+  const branchFilter = branchWhere(branchScope ?? "all");
   const days = Math.min(Math.max(Math.round(salesDays), 7), 365);
   const since = new Date();
   since.setDate(since.getDate() - days);
   since.setHours(0, 0, 0, 0);
 
   const items = await prisma.inventoryItem.findMany({
-    where: { organizationId },
+    where: { organizationId, ...branchFilter },
     select: {
       id: true,
       name: true,
@@ -1057,7 +1324,7 @@ export async function getInventoryAnalytics(organizationId: string, salesDays = 
   try {
     await requireModule(organizationId, "shop_sales");
     const sales = await prisma.shopSale.findMany({
-      where: { organizationId, createdAt: { gte: since } },
+      where: { organizationId, ...branchFilter, createdAt: { gte: since } },
       select: { itemsJson: true },
     });
     for (const sale of sales) {
@@ -1076,6 +1343,7 @@ export async function getInventoryAnalytics(organizationId: string, salesDays = 
 
 export async function createInventoryItem(input: {
   organizationId: string;
+  branchId?: string | null;
   productId?: string | null;
   name: string;
   description?: string | null;
@@ -1099,6 +1367,15 @@ export async function createInventoryItem(input: {
 }) {
   await requireModule(input.organizationId, "shop_inventory");
   await ensureCatalogSchema();
+  await ensureShopBranchSchema(input.organizationId);
+  const { ensureDefaultBranch } = await import("@/lib/shop/branch-context");
+  const branchId = input.branchId ?? (await ensureDefaultBranch(input.organizationId));
+
+  const skuCount = await prisma.inventoryItem.count({
+    where: { organizationId: input.organizationId },
+  });
+  const { assertUnderInventorySkuCap } = await import("@/lib/billing/entitlement-engine");
+  await assertUnderInventorySkuCap(input.organizationId, skuCount);
 
   const name = input.name.trim();
   if (name.length < 1) throw new Error("Item name is required");
@@ -1109,7 +1386,11 @@ export async function createInventoryItem(input: {
   }
   if (barcode) {
     const clash = await prisma.inventoryItem.findFirst({
-      where: { organizationId: input.organizationId, barcode },
+      where: {
+        organizationId: input.organizationId,
+        branchId,
+        barcode,
+      },
     });
     if (clash) throw new Error("This barcode is already used by another product");
   }
@@ -1117,6 +1398,7 @@ export async function createInventoryItem(input: {
   const item = await prisma.inventoryItem.create({
     data: {
       organizationId: input.organizationId,
+      branchId,
       productId: input.productId ?? null,
       name,
       description: input.description?.trim() || null,
@@ -1159,6 +1441,7 @@ export async function updateInventoryItem(input: {
   organizationId: string;
   itemId: string;
   userId: string;
+  branchScope?: BranchScope;
   name?: string;
   description?: string | null;
   size?: string | null;
@@ -1180,9 +1463,11 @@ export async function updateInventoryItem(input: {
 }) {
   await requireModule(input.organizationId, "shop_inventory");
   await ensureCatalogSchema();
+  await ensureShopBranchSchema(input.organizationId);
 
+  const branchFilter = branchWhere(input.branchScope ?? "all");
   const existing = await prisma.inventoryItem.findFirst({
-    where: { id: input.itemId, organizationId: input.organizationId },
+    where: { id: input.itemId, organizationId: input.organizationId, ...branchFilter },
   });
   if (!existing) throw new Error("Inventory item not found");
 
@@ -1240,6 +1525,7 @@ export async function updateInventoryItem(input: {
       const clash = await prisma.inventoryItem.findFirst({
         where: {
           organizationId: input.organizationId,
+          branchId: existing.branchId,
           barcode,
           NOT: { id: input.itemId },
         },
@@ -1254,6 +1540,7 @@ export async function updateInventoryItem(input: {
       const clash = await prisma.inventoryItem.findFirst({
         where: {
           organizationId: input.organizationId,
+          branchId: existing.branchId,
           barcode,
           NOT: { id: input.itemId },
         },

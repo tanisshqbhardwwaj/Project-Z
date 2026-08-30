@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/context";
 import { getPlanDefinition } from "@/lib/billing/plans";
+import { inventorySkuCapForPlan } from "@/lib/billing/entitlements";
+import { inventorySkuUsagePercent } from "@/lib/billing/entitlement-engine";
+import { listOrgAddons } from "@/lib/billing/org-addon.service";
 import { getStorageUsageBreakdown } from "@/services/storage-quota.service";
+import { mergeModuleSettings, parseOrgSettings } from "@/lib/org/require-module";
+import type { ModuleKey } from "@/lib/org/modules";
 
 /** Safe org detail for platform ops — no localPinHash, raw settings, or shop financials. */
 export async function getOpsOrganizationDetail(id: string) {
@@ -15,9 +20,13 @@ export async function getOpsOrganizationDetail(id: string) {
       shopSector: true,
       plan: true,
       subscriptionStatus: true,
+      currentPeriodEnd: true,
+      accessExpiresAt: true,
       storageUsedBytes: true,
       storageQuotaBytes: true,
       setupFeeStatus: true,
+      enableStaff: true,
+      settings: true,
       onboardingCompleteAt: true,
       lastActiveAt: true,
       createdAt: true,
@@ -59,11 +68,16 @@ export async function getOpsOrganizationDetail(id: string) {
     throw new ApiError(404, "NOT_FOUND", "Organization not found");
   }
 
-  const staffCount = await prisma.staffMember.count({
-    where: { organizationId: id, status: "ACTIVE" },
-  });
+  const [staffCount, inventorySkuCount, addons, storage] = await Promise.all([
+    prisma.staffMember.count({
+      where: { organizationId: id, status: "ACTIVE" },
+    }),
+    prisma.inventoryItem.count({ where: { organizationId: id } }),
+    listOrgAddons(id),
+    getStorageUsageBreakdown(id),
+  ]);
 
-  const storage = await getStorageUsageBreakdown(id);
+  const inventorySkuCap = inventorySkuCapForPlan(org.plan);
   const activeMemberCount = org.members.filter((m) => m.status === "ACTIVE").length;
   const adminCount = org.members.filter(
     (m) => m.status === "ACTIVE" && m.role === "OWNER"
@@ -79,7 +93,11 @@ export async function getOpsOrganizationDetail(id: string) {
       memberCount: activeMemberCount,
       adminCount,
       staffCount,
+      inventorySkuCount,
+      inventorySkuCap,
+      inventorySkuUsagePercent: inventorySkuUsagePercent(inventorySkuCount, inventorySkuCap),
     },
+    addons,
     planDef: getPlanDefinition(org.plan),
     storage,
   };
@@ -133,4 +151,33 @@ export async function listOpsUsers(input: { q?: string; skip?: number; take?: nu
   ]);
 
   return { items, total };
+}
+
+export async function updateOpsOrganizationModules(input: {
+  organizationId: string;
+  modules: Record<string, boolean>;
+}) {
+  const org = await prisma.organization.findUnique({
+    where: { id: input.organizationId },
+    select: { settings: true },
+  });
+  if (!org) throw new ApiError(404, "NOT_FOUND", "Organization not found");
+
+  const existing = parseOrgSettings(org.settings);
+  const nextSettings = mergeModuleSettings(
+    existing,
+    input.modules as Partial<Record<ModuleKey, boolean>>
+  );
+
+  const data: { settings: typeof nextSettings; enableStaff?: boolean } = {
+    settings: nextSettings,
+  };
+  if (input.modules.staff !== undefined) {
+    data.enableStaff = Boolean(input.modules.staff);
+  }
+
+  return prisma.organization.update({
+    where: { id: input.organizationId },
+    data,
+  });
 }

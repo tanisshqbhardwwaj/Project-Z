@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { useAuthStore } from "@/stores/auth-store";
-import { setActiveOrganizationId } from "@/lib/api/client";
+import { setActiveOrganizationId, setActiveBranchId } from "@/lib/api/client";
 import type { BusinessType } from "@/lib/org/business-type";
 import { getBusinessTypeConfig } from "@/lib/org/business-type";
 import type { ShopSector } from "@/lib/org/shop-sector";
@@ -75,6 +75,7 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
     });
     await update({ activeOrganizationId: org.id });
     setActiveOrganizationId(org.id);
+    setActiveBranchId(null);
     setActiveOrg(
       org.id,
       org.name,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
@@ -10,9 +10,15 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatINR } from "@/lib/finance/money";
+import {
+  ReportDateRangeBar,
+  type ReportPeriodPreset,
+} from "@/components/shop/report-date-range";
 
 type TopCustomersResponse = {
   period: string;
+  from?: string;
+  to?: string;
   customers: Array<{
     name: string;
     phone: string | null;
@@ -25,19 +31,66 @@ type TopCustomersResponse = {
   }>;
 };
 
+const PRESET_TO_API: Record<Exclude<ReportPeriodPreset, "range" | "date">, "7d" | "30d" | "90d"> = {
+  today: "7d",
+  week: "7d",
+  month: "30d",
+};
+
 export default function TopCustomersPage() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
-  const [period, setPeriod] = useState<"7d" | "30d" | "90d">("30d");
+  const [preset, setPreset] = useState<ReportPeriodPreset>("month");
+  const [exactDate, setExactDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [rangeFrom, setRangeFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [rangeTo, setRangeTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [sort, setSort] = useState<"amount" | "orders" | "items">("amount");
 
+  const queryString = useMemo(() => {
+    if (preset === "range") {
+      return `period=custom&from=${rangeFrom}&to=${rangeTo}&sort=${sort}&limit=25`;
+    }
+    if (preset === "date") {
+      return `period=custom&from=${exactDate}&to=${exactDate}&sort=${sort}&limit=25`;
+    }
+    const period = PRESET_TO_API[preset];
+    return `period=${period}&sort=${sort}&limit=25`;
+  }, [preset, rangeFrom, rangeTo, exactDate, sort]);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: orgId ? queryKeys.modules.shop.topCustomers(orgId, `${period}-${sort}`) : ["disabled"],
+    queryKey: orgId ? queryKeys.modules.shop.topCustomers(orgId, queryString) : ["disabled"],
     queryFn: () =>
-      apiFetch<TopCustomersResponse>(
-        `/api/v1/shop/customers/top?period=${period}&sort=${sort}&limit=25`
-      ),
+      apiFetch<TopCustomersResponse>(`/api/v1/shop/customers/top?${queryString}`),
     enabled: !!orgId,
   });
+
+  const periodLabel = useMemo(() => {
+    if (preset === "range" && rangeFrom && rangeTo) {
+      const from = new Date(rangeFrom).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+      });
+      const to = new Date(rangeTo).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      return `${from} – ${to}`;
+    }
+    if (preset === "date" && exactDate) {
+      return new Date(exactDate).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
+    if (preset === "today") return "Last 7 days";
+    if (preset === "week") return "This week";
+    return "Last 30 days";
+  }, [preset, rangeFrom, rangeTo, exactDate]);
 
   if (isLoading) return <PageLoader label="Loading top customers..." />;
   if (error) {
@@ -48,31 +101,35 @@ export default function TopCustomersPage() {
     );
   }
 
-  const periodLabel =
-    period === "7d" ? "Last 7 days" : period === "30d" ? "Last 30 days" : "Last 90 days";
-
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-bold">Top customers</h1>
-        <p className="text-sm text-muted-foreground">
-          Ranked by purchase history (excludes cancelled invoices; returns deducted)
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Top customers</h1>
+          <p className="text-sm text-muted-foreground">
+            Ranked by purchase history (excludes cancelled invoices; returns deducted)
+          </p>
+        </div>
+        <Link href="/shop/reports">
+          <Button variant="outline" className="rounded-xl">
+            All reports
+          </Button>
+        </Link>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {(["7d", "30d", "90d"] as const).map((p) => (
-          <Button
-            key={p}
-            variant={period === p ? "default" : "outline"}
-            size="sm"
-            className="rounded-xl"
-            onClick={() => setPeriod(p)}
-          >
-            {p === "7d" ? "7 days" : p === "30d" ? "30 days" : "90 days"}
-          </Button>
-        ))}
-        <span className="mx-2 hidden h-8 w-px bg-border sm:inline" />
+      <div className="flex flex-wrap items-end gap-3">
+        <ReportDateRangeBar
+          preset={preset}
+          onPresetChange={setPreset}
+          date={exactDate}
+          onDateChange={setExactDate}
+          from={rangeFrom}
+          to={rangeTo}
+          onFromChange={setRangeFrom}
+          onToChange={setRangeTo}
+          presets={["today", "week", "month", "date", "range"]}
+        />
+        <span className="hidden h-8 w-px bg-border sm:inline" />
         {(["amount", "orders", "items"] as const).map((s) => (
           <Button
             key={s}

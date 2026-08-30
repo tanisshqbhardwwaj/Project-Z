@@ -18,6 +18,7 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { formatINR } from "@/lib/finance/money";
 import { UsersRound } from "lucide-react";
+import { PaymentReminderSettingsPanel } from "@/components/shop/payment-reminder-settings-panel";
 
 type CustomerCredit = {
   id: string;
@@ -118,6 +119,8 @@ export default function ShopUdhaarPage() {
       </div>
 
       <FormFeedback warning={warning} error={error} />
+
+      {orgId ? <PaymentReminderSettingsPanel orgId={orgId} /> : null}
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardHeader>

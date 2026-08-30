@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { parseSaleItems } from "@/lib/shop/sale-line-key";
+import { branchWhere, type BranchScope } from "@/lib/shop/branch-context";
 import { requireModule } from "@/lib/org/require-module";
 import { ensureShopFeaturesSchema } from "@/lib/shop/ensure-shop-features-schema";
 
@@ -28,16 +29,19 @@ export async function getTopCustomers(input: {
   to?: Date;
   sort?: TopCustomerSort;
   limit?: number;
+  branchScope?: BranchScope;
 }) {
   await requireModule(input.organizationId, "shop_sales");
   await ensureShopFeaturesSchema();
   const period = input.period ?? "30d";
   const { start, end } = periodStart(period, input.from, input.to);
   const limit = Math.min(input.limit ?? 20, 100);
+  const branchFilter = branchWhere(input.branchScope ?? "all");
 
   const sales = await prisma.shopSale.findMany({
     where: {
       organizationId: input.organizationId,
+      ...branchFilter,
       status: "COMPLETED",
       createdAt: { gte: start, lte: end },
     },
@@ -154,12 +158,16 @@ export async function getTopCustomers(input: {
   return { period, from: start.toISOString(), to: end.toISOString(), customers: rows };
 }
 
-export async function getTopCustomerSummary(organizationId: string) {
+export async function getTopCustomerSummary(
+  organizationId: string,
+  branchScope?: BranchScope
+) {
   const result = await getTopCustomers({
     organizationId,
     period: "30d",
     sort: "amount",
     limit: 1,
+    branchScope,
   });
   return result.customers[0] ?? null;
 }

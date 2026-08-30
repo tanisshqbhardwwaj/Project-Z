@@ -50,26 +50,3 @@ export async function requireAssignedStageWrite(ctx: AuthContext, stageId: strin
   if (!row) throw new ApiError(404, "NOT_FOUND", "Design stage not found");
   await requireProjectAccess(ctx, row.projectId);
 }
-
-export async function requireAssignedUnitWrite(ctx: AuthContext, unitId: string) {
-  requireProjectWriteAccess(ctx);
-  const row = await prisma.builderUnit.findFirst({
-    where: { id: unitId, organizationId: ctx.organizationId },
-    select: { projectId: true },
-  });
-  if (!row) throw new ApiError(404, "NOT_FOUND", "Unit not found");
-  await requireProjectAccess(ctx, row.projectId);
-}
-
-export async function requireAssignedBookingWrite(
-  ctx: AuthContext,
-  bookingId: string
-) {
-  requireProjectWriteAccess(ctx);
-  const row = await prisma.unitBooking.findFirst({
-    where: { id: bookingId, organizationId: ctx.organizationId },
-    select: { projectId: true },
-  });
-  if (!row) throw new ApiError(404, "NOT_FOUND", "Booking not found");
-  await requireProjectAccess(ctx, row.projectId);
-}

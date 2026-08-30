@@ -11,9 +11,13 @@ import { serializeBigInt } from "@/lib/db/prisma";
 import {
   createInventoryItem,
   deleteInventoryItem,
+  listInventoryForBilling,
   listInventoryItems,
+  searchInventoryForBilling,
   updateInventoryItem,
 } from "@/services/shop.service";
+import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch-context";
+import { requireInventoryManage } from "@/lib/staff/shop-access";
 
 const createItemSchema = z.object({
   name: z.string().min(1),
@@ -61,7 +65,35 @@ export async function GET(request: Request) {
     ) {
       requirePermission(ctx, "shop.inventory.manage");
     }
-    const items = await listInventoryItems(ctx.organizationId);
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
+    );
+    const { searchParams } = new URL(request.url);
+    const forBilling = searchParams.get("for") === "billing";
+    const q = searchParams.get("q") ?? undefined;
+
+    if (q) {
+      const result = await searchInventoryForBilling(ctx.organizationId, shopCtx.branchId, {
+        q,
+        limit: Number(searchParams.get("limit") ?? 40),
+        cursor: searchParams.get("cursor"),
+      });
+      return apiSuccess(serializeBigInt(result.items), {
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
+      });
+    }
+
+    if (forBilling) {
+      const result = await listInventoryForBilling(ctx.organizationId, shopCtx.branchId);
+      return apiSuccess(serializeBigInt(result.items), {
+        totalCount: result.totalCount,
+        searchMode: result.searchMode,
+      });
+    }
+
+    const items = await listInventoryItems(ctx.organizationId, shopCtx.branchId);
     return apiSuccess(serializeBigInt(items));
   });
 }
@@ -69,13 +101,22 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "shop.inventory.manage");
+    await requireInventoryManage(ctx);
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
+    );
 
     const body = await request.json();
     const data = createItemSchema.parse(body);
 
+    const branchId = isBranchAll(shopCtx.branchId)
+      ? await ensureDefaultBranch(ctx.organizationId)
+      : shopCtx.branchId;
+
     const item = await createInventoryItem({
       organizationId: ctx.organizationId,
+      branchId,
       ...data,
       expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
     });
@@ -87,7 +128,11 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "shop.inventory.manage");
+    await requireInventoryManage(ctx);
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
+    );
 
     const body = await request.json();
     const data = updateItemSchema.parse(body);
@@ -95,6 +140,7 @@ export async function PATCH(request: Request) {
     const item = await updateInventoryItem({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
+      branchScope: shopCtx.branchId,
       ...data,
       expiryDate:
         data.expiryDate !== undefined
@@ -111,7 +157,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    requirePermission(ctx, "shop.inventory.manage");
+    await requireInventoryManage(ctx);
 
     const body = await request.json();
     const { itemId } = deleteItemSchema.parse(body);

@@ -6,6 +6,8 @@ import {
 } from "@/lib/api/context";
 import { hasPermission } from "@/lib/permissions/rbac";
 import { getInventoryAnalytics } from "@/services/shop.service";
+import { getShopBranchContext } from "@/lib/shop/branch-context";
+import { requireReportFeature } from "@/lib/billing/require-report-feature";
 
 export async function GET(request: Request) {
   return handleApi(async () => {
@@ -17,11 +19,21 @@ export async function GET(request: Request) {
       requirePermission(ctx, "shop.inventory.manage");
     }
 
+    await requireReportFeature(ctx.organizationId, "product-analytics");
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
+    );
+
     const url = new URL(request.url);
     const daysParam = url.searchParams.get("days");
     const salesDays = daysParam ? Number(daysParam) : 30;
 
-    const analytics = await getInventoryAnalytics(ctx.organizationId, salesDays);
+    const analytics = await getInventoryAnalytics(
+      ctx.organizationId,
+      salesDays,
+      shopCtx.branchId
+    );
     return apiSuccess(analytics);
   });
 }

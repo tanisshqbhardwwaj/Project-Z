@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 const PROJECT_TABS = [
   { key: "overview", label: "Overview" },
   { key: "work-order", label: "Work Order" },
+  { key: "invoices", label: "Invoices" },
   { key: "expenses", label: "Expenses" },
   { key: "payments", label: "Payments" },
   { key: "vendors", label: "Vendors" },

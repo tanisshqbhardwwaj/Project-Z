@@ -16,14 +16,20 @@ import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireField } from "@/lib/api/validation";
 import {
   BUSINESS_TYPE_CONFIG,
-  BUSINESS_TYPES,
+  isShopVertical,
   type BusinessType,
 } from "@/lib/org/business-type";
+import { onboardingBusinessTypes } from "@/lib/org/service-vertical";
 import {
   SHOP_SECTOR_CONFIG,
-  SHOP_SECTORS,
   type ShopSector,
 } from "@/lib/org/shop-sector";
+import {
+  OFFERING_OPTIONS,
+  defaultSectorsForOffering,
+  sectorsForOffering,
+  type ShopOfferingKind,
+} from "@/lib/shop/onboarding-sectors";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 
@@ -35,6 +41,8 @@ export default function OnboardingContent() {
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
   const [businessTypes, setBusinessTypes] = useState<ShopSector[]>(["CLOTHING"]);
+  const [offeringKind, setOfferingKind] = useState<ShopOfferingKind>("PRODUCTS");
+  const [shopSectorStep, setShopSectorStep] = useState<"offering" | "sectors">("offering");
   const [customBusinessType, setCustomBusinessType] = useState("");
   const [enableStaff, setEnableStaff] = useState(false);
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
@@ -67,6 +75,10 @@ export default function OnboardingContent() {
       return;
     }
 
+    if (businessType === "SHOPKEEPER" && shopSectorStep === "offering") {
+      showWarning("Continue and pick your business type");
+      return;
+    }
     if (businessType === "SHOPKEEPER" && businessTypes.length === 0) {
       showWarning("Select at least one business type");
       return;
@@ -83,8 +95,6 @@ export default function OnboardingContent() {
     setLoading(true);
 
     try {
-      // The org is created with the primary type, then the full multi-select is
-      // saved so category choices cover every type from the first screen.
       const created = await apiFetch<{ id: string }>("/api/v1/organizations", {
         method: "POST",
         body: JSON.stringify({
@@ -92,7 +102,9 @@ export default function OnboardingContent() {
           businessType,
           ...(businessType === "SHOPKEEPER"
             ? { shopSector: businessTypes[0], enableStaff }
-            : {}),
+            : businessType === "SERVICE"
+              ? { enableStaff }
+              : {}),
         }),
       });
       if (businessType === "SHOPKEEPER" && businessTypes.length > 0) {
@@ -112,7 +124,7 @@ export default function OnboardingContent() {
       }
       await bootstrap();
       router.push(
-        businessType === "SHOPKEEPER" && enableStaff ? "/staff" : "/dashboard"
+        isShopVertical(businessType) && enableStaff ? "/staff" : "/dashboard"
       );
       router.refresh();
     } catch (err) {
@@ -129,6 +141,15 @@ export default function OnboardingContent() {
   if (!initialized) return <PageLoader label="Loading..." />;
 
   const selected = BUSINESS_TYPE_CONFIG[businessType];
+  const visibleSectors = sectorsForOffering(offeringKind);
+
+  function selectOffering(offering: ShopOfferingKind) {
+    setOfferingKind(offering);
+    setBusinessTypes(defaultSectorsForOffering(offering));
+    if (offering === "SERVICES" || offering === "FOOD") {
+      setShopSectorStep("sectors");
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -173,7 +194,7 @@ export default function OnboardingContent() {
             <div className="space-y-2">
               <Label>I am a…</Label>
               <div className="grid gap-2 sm:grid-cols-2">
-                {BUSINESS_TYPES.map((type) => {
+                {onboardingBusinessTypes().map((type) => {
                   const config = BUSINESS_TYPE_CONFIG[type];
                   const active = businessType === type;
                   return (
@@ -198,53 +219,104 @@ export default function OnboardingContent() {
             </div>
 
             {businessType === "SHOPKEEPER" && (
-              <div className="space-y-2">
-                <Label>My business is</Label>
-                <p className="text-xs text-muted-foreground">
-                  Pick every type you sell. You can change this later.
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {SHOP_SECTORS.map((sector) => {
-                    const config = SHOP_SECTOR_CONFIG[sector];
-                    const active = businessTypes.includes(sector);
-                    return (
+              <div className="space-y-3">
+                {shopSectorStep === "offering" ? (
+                  <>
+                    <Label>What do you sell?</Label>
+                    <p className="text-xs text-muted-foreground">
+                      We&apos;ll tailor your catalog, labels, and defaults.
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {OFFERING_OPTIONS.map((opt) => {
+                        const active = offeringKind === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => selectOffering(opt.id)}
+                            className={cn(
+                              "rounded-xl border p-3 text-left transition-colors",
+                              active
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "border-border hover:bg-accent/50"
+                            )}
+                          >
+                            <p className="text-sm font-semibold">{opt.label}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {opt.description}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full rounded-xl"
+                      onClick={() => setShopSectorStep("sectors")}
+                    >
+                      Continue
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>My business is</Label>
                       <button
-                        key={sector}
                         type="button"
-                        aria-pressed={active}
-                        onClick={() =>
-                          setBusinessTypes((prev) =>
-                            prev.includes(sector)
-                              ? prev.filter((s) => s !== sector).length > 0
-                                ? prev.filter((s) => s !== sector)
-                                : prev
-                              : [...prev, sector]
-                          )
-                        }
-                        className={cn(
-                          "rounded-xl border p-3 text-left transition-colors",
-                          active
-                            ? "border-primary bg-primary/5 ring-1 ring-primary"
-                            : "border-border hover:bg-accent/50"
-                        )}
+                        onClick={() => setShopSectorStep("offering")}
+                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                       >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold">
-                            {config.label}
-                          </span>
-                          {active ? (
-                            <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
-                              {businessTypes[0] === sector ? "Primary" : "✓"}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                          {config.description}
-                        </span>
+                        Change offering
                       </button>
-                    );
-                  })}
-                </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Pick every type you sell. You can change this later.
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {visibleSectors.map((sector) => {
+                        const config = SHOP_SECTOR_CONFIG[sector];
+                        const active = businessTypes.includes(sector);
+                        return (
+                          <button
+                            key={sector}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() =>
+                              setBusinessTypes((prev) =>
+                                prev.includes(sector)
+                                  ? prev.filter((s) => s !== sector).length > 0
+                                    ? prev.filter((s) => s !== sector)
+                                    : prev
+                                  : [...prev, sector]
+                              )
+                            }
+                            className={cn(
+                              "rounded-xl border p-3 text-left transition-colors",
+                              active
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "border-border hover:bg-accent/50"
+                            )}
+                          >
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold">
+                                {config.label}
+                              </span>
+                              {active ? (
+                                <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                                  {businessTypes[0] === sector ? "Primary" : "✓"}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {config.description}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
                 {businessTypes.includes("OTHER") ? (
                   <div className="space-y-1.5 pt-1">
                     <Label htmlFor="onboarding-custom-type">
@@ -263,7 +335,7 @@ export default function OnboardingContent() {
               </div>
             )}
 
-            {businessType === "SHOPKEEPER" && (
+            {isShopVertical(businessType) && (
               <div className="rounded-xl border p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>

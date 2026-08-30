@@ -86,16 +86,16 @@
   --vertical-subtle: #f1f5f9;
 }
 
-[data-vertical="BUILDER"] {
-  --vertical: #1d4ed8;
-  --vertical-foreground: #ffffff;
-  --vertical-subtle: #eff6ff;
-}
-
-[data-vertical="SHOPKEEPER"] {
+[data-vertical="SHOPKEEPER"],
+[data-vertical="SERVICE"] {
   --vertical: #0f766e;
   --vertical-foreground: #ffffff;
   --vertical-subtle: #f0fdfa;
+}
+
+[data-vertical="SERVICE"] {
+  --vertical: #7c3aed;
+  --vertical-subtle: #f5f3ff;
 }
 
 .dark[data-vertical="CONTRACTOR"],
@@ -112,18 +112,20 @@
   --vertical-subtle: #33415566;
 }
 
-.dark[data-vertical="BUILDER"],
-.dark [data-vertical="BUILDER"] {
-  --vertical: #60a5fa;
-  --vertical-foreground: #1e3a8a;
-  --vertical-subtle: #1e3a8a40;
-}
-
 .dark[data-vertical="SHOPKEEPER"],
-.dark [data-vertical="SHOPKEEPER"] {
+.dark [data-vertical="SHOPKEEPER"],
+.dark[data-vertical="SERVICE"],
+.dark [data-vertical="SERVICE"] {
   --vertical: #2dd4bf;
   --vertical-foreground: #134e4a;
   --vertical-subtle: #134e4a40;
+}
+
+.dark[data-vertical="SERVICE"],
+.dark [data-vertical="SERVICE"] {
+  --vertical: #a78bfa;
+  --vertical-foreground: #2e1065;
+  --vertical-subtle: #2e106540;
 }
 
 @theme inline {

@@ -4,6 +4,12 @@ type ApiResponse<T> = { data: T; meta?: Record<string, unknown> };
 type ApiErrorBody = { error: { code: string; message: string; details?: unknown } };
 
 let activeOrganizationId: string | null = null;
+let activeBranchId: string | null = null;
+
+/** Sentinel sent as X-Branch-Id for org-wide aggregation */
+export const BRANCH_ALL = "all" as const;
+
+export type ActiveBranchId = string | typeof BRANCH_ALL;
 
 export function setActiveOrganizationId(orgId: string | null) {
   activeOrganizationId = orgId;
@@ -11,6 +17,25 @@ export function setActiveOrganizationId(orgId: string | null) {
 
 export function getActiveOrganizationId() {
   return activeOrganizationId;
+}
+
+export function setActiveBranchId(branchId: ActiveBranchId | null) {
+  activeBranchId = branchId;
+  if (typeof window !== "undefined") {
+    if (branchId) {
+      localStorage.setItem("activeBranchId", branchId);
+    } else {
+      localStorage.removeItem("activeBranchId");
+    }
+  }
+}
+
+export function getActiveBranchId() {
+  if (activeBranchId) return activeBranchId;
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("activeBranchId");
+  }
+  return null;
 }
 
 export class ApiClientError extends Error {
@@ -63,6 +88,11 @@ export async function apiFetch<T>(
     headers.set("X-Organization-Id", activeOrganizationId);
   }
 
+  const branchId = getActiveBranchId();
+  if (branchId) {
+    headers.set("X-Branch-Id", branchId);
+  }
+
   const res = await fetch(path, { ...options, headers });
   const json = await res.json().catch(() => ({}));
 
@@ -85,6 +115,10 @@ export async function apiFetchRaw<T = unknown>(
   const headers = new Headers(options.headers);
   if (activeOrganizationId) {
     headers.set("X-Organization-Id", activeOrganizationId);
+  }
+  const branchId = getActiveBranchId();
+  if (branchId) {
+    headers.set("X-Branch-Id", branchId);
   }
   const res = await fetch(path, { ...options, headers });
   const json = await res.json().catch(() => ({}));

@@ -7,6 +7,8 @@ import {
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { createShopSale, listShopSales } from "@/services/shop.service";
+import { getShopBranchContext } from "@/lib/shop/branch-context";
+import { customerBranchIdForCreate } from "@/lib/shop/multi-store";
 import {
   ownSalesStaffScope,
   requireShopBilling,
@@ -46,6 +48,8 @@ const createSaleSchema = z.object({
         color: z.string().max(40).optional(),
         variantLabel: z.string().max(80).optional(),
         unit: z.string().max(20).optional(),
+        staffId: z.string().uuid().optional(),
+        itemKind: z.enum(["PRODUCT", "SERVICE", "MENU_ITEM"]).optional(),
       })
     )
     .min(1),
@@ -84,6 +88,10 @@ const createSaleSchema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
+    );
     const staffScope = await ownSalesStaffScope(ctx);
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") ?? undefined;
@@ -91,6 +99,7 @@ export async function GET(request: Request) {
     const sales = await listShopSales(ctx.organizationId, {
       q,
       customerId,
+      branchId: shopCtx.branchId,
       staffId: staffScope,
       cursor: searchParams.get("cursor") ?? undefined,
       limit: Number(searchParams.get("limit") ?? 25),
@@ -103,12 +112,21 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     await requireShopBilling(ctx);
+    const shopCtx = await getShopBranchContext(
+      ctx,
+      request.headers.get("X-Branch-Id")
+    );
 
     const body = await request.json();
     const data = createSaleSchema.parse(body);
 
     const sale = await createShopSale({
       organizationId: ctx.organizationId,
+      branchId: shopCtx.branchId,
+      customerBranchId: customerBranchIdForCreate(
+        shopCtx.customerScope,
+        shopCtx.branchId
+      ),
       createdById: ctx.userId,
       clientId: data.clientId,
       customerId: data.customerId,

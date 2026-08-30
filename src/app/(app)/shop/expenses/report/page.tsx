@@ -10,8 +10,10 @@ import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  ReportDateRangeBar,
+  type ReportPeriodPreset,
+} from "@/components/shop/report-date-range";
 import { formatINR } from "@/lib/finance/money";
 
 type ProfitData = {
@@ -28,15 +30,45 @@ export default function ExpenseReportPage() {
   const { enabledModules } = useAuthStore();
   const enabled = isModuleEnabled(enabledModules, "shop_expenses");
 
-  const [from, setFrom] = useState(() => {
+  const [preset, setPreset] = useState<ReportPeriodPreset>("month");
+  const [rangeFrom, setRangeFrom] = useState(() => {
     const d = new Date();
     d.setDate(1);
     return d.toISOString().slice(0, 10);
   });
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [rangeTo, setRangeTo] = useState(new Date().toISOString().slice(0, 10));
+  const [exactDate, setExactDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const from =
+    preset === "date"
+      ? exactDate
+      : preset === "today"
+        ? new Date().toISOString().slice(0, 10)
+        : preset === "week"
+          ? (() => {
+              const d = new Date();
+              const day = d.getDay();
+              const diff = day === 0 ? 6 : day - 1;
+              d.setDate(d.getDate() - diff);
+              return d.toISOString().slice(0, 10);
+            })()
+          : preset === "month"
+            ? (() => {
+                const d = new Date();
+                d.setDate(1);
+                return d.toISOString().slice(0, 10);
+              })()
+            : rangeFrom;
+
+  const to =
+    preset === "range"
+      ? rangeTo
+      : preset === "date"
+        ? exactDate
+        : new Date().toISOString().slice(0, 10);
 
   const { data, isLoading, error: queryError, refetch } = useQuery({
-    queryKey: orgId ? [...queryKeys.modules.shop.profit(orgId, `${from}-${to}`)] : ["disabled"],
+    queryKey: orgId ? [...queryKeys.modules.shop.profit(orgId, `${preset}-${from}-${to}`)] : ["disabled"],
     queryFn: () => apiFetch<ProfitData>(`/api/v1/shop/profit?from=${from}&to=${to}`),
     enabled: !!orgId && enabled,
   });
@@ -66,20 +98,25 @@ export default function ExpenseReportPage() {
           <h1 className="text-2xl font-bold">Profit & expense report</h1>
           <p className="text-sm text-muted-foreground">Gross profit = sales − cost of goods. Net = gross − expenses.</p>
         </div>
-        <Link href="/shop/expenses"><Button variant="outline" className="rounded-xl">Back</Button></Link>
+        <Link href="/shop/reports"><Button variant="outline" className="rounded-xl">All reports</Button></Link>
       </div>
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardContent className="flex flex-wrap items-end gap-3 p-4">
-          <div className="space-y-1">
-            <Label>From</Label>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10 rounded-xl" />
-          </div>
-          <div className="space-y-1">
-            <Label>To</Label>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-10 rounded-xl" />
-          </div>
-          <Button className="rounded-xl" onClick={() => refetch()}>Apply</Button>
+          <ReportDateRangeBar
+            preset={preset}
+            onPresetChange={setPreset}
+            date={exactDate}
+            onDateChange={setExactDate}
+            from={rangeFrom}
+            to={rangeTo}
+            onFromChange={setRangeFrom}
+            onToChange={setRangeTo}
+            presets={["today", "week", "month", "date", "range"]}
+          />
+          <Button className="rounded-xl" onClick={() => refetch()}>
+            Refresh
+          </Button>
         </CardContent>
       </Card>
 

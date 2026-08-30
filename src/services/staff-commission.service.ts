@@ -1,15 +1,15 @@
-import type { StaffCommissionType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireModule } from "@/lib/org/require-module";
 import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
 import { parseSaleItems } from "@/lib/shop/sale-line-key";
 import { monthRangeUtc } from "@/lib/date/org-day";
+import {
+  commissionForSale,
+  describeCommission,
+  type CommissionConfig,
+} from "@/lib/staff/commission-math";
 
-export type CommissionConfig = {
-  commissionType: StaffCommissionType;
-  commissionPercent: number | null;
-  commissionAmountPaise: bigint | null;
-};
+export { commissionForSale, describeCommission, type CommissionConfig };
 
 export type CommissionSaleBreakdown = {
   saleId: string;
@@ -47,52 +47,24 @@ export type CommissionResult = {
   sales: CommissionSaleBreakdown[];
 };
 
-function isNoCommission(config: CommissionConfig): boolean {
-  if (config.commissionType === "NONE") return true;
-  if (config.commissionType === "PERCENT") {
-    return !config.commissionPercent || config.commissionPercent <= 0;
-  }
-  return !config.commissionAmountPaise || config.commissionAmountPaise <= BigInt(0);
+function lineItemsAssignedToStaff(
+  items: ReturnType<typeof parseSaleItems>,
+  staffId: string,
+  billStaffId: string | null
+): number {
+  return items.reduce((sum, item) => {
+    const assigned = item.staffId ?? billStaffId ?? null;
+    if (assigned === staffId) return sum + item.qty;
+    return sum;
+  }, 0);
 }
 
-/**
- * Commission on one invoice's eligible value.
- *
- * - PERCENT: a share of the invoice value that stuck.
- * - FIXED_PER_SALE: a flat amount, but only while the invoice still has value
- *   left after returns. A fully returned bill earns nothing.
- * - FIXED_PER_ITEM: a flat amount per item that was not returned.
- */
-export function commissionForSale(
-  config: CommissionConfig,
-  sale: {
-    eligiblePaise: bigint;
-    saleTotalPaise: bigint;
-    eligibleItemCount: number;
-  }
-): bigint {
-  if (isNoCommission(config)) return BigInt(0);
-  if (sale.eligiblePaise <= BigInt(0)) return BigInt(0);
-
-  switch (config.commissionType) {
-    case "PERCENT": {
-      const basisPoints = BigInt(Math.round((config.commissionPercent ?? 0) * 100));
-      return (sale.eligiblePaise * basisPoints) / BigInt(10_000);
-    }
-    case "FIXED_PER_SALE": {
-      const flat = config.commissionAmountPaise ?? BigInt(0);
-      // Partial return → pay the flat fee pro-rata on what the customer kept.
-      if (sale.saleTotalPaise <= BigInt(0)) return BigInt(0);
-      if (sale.eligiblePaise >= sale.saleTotalPaise) return flat;
-      return (flat * sale.eligiblePaise) / sale.saleTotalPaise;
-    }
-    case "FIXED_PER_ITEM": {
-      const perItem = config.commissionAmountPaise ?? BigInt(0);
-      return perItem * BigInt(Math.max(0, Math.round(sale.eligibleItemCount)));
-    }
-    default:
-      return BigInt(0);
-  }
+function saleAssignedToBillStaff(
+  sale: { staffId: string | null; salesBoyName: string | null },
+  staffId: string,
+  staffName: string
+): boolean {
+  return sale.staffId === staffId || (!sale.staffId && sale.salesBoyName === staffName);
 }
 
 /** Commission a full-value invoice would have earned, before any returns. */
@@ -170,26 +142,36 @@ export async function computeStaffCommission(input: {
       organizationId: input.organizationId,
       status: "COMPLETED",
       createdAt: { gte: start, lt: end },
-      // Older invoices only recorded a typed name; match those too so switching
-      // on commission does not silently ignore history.
-      OR: [{ staffId: staff.id }, { staffId: null, salesBoyName: staff.name }],
     },
     select: {
       id: true,
       billNumber: true,
       createdAt: true,
       totalPaise: true,
+      staffId: true,
+      salesBoyName: true,
       itemsJson: true,
     },
     orderBy: { createdAt: "asc" },
   });
 
-  if (sales.length === 0) return empty;
+  const relevantSales =
+    config.commissionType === "FIXED_PER_ITEM"
+      ? sales.filter((sale) => {
+          const items = parseSaleItems(sale.itemsJson);
+          return (
+            lineItemsAssignedToStaff(items, staff.id, sale.staffId) > 0 ||
+            saleAssignedToBillStaff(sale, staff.id, staff.name)
+          );
+        })
+      : sales.filter((sale) => saleAssignedToBillStaff(sale, staff.id, staff.name));
+
+  if (relevantSales.length === 0) return empty;
 
   const returns = await prisma.shopSaleReturn.findMany({
     where: {
       organizationId: input.organizationId,
-      shopSaleId: { in: sales.map((s) => s.id) },
+      shopSaleId: { in: relevantSales.map((s) => s.id) },
     },
     select: {
       shopSaleId: true,
@@ -228,40 +210,71 @@ export async function computeStaffCommission(input: {
   let fullCommissionPaise = BigInt(0);
   const breakdown: CommissionSaleBreakdown[] = [];
 
-  for (const sale of sales) {
+  for (const sale of relevantSales) {
     const adjustments = returnsBySale.get(sale.id);
     const returned = adjustments?.returned ?? BigInt(0);
     const exchanged = adjustments?.exchanged ?? BigInt(0);
     const returnedQty = adjustments?.returnedQty ?? 0;
     const exchangedQty = adjustments?.exchangedQty ?? 0;
 
-    const itemCount = parseSaleItems(sale.itemsJson).reduce(
-      (sum, item) => sum + item.qty,
-      0
-    );
+    const items = parseSaleItems(sale.itemsJson);
+    const itemCount = items.reduce((sum, item) => sum + item.qty, 0);
+    const billStaff = saleAssignedToBillStaff(sale, staff.id, staff.name);
+    const eligibleItems =
+      config.commissionType === "FIXED_PER_ITEM"
+        ? Math.max(
+            0,
+            lineItemsAssignedToStaff(items, staff.id, billStaff ? sale.staffId : null) -
+              returnedQty +
+              exchangedQty
+          )
+        : Math.max(0, itemCount - returnedQty + exchangedQty);
 
-    // Value the customer kept: what was billed, minus goods returned, plus the
-    // value of any replacement goods they walked out with.
     const rawEligible = sale.totalPaise - returned + exchanged;
-    const eligible = rawEligible > BigInt(0) ? rawEligible : BigInt(0);
-    const eligibleItems = Math.max(0, itemCount - returnedQty + exchangedQty);
+    const eligible =
+      config.commissionType === "FIXED_PER_ITEM" || billStaff
+        ? rawEligible > BigInt(0)
+          ? rawEligible
+          : BigInt(0)
+        : BigInt(0);
 
-    const saleCommission = commissionForSale(config, {
-      eligiblePaise: eligible,
-      saleTotalPaise: sale.totalPaise,
-      eligibleItemCount: eligibleItems,
-    });
+    const saleCommission =
+      config.commissionType === "FIXED_PER_ITEM"
+        ? commissionForSale(config, {
+            eligiblePaise: eligible,
+            saleTotalPaise: sale.totalPaise,
+            eligibleItemCount: eligibleItems,
+          })
+        : billStaff
+          ? commissionForSale(config, {
+              eligiblePaise: eligible,
+              saleTotalPaise: sale.totalPaise,
+              eligibleItemCount: eligibleItems,
+            })
+          : BigInt(0);
 
-    grossSalesPaise += sale.totalPaise;
-    returnedValuePaise += returned;
-    exchangeValuePaise += exchanged;
+    if (config.commissionType !== "FIXED_PER_ITEM" && !billStaff) continue;
+
+    grossSalesPaise += billStaff ? sale.totalPaise : BigInt(0);
+    returnedValuePaise += billStaff ? returned : BigInt(0);
+    exchangeValuePaise += billStaff ? exchanged : BigInt(0);
     eligibleSalesPaise += eligible;
     eligibleItemCount += eligibleItems;
     commissionPaise += saleCommission;
-    fullCommissionPaise += commissionBeforeReturns(config, {
-      saleTotalPaise: sale.totalPaise,
-      itemCount,
-    });
+    fullCommissionPaise += billStaff
+      ? commissionBeforeReturns(config, {
+          saleTotalPaise: sale.totalPaise,
+          itemCount,
+        })
+      : commissionForSale(config, {
+          eligiblePaise: sale.totalPaise,
+          saleTotalPaise: sale.totalPaise,
+          eligibleItemCount: lineItemsAssignedToStaff(
+            items,
+            staff.id,
+            billStaff ? sale.staffId : null
+          ),
+        });
 
     breakdown.push({
       saleId: sale.id,
@@ -290,7 +303,7 @@ export async function computeStaffCommission(input: {
 
   return {
     ...empty,
-    invoiceCount: sales.length,
+    invoiceCount: relevantSales.length,
     grossSalesPaise,
     returnedValuePaise,
     exchangeValuePaise,
@@ -330,27 +343,4 @@ export async function listStaffCommissions(input: {
     results.push({ ...result, roleTitle: member.roleTitle });
   }
   return results;
-}
-
-export function describeCommission(config: CommissionConfig): string {
-  switch (config.commissionType) {
-    case "PERCENT":
-      return config.commissionPercent
-        ? `${config.commissionPercent}% of eligible sales`
-        : "Percentage (not set)";
-    case "FIXED_PER_SALE":
-      return config.commissionAmountPaise
-        ? `₹${(Number(config.commissionAmountPaise) / 100).toLocaleString("en-IN")} per sale`
-        : "Fixed per sale (not set)";
-    case "FIXED_PER_ITEM":
-      return config.commissionAmountPaise
-        ? `₹${(Number(config.commissionAmountPaise) / 100).toLocaleString("en-IN")} per item`
-        : "Fixed per item (not set)";
-    case "FIXED_MONTHLY":
-      return config.commissionAmountPaise
-        ? `₹${(Number(config.commissionAmountPaise) / 100).toLocaleString("en-IN")} per month`
-        : "Fixed monthly (not set)";
-    default:
-      return "No commission";
-  }
 }

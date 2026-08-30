@@ -3,7 +3,7 @@ import {
   commissionForSale,
   describeCommission,
   type CommissionConfig,
-} from "@/services/staff-commission.service";
+} from "@/lib/staff/commission-math";
 
 const percent = (value: number): CommissionConfig => ({
   commissionType: "PERCENT",

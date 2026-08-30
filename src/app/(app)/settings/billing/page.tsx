@@ -22,11 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  SETUP_FEE_EARLY_BIRD_PAISE,
-  SETUP_FEE_REGULAR_PAISE,
-  formatINRFromPaise,
-} from "@/lib/billing/plans";
 
 type BillingMe = {
   organizationName: string;
@@ -38,6 +33,9 @@ type BillingMe = {
   storageQuotaLabel: string;
   storageUsedBytes: string;
   storageQuotaBytes: string;
+  inventorySkuCount: number;
+  inventorySkuCap: number | null;
+  inventorySkuUsagePercent: number | null;
   setupFeePaise: string | null;
   setupFeeStatus: string;
   earlyBirdSetup: boolean;
@@ -128,6 +126,9 @@ export default function BillingSettingsPage() {
   const used = Number(me.storageUsedBytes);
   const quota = Number(me.storageQuotaBytes);
   const pct = quota > 0 ? (used / quota) * 100 : 0;
+  const skuPct = me.inventorySkuUsagePercent ?? 0;
+  const skuCapLabel =
+    me.inventorySkuCap != null ? String(me.inventorySkuCap) : "Unlimited";
   const isCancelled = me.subscriptionStatus === "CANCELLED";
 
   return (
@@ -189,21 +190,23 @@ export default function BillingSettingsPage() {
               <p className="text-muted-foreground">Status</p>
               <p className="font-medium capitalize">{me.subscriptionStatus.replace(/_/g, " ").toLowerCase()}</p>
             </div>
-            {me.setupFeeStatus === "UNPAID" && me.setupFeePaise ? (
-              <div>
-                <p className="text-muted-foreground">One-time setup</p>
-                <p className="font-medium">
-                  {formatINRFromPaise(Number(me.setupFeePaise))}{" "}
-                  {me.earlyBirdSetup ? "(early offer)" : ""}
-                </p>
-              </div>
-            ) : null}
           </div>
           <StorageUsageBar
             usedLabel={me.storageUsedLabel}
             quotaLabel={me.storageQuotaLabel}
             percent={pct}
           />
+          {me.inventorySkuCap != null ? (
+            <StorageUsageBar
+              label="Inventory SKUs"
+              usedLabel={String(me.inventorySkuCount)}
+              quotaLabel={skuCapLabel}
+              percent={skuPct}
+              warningThreshold={80}
+              nearLimitMessage={`You are at ${skuPct}% of your plan SKU limit. Upgrade before adding more products, or remove unused items.`}
+              atLimitMessage="SKU limit reached — you cannot add new inventory items until you upgrade or remove unused SKUs. Existing items are kept."
+            />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -218,23 +221,6 @@ export default function BillingSettingsPage() {
           readOnly={isCancelled}
         />
       </div>
-
-      <Card className="rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-base">One-time setup & onboarding</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            Regular {formatINRFromPaise(SETUP_FEE_REGULAR_PAISE)} · Early customer{" "}
-            {formatINRFromPaise(SETUP_FEE_EARLY_BIRD_PAISE)} (first 100 shops)
-          </p>
-          <p>
-            Includes store configuration, staff setup, GST/invoice setup, data import help, training,
-            and desktop software setup.
-          </p>
-          <p>Pay via: {billingContact}</p>
-        </CardContent>
-      </Card>
 
       {!isCancelled ? (
         <Card className="rounded-2xl border-destructive/30">

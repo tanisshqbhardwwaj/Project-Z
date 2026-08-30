@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createClient } from "@libsql/client/web";
 import { readdirSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -71,45 +72,71 @@ const folders = readdirSync(migrationsDir)
   .filter((name) => !name.startsWith(".") && name !== "migration_lock.toml")
   .sort();
 
+/** Apply every migration SQL idempotently so baseline drift cannot skip new columns/tables. */
+async function ensureMigrationApplied(folder) {
+  const migrationPath = join(migrationsDir, folder, "migration.sql");
+  const sql = readFileSync(migrationPath, "utf8").trim();
+  if (!sql) return null;
+
+  const checksum = createHash("sha256").update(sql).digest("hex");
+  const repair = applied.has(folder);
+  console.log(`  → ${folder}${repair ? " (repair)" : ""}`);
+  await applyMigrationSql(sql);
+
+  if (!repair) {
+    await client.execute({
+      sql: `INSERT INTO "_turso_migrations" ("name", "checksum") VALUES (?, ?)`,
+      args: [folder, checksum],
+    });
+    applied.add(folder);
+  }
+
+  return checksum;
+}
+
 if (applied.size === 0) {
   const schemaCheck = await client.execute(
     `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'User'`
   );
   if (schemaCheck.rows.length > 0) {
-    console.log("Existing schema detected — baselining current migrations as applied");
+    console.log(
+      "Existing schema detected — applying all migrations idempotently, then recording baseline"
+    );
     for (const folder of folders) {
       const migrationPath = join(migrationsDir, folder, "migration.sql");
       const sql = readFileSync(migrationPath, "utf8").trim();
+      if (!sql) continue;
       const checksum = createHash("sha256").update(sql).digest("hex");
+      console.log(`  → (baseline) ${folder}`);
+      await applyMigrationSql(sql);
       await client.execute({
         sql: `INSERT OR IGNORE INTO "_turso_migrations" ("name", "checksum") VALUES (?, ?)`,
         args: [folder, checksum],
       });
       applied.add(folder);
     }
+    console.log("✓ Turso baseline complete");
+    process.exit(0);
   }
 }
 
 const pending = folders.filter((folder) => !applied.has(folder));
 
 if (pending.length === 0) {
-  console.log("✓ Turso database already up to date, no migrations to apply");
+  console.log("✓ Turso migrations up to date — running idempotent repair pass");
+  for (const folder of folders) {
+    await ensureMigrationApplied(folder);
+  }
+  console.log("✓ Turso schema repair complete");
 } else {
   console.log(`Applying ${pending.length} pending migration(s) to Turso...`);
 
   for (const folder of pending) {
-    const migrationPath = join(migrationsDir, folder, "migration.sql");
-    const sql = readFileSync(migrationPath, "utf8").trim();
-    if (!sql) continue;
+    await ensureMigrationApplied(folder);
+  }
 
-    const checksum = createHash("sha256").update(sql).digest("hex");
-
-    console.log(`  → ${folder}`);
-    await applyMigrationSql(sql);
-    await client.execute({
-      sql: `INSERT INTO "_turso_migrations" ("name", "checksum") VALUES (?, ?)`,
-      args: [folder, checksum],
-    });
+  for (const folder of folders.filter((folder) => applied.has(folder))) {
+    await ensureMigrationApplied(folder);
   }
 
   console.log("✓ Turso migrations applied");

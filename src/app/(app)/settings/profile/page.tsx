@@ -14,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireField } from "@/lib/api/validation";
-import { MAX_BETA_TEST_EMAILS } from "@/lib/email/test-allowlist";
-import { getBusinessTypeConfig } from "@/lib/org/business-type";
+import { MAX_BETA_TEST_EMAILS } from "@/lib/email/beta-test-constants";
+import { getBusinessTypeConfig, isShopVertical } from "@/lib/org/business-type";
 import { getShopSectorConfig } from "@/lib/org/shop-sector";
 import { Switch } from "@/components/ui/switch";
 import { useCashierMode } from "@/hooks/use-cashier-mode";
@@ -68,7 +68,7 @@ export default function SettingsProfilePage() {
   const isOrgOwner = role === "OWNER";
   const { previewMode, setPreviewMode, isOwnerPreview } = useCashierMode();
   const canPreviewCashier =
-    activeBusinessType === "SHOPKEEPER" &&
+    isShopVertical(activeBusinessType) &&
     role &&
     hasPermission(role as OrgRole, "shop.sales");
 
@@ -284,7 +284,7 @@ export default function SettingsProfilePage() {
             </p>
             <p className="text-sm text-muted-foreground">
               {getBusinessTypeConfig(activeBusinessType).label}
-              {activeBusinessType === "SHOPKEEPER" && activeShopSector
+              {isShopVertical(activeBusinessType) && activeShopSector
                 ? ` · ${getShopSectorConfig(activeShopSector).label}`
                 : ""}
             </p>

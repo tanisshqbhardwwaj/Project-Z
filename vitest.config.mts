@@ -8,10 +8,13 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    setupFiles: ["./tests/setup.ts"],
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "server-only": path.resolve(__dirname, "./tests/mocks/server-only.ts"),
+      "next/server": path.resolve(__dirname, "./tests/mocks/next-server.ts"),
     },
   },
 });

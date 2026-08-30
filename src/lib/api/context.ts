@@ -10,6 +10,16 @@ import { logger } from "@/lib/logger";
 import { RateLimitError } from "@/lib/rate-limit";
 import { clientSafeInternalMessage } from "@/lib/api/internal-error";
 import { touchOrganizationActivity } from "@/lib/db/touch-org-activity";
+import { ensureOrgBillingSchema } from "@/lib/db/ensure-org-billing-schema";
+import {
+  getCachedOrganization,
+  invalidateCachedOrganization,
+  runWithRequestCache,
+} from "@/lib/db/request-cache";
+import {
+  queryMetricsHeaders,
+  runWithQueryMetrics,
+} from "@/lib/db/query-metrics";
 
 export class ApiError extends Error {
   constructor(
@@ -60,13 +70,39 @@ export async function getAuthContext(
     throw new ApiError(400, "ORG_REQUIRED", "Organization context required");
   }
 
-  const org = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { subscriptionStatus: true },
-  });
+  await ensureOrgBillingSchema();
+
+  let org = await getCachedOrganization(organizationId);
   if (!org) {
     throw new ApiError(404, "NOT_FOUND", "Organization not found");
   }
+
+  const now = new Date();
+  if (org.accessExpiresAt && org.accessExpiresAt < now) {
+    throw new ApiError(
+      403,
+      "SUBSCRIPTION_EXPIRED",
+      "Your organization's access has expired. Contact support to renew."
+    );
+  }
+
+  if (
+    org.subscriptionStatus === "TRIAL" &&
+    org.currentPeriodEnd &&
+    org.currentPeriodEnd < now
+  ) {
+    await prisma.organization.update({
+      where: { id: organizationId },
+      data: { subscriptionStatus: "PAST_DUE" },
+    });
+    invalidateCachedOrganization(organizationId);
+    throw new ApiError(
+      403,
+      "SUBSCRIPTION_EXPIRED",
+      "Your trial has ended. Go to Settings → Billing or contact support to continue."
+    );
+  }
+
   if (!subscriptionAllowsProductUse(org.subscriptionStatus) && !options?.allowCancelled) {
     throw new ApiError(
       403,
@@ -152,8 +188,16 @@ export async function requireProjectAccess(
   }
 }
 
-export function apiSuccess<T>(data: T, meta?: Record<string, unknown>) {
-  return NextResponse.json({ data, meta });
+export function apiSuccess<T>(
+  data: T,
+  meta?: Record<string, unknown>,
+  extraHeaders?: Record<string, string>
+) {
+  const headers = { ...queryMetricsHeaders(), ...extraHeaders };
+  return NextResponse.json(
+    { data, meta },
+    Object.keys(headers).length ? { headers } : undefined
+  );
 }
 
 export function apiError(error: ApiError) {
@@ -163,11 +207,26 @@ export function apiError(error: ApiError) {
   );
 }
 
-export async function handleApi<T>(
+export async function handleApi(
   handler: () => Promise<NextResponse>
 ): Promise<NextResponse> {
   try {
-    return await handler();
+    return await runWithRequestCache(() =>
+      runWithQueryMetrics(async () => {
+        const response = await handler();
+        const metrics = queryMetricsHeaders();
+        if (Object.keys(metrics).length === 0) return response;
+        const headers = new Headers(response.headers);
+        for (const [key, value] of Object.entries(metrics)) {
+          headers.set(key, value);
+        }
+        return new NextResponse(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers,
+        });
+      })
+    );
   } catch (e) {
     if (e instanceof ApiError) return apiError(e);
     if (e instanceof RateLimitError) {
@@ -182,10 +241,7 @@ export async function handleApi<T>(
         msg.includes("UNIQUE constraint failed") ||
         msg.includes("Unique constraint failed")
       ) {
-        const friendly =
-          msg.includes("BuilderUnit") && msg.includes("unitNumber")
-            ? "This unit number already exists in the project"
-            : "A record with this value already exists";
+        const friendly = "A record with this value already exists";
         return apiError(new ApiError(409, "CONFLICT", friendly));
       }
     }

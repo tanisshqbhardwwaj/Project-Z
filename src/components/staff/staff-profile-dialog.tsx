@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import {
@@ -13,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { accessPresetForRole } from "@/lib/staff/access";
 import { Percent, Receipt, ShoppingBag, Ban } from "lucide-react";
 
 /** Suggested roles; `roleTitle` is still free text for anything else. */
@@ -24,6 +26,7 @@ export const STAFF_ROLES = [
   { key: "ACCOUNTANT", label: "Accountant" },
   { key: "INVENTORY_MANAGER", label: "Inventory Manager" },
   { key: "DELIVERY_STAFF", label: "Delivery Staff" },
+  { key: "WAITER", label: "Waiter" },
   { key: "CUSTOM", label: "Custom role" },
 ] as const;
 
@@ -83,6 +86,13 @@ export type StaffProfileValues = {
   canProcessReturns: boolean;
   canViewOwnAttendance: boolean;
   canViewOwnSales: boolean;
+  canManageInventory: boolean;
+  canViewAllAttendance: boolean;
+  canViewAllSales: boolean;
+  canViewOwnDeliveries: boolean;
+  canUpdateDeliveryStatus: boolean;
+  /** Set a new 4–6 digit PIN (leave blank to keep unchanged). */
+  attendancePin: string;
 };
 
 export function emptyStaffProfile(): StaffProfileValues {
@@ -107,6 +117,12 @@ export function emptyStaffProfile(): StaffProfileValues {
     canProcessReturns: false,
     canViewOwnAttendance: false,
     canViewOwnSales: false,
+    canManageInventory: false,
+    canViewAllAttendance: false,
+    canViewAllSales: false,
+    canViewOwnDeliveries: false,
+    canUpdateDeliveryStatus: false,
+    attendancePin: "",
   };
 }
 
@@ -149,6 +165,7 @@ export function StaffProfileDialog({
 
   function handleRoleKey(roleKey: string) {
     const preset = STAFF_ROLES.find((r) => r.key === roleKey);
+    const accessPreset = accessPresetForRole(roleKey);
     setValues((prev) => ({
       ...prev,
       roleKey,
@@ -158,6 +175,7 @@ export function StaffProfileDialog({
             ? prev.roleTitle
             : ""
           : preset.label,
+      ...accessPreset,
     }));
   }
 
@@ -237,10 +255,9 @@ export function StaffProfileDialog({
               </div>
               <div className="space-y-1.5">
                 <Label>Joining date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={values.joinedAt}
-                  onChange={(e) => set("joinedAt", e.target.value)}
+                  onChange={(v) => set("joinedAt", v)}
                   className="h-11 rounded-xl"
                 />
               </div>
@@ -450,7 +467,8 @@ export function StaffProfileDialog({
               <p className="text-xs text-muted-foreground">
                 Saving sends a login invite to this email. All permissions start off — turn on only what this person needs.
               </p>
-              <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+              <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+                <p className="text-xs font-medium text-muted-foreground">Billing</p>
                 <label className="flex cursor-pointer items-start gap-3 text-sm">
                   <input
                     type="checkbox"
@@ -476,6 +494,8 @@ export function StaffProfileDialog({
                     <span className="font-medium">Can process returns and exchanges</span>
                   </span>
                 </label>
+
+                <p className="pt-1 text-xs font-medium text-muted-foreground">Sales & attendance</p>
                 <label className="flex cursor-pointer items-start gap-3 text-sm">
                   <input
                     type="checkbox"
@@ -498,7 +518,93 @@ export function StaffProfileDialog({
                     <span className="font-medium">Can see own personal sales</span>
                   </span>
                 </label>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canViewAllAttendance}
+                    onChange={(e) => set("canViewAllAttendance", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can see all staff attendance</span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canViewAllSales}
+                    onChange={(e) => set("canViewAllSales", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can see all staff sales</span>
+                  </span>
+                </label>
+
+                <p className="pt-1 text-xs font-medium text-muted-foreground">Inventory & deliveries</p>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canManageInventory}
+                    onChange={(e) => set("canManageInventory", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can manage inventory</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Managers get this automatically when no Inventory Manager is assigned
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canViewOwnDeliveries}
+                    onChange={(e) => set("canViewOwnDeliveries", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can see own deliveries</span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values.canUpdateDeliveryStatus}
+                    onChange={(e) => set("canUpdateDeliveryStatus", e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium">Can update delivery status</span>
+                  </span>
+                </label>
               </div>
+            </section>
+          ) : null}
+
+          {/* Attendance check-in (PIN/geolocation) is planned for a later stage. */}
+          {false && showAccessToggles ? (
+            <section className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Attendance PIN
+              </p>
+              <Label htmlFor="attendance-pin">Counter check-in PIN (optional)</Label>
+              <Input
+                id="attendance-pin"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={values.attendancePin}
+                onChange={(e) =>
+                  set("attendancePin", e.target.value.replace(/\D/g, ""))
+                }
+                placeholder="4–6 digits — no login email required"
+                className="h-11 rounded-xl font-mono tracking-widest"
+              />
+              <p className="text-xs text-muted-foreground">
+                Staff use this at the PIN kiosk on Staff → Attendance. Leave blank to keep
+                unchanged when editing.
+              </p>
             </section>
           ) : null}
 

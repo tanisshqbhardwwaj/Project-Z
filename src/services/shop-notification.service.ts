@@ -202,6 +202,15 @@ export async function syncShopAlertNotifications(organizationId: string) {
       console.error("[shop] recurring expense reminder sync failed", err);
     });
   }
+
+  if (enabledModules.shop_udhaar) {
+    const { syncUdhaarPaymentReminders } = await import(
+      "./shop-payment-reminder.service"
+    );
+    await syncUdhaarPaymentReminders(organizationId).catch((err) => {
+      console.error("[shop] udhaar payment reminder sync failed", err);
+    });
+  }
 }
 
 export function scheduleShopInventoryAlertSync(organizationId: string) {

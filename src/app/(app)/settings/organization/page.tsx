@@ -16,9 +16,10 @@ import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireField } from "@/lib/api/validation";
 import {
   BUSINESS_TYPE_CONFIG,
-  BUSINESS_TYPES,
+  isShopVertical,
   type BusinessType,
 } from "@/lib/org/business-type";
+import { selectableBusinessTypes } from "@/lib/org/service-vertical";
 import {
   SHOP_SECTOR_CONFIG,
   SHOP_SECTORS,
@@ -291,7 +292,7 @@ export default function OrganizationSettingsPage() {
           <div className="space-y-2">
             <Label>Business type</Label>
             <div className="grid gap-2 sm:grid-cols-2">
-              {BUSINESS_TYPES.map((type) => {
+              {selectableBusinessTypes(businessType).map((type) => {
                 const config = BUSINESS_TYPE_CONFIG[type];
                 const active = businessType === type;
                 return (
@@ -385,7 +386,7 @@ export default function OrganizationSettingsPage() {
             </div>
           )}
 
-          {businessType === "SHOPKEEPER" && (
+          {isShopVertical(businessType) && (
             <Card className="rounded-2xl border-0 shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg">Shop label printing</CardTitle>
@@ -455,7 +456,7 @@ export default function OrganizationSettingsPage() {
             </Card>
           )}
 
-          {businessType === "SHOPKEEPER" && (
+          {isShopVertical(businessType) && (
             <Card className="rounded-2xl border-0 shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg">Invoice template</CardTitle>
@@ -561,6 +562,13 @@ export default function OrganizationSettingsPage() {
               Manage Members
             </Button>
           </Link>
+          {isShopVertical(businessType) && (
+            <Link href="/settings/branches">
+              <Button variant="outline" className="h-12 w-full justify-start rounded-xl">
+                Multi-store branches
+              </Button>
+            </Link>
+          )}
           {(moduleToggles.staff ?? enableStaff) && (
             <Link href="/staff">
               <Button variant="outline" className="h-12 w-full justify-start rounded-xl">

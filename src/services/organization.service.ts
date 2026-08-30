@@ -7,9 +7,13 @@ import type { BusinessType, OrgRole, ShopSector } from "@prisma/client";
 import { mergeModuleSettings, parseOrgSettings } from "@/lib/org/require-module";
 import { mergeShopOrgSettings, type ShopOrgSettings } from "@/lib/org/shop-settings";
 import { isShopSector } from "@/lib/org/shop-sector";
+import { isShopVertical } from "@/lib/org/business-type";
+import { isServiceVerticalEnabled } from "@/lib/org/service-vertical";
 import type { ModuleKey } from "@/lib/org/modules";
 import { defaultEnabledModules } from "@/lib/org/modules";
 import { setupFeeForNewOrg } from "@/services/billing.service";
+import { seedSampleServicesForOrg } from "@/services/service/service-onboarding.service";
+import { ensureShopBranchSchema } from "@/lib/shop/ensure-shop-branch-schema";
 
 export async function createOrganization(input: {
   name: string;
@@ -23,18 +27,28 @@ export async function createOrganization(input: {
   if (existing) slug = `${slug}-${Date.now()}`;
 
   const businessType = input.businessType ?? "CONTRACTOR";
-  const shopSector =
-    businessType === "SHOPKEEPER" ? (input.shopSector ?? "GENERAL") : null;
-  const enableStaff =
-    businessType === "SHOPKEEPER" ? Boolean(input.enableStaff) : false;
+  if (businessType === "SERVICE" && !isServiceVerticalEnabled()) {
+    throw new Error("Service business management is not available yet. Choose Retail Store Management instead.");
+  }
+  const shopSector = isShopVertical(businessType)
+    ? businessType === "SERVICE"
+      ? "SERVICES"
+      : (input.shopSector ?? "GENERAL")
+    : null;
+  const enableStaff = isShopVertical(businessType)
+    ? Boolean(input.enableStaff)
+    : false;
 
   const defaultModules = defaultEnabledModules(businessType, shopSector);
   if (enableStaff) defaultModules.staff = true;
+  if (shopSector === "RESTAURANT") {
+    defaultModules.restaurant_tables = true;
+    defaultModules.restaurant_kitchen = true;
+  }
 
-  const { setupFeePaise, earlyBird } =
-    businessType === "SHOPKEEPER"
-      ? await setupFeeForNewOrg()
-      : { setupFeePaise: BigInt(0), earlyBird: false };
+  const { setupFeePaise, earlyBird } = isShopVertical(businessType)
+    ? await setupFeeForNewOrg()
+    : { setupFeePaise: BigInt(0), earlyBird: false };
   const trialEnd = new Date();
   trialEnd.setDate(trialEnd.getDate() + 14);
 
@@ -57,16 +71,15 @@ export async function createOrganization(input: {
         shopSector,
         enableStaff,
         settings: { modules: defaultModules },
-        plan: businessType === "SHOPKEEPER" ? "BASIC" : "BUSINESS",
-        subscriptionStatus: businessType === "SHOPKEEPER" ? "TRIAL" : "ACTIVE",
-        storageQuotaBytes:
-          businessType === "SHOPKEEPER"
-            ? BigInt(2 * 1024 * 1024 * 1024)
-            : BigInt(5 * 1024 * 1024 * 1024),
-        currentPeriodEnd: businessType === "SHOPKEEPER" ? trialEnd : null,
-        setupFeePaise: businessType === "SHOPKEEPER" ? setupFeePaise : null,
-        setupFeeStatus: businessType === "SHOPKEEPER" ? "UNPAID" : "WAIVED",
-        earlyBirdSetup: businessType === "SHOPKEEPER" ? earlyBird : false,
+        plan: isShopVertical(businessType) ? "BASIC" : "BUSINESS",
+        subscriptionStatus: isShopVertical(businessType) ? "TRIAL" : "ACTIVE",
+        storageQuotaBytes: isShopVertical(businessType)
+          ? BigInt(2 * 1024 * 1024 * 1024)
+          : BigInt(5 * 1024 * 1024 * 1024),
+        currentPeriodEnd: isShopVertical(businessType) ? trialEnd : null,
+        setupFeePaise: isShopVertical(businessType) ? setupFeePaise : null,
+        setupFeeStatus: isShopVertical(businessType) ? "UNPAID" : "WAIVED",
+        earlyBirdSetup: isShopVertical(businessType) ? earlyBird : false,
       },
     });
 
@@ -84,6 +97,20 @@ export async function createOrganization(input: {
   });
 
   await seedExpenseCategories(prisma, org.id);
+
+  if (businessType === "SERVICE" && isServiceVerticalEnabled()) {
+    await ensureShopBranchSchema(org.id);
+    const defaultBranch = await prisma.shopBranch.findFirst({
+      where: { organizationId: org.id, isActive: true },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+      select: { id: true },
+    });
+    await seedSampleServicesForOrg({
+      organizationId: org.id,
+      createdById: input.userId,
+      branchId: defaultBranch?.id ?? null,
+    });
+  }
 
   await createAuditLog({
     organizationId: org.id,
@@ -298,10 +325,15 @@ export async function updateOrganization(input: {
   }
 
   if (input.businessType !== undefined) {
+    if (input.businessType === "SERVICE" && !isServiceVerticalEnabled()) {
+      throw new Error("Service business management is not available yet.");
+    }
     data.businessType = input.businessType;
-    if (input.businessType !== "SHOPKEEPER") {
+    if (!isShopVertical(input.businessType)) {
       data.shopSector = null;
       data.enableStaff = false;
+    } else if (input.businessType === "SERVICE") {
+      data.shopSector = "SERVICES";
     } else if (input.shopSector !== undefined) {
       data.shopSector = input.shopSector;
     } else {
@@ -323,7 +355,7 @@ export async function updateOrganization(input: {
 
   if (input.enableStaff !== undefined) {
     const nextType = data.businessType ?? before.businessType;
-    data.enableStaff = nextType === "SHOPKEEPER" ? input.enableStaff : false;
+    data.enableStaff = isShopVertical(nextType) ? input.enableStaff : false;
   }
 
   if (input.timezone !== undefined) {
@@ -386,7 +418,7 @@ export async function updateOrganization(input: {
   const typeChanged =
     input.businessType && input.businessType !== before.businessType;
   const sectorChanged =
-    updated.businessType === "SHOPKEEPER" &&
+    isShopVertical(updated.businessType) &&
     input.shopSector !== undefined &&
     input.shopSector !== before.shopSector;
 

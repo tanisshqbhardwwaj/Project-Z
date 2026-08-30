@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AttendanceStatus } from "@prisma/client";
+import { AttendanceCheckInPanel } from "@/components/staff/attendance-check-in-panel";
+import { orgTodayKey } from "@/lib/date/org-day";
 
 type MeStaff = {
   id: string;
@@ -29,6 +31,13 @@ type AttendancePayload = {
   staff: MeStaff;
   year: number;
   month: number;
+  today: {
+    date: string;
+    status: AttendanceStatus | null;
+    checkInAt: string | null;
+    checkOutAt: string | null;
+    geoVerified?: boolean | null;
+  };
   days: DayRow[];
 };
 
@@ -49,6 +58,7 @@ const CELL: Record<
 
 export default function MyAttendancePage() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
+  const timezone = useAuthStore((s) => s.timezone);
   const now = useMemo(() => new Date(), []);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -89,6 +99,20 @@ export default function MyAttendancePage() {
 
   const staff = meQuery.data!;
   const days = attendanceQuery.data?.days ?? [];
+  const today =
+    attendanceQuery.data?.today ?? {
+      date: orgTodayKey(timezone),
+      status: null,
+      checkInAt: null,
+      checkOutAt: null,
+    };
+  // Self check-in (geolocation) is planned for a later stage — hidden for now.
+  const ATTENDANCE_CHECKIN_ENABLED = false;
+  const showCheckIn =
+    ATTENDANCE_CHECKIN_ENABLED &&
+    year === now.getFullYear() &&
+    month === now.getMonth() + 1 &&
+    today.date === orgTodayKey(timezone);
 
   const counts = days.reduce(
     (acc, d) => {
@@ -107,6 +131,8 @@ export default function MyAttendancePage() {
           {staff.name} · {staff.roleTitle}
         </p>
       </div>
+
+      {showCheckIn ? <AttendanceCheckInPanel today={today} /> : null}
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

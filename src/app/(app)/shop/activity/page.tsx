@@ -12,6 +12,7 @@ import { buildCursorListUrl } from "@/lib/api/list-url";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateRangePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
 import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
@@ -207,25 +208,15 @@ export default function ShopActivityPage() {
               ))}
             </div>
             {datePreset === "custom" ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">From</Label>
-                  <Input
-                    type="date"
-                    value={customFrom}
-                    onChange={(e) => setCustomFrom(e.target.value)}
-                    className="h-10 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">To</Label>
-                  <Input
-                    type="date"
-                    value={customTo}
-                    onChange={(e) => setCustomTo(e.target.value)}
-                    className="h-10 rounded-xl"
-                  />
-                </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Date range</Label>
+                <DateRangePicker
+                  from={customFrom}
+                  to={customTo}
+                  onFromChange={setCustomFrom}
+                  onToChange={setCustomTo}
+                  className="h-10 min-w-[240px] rounded-xl"
+                />
               </div>
             ) : null}
           </div>

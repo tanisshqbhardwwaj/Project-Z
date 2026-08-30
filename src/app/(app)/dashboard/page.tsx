@@ -15,7 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, FolderKanban, Receipt } from "lucide-react";
 import { useBusinessType } from "@/hooks/use-business-type";
+import { isShopVertical } from "@/lib/org/business-type";
+import { isServiceVerticalEnabled } from "@/lib/org/service-vertical";
 import { ShopkeeperDashboard } from "@/components/shop/shopkeeper-dashboard";
+import { ServiceBusinessDashboard } from "@/components/service/service-business-dashboard";
 
 type DashboardData = {
   activeProjects: number;
@@ -32,7 +35,7 @@ export default function DashboardPage() {
   const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
   const biz = useBusinessType();
   const { active: cashierMode, homePath } = useCashierMode();
-  const isShopkeeper = activeBusinessType === "SHOPKEEPER";
+  const isShopVerticalOrg = isShopVertical(activeBusinessType);
 
   useEffect(() => {
     if (!role) return;
@@ -46,7 +49,7 @@ export default function DashboardPage() {
   }, [role, router, cashierMode, homePath]);
 
   const { data, loading, error } = useFetch(
-    role && canAccessProjectsNav(role) && !isShopkeeper ? "dashboard" : null,
+    role && canAccessProjectsNav(role) && !isShopVerticalOrg ? "dashboard" : null,
     () => apiFetch<DashboardData>("/api/v1/dashboard")
   );
 
@@ -54,7 +57,11 @@ export default function DashboardPage() {
     return <PageLoader label="Opening workspace..." />;
   }
 
-  if (isShopkeeper) {
+  if (activeBusinessType === "SERVICE" && isServiceVerticalEnabled()) {
+    return <ServiceBusinessDashboard />;
+  }
+
+  if (isShopVerticalOrg) {
     return <ShopkeeperDashboard />;
   }
 

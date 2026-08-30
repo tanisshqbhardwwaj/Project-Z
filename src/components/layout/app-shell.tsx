@@ -7,6 +7,7 @@ import { Search, Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppLogo, APP_SHELL_HEADER_HEIGHT } from "@/components/brand/app-logo";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
+import { BranchSwitcher } from "@/components/layout/branch-switcher";
 import { SearchShortcutKeys } from "@/components/layout/search-shortcut-keys";
 import { getMobileQuickAction } from "@/lib/navigation/mobile-quick-action";
 import { useBusinessType } from "@/hooks/use-business-type";
@@ -320,8 +321,9 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
     >
       <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
         <AppLogo href="/dashboard" variant="mark" className="shrink-0 md:hidden" />
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <OrgSwitcher currentOrgName={orgName} />
+          <BranchSwitcher />
         </div>
       </div>
       <button

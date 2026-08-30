@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
+import { MAX_BETA_TEST_EMAILS } from "@/lib/email/beta-test-constants";
 
-export const MAX_BETA_TEST_EMAILS = 20;
+export { MAX_BETA_TEST_EMAILS };
 
 const BUILTIN_BETA_ALLOWLIST = [
   "tanishqbhardwaj03@gmail.com",

@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { ApiError } from "@/lib/api/context";
+import { ensureOrgBillingSchema } from "@/lib/db/ensure-org-billing-schema";
 
 function parseAdminEmails(): Set<string> {
   const raw =
@@ -33,6 +34,7 @@ export async function requirePlatformAdmin(): Promise<{
   if (!isPlatformAdminEmail(session.user.email)) {
     throw new ApiError(404, "NOT_FOUND", "Not found");
   }
+  await ensureOrgBillingSchema();
   return {
     userId: session.user.id,
     userEmail: session.user.email,

@@ -11,6 +11,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { parseISO } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +24,7 @@ import {
   type CommissionType,
   type StaffProfileValues,
 } from "@/components/staff/staff-profile-dialog";
-import { Pencil, Search, UserPlus, UsersRound } from "lucide-react";
+import { Pencil, Search, UserPlus, UsersRound, LogIn, LogOut } from "lucide-react";
 import { parseStaffAccess } from "@/lib/staff/access";
 import {
   Dialog,
@@ -49,6 +51,9 @@ import {
   useStaffAdvances,
   useCreateStaffAdvance,
   useAttendanceRegularity,
+  useStaffCheckIn,
+  useStaffCheckOut,
+  useSetAttendancePin,
   type AttendanceRow,
   type PayrollRow,
   type StaffMember,
@@ -60,8 +65,15 @@ import { apiFetch } from "@/lib/api/client";
 import type { AttendanceStatus } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions/rbac";
 import type { OrgRole } from "@prisma/client";
+import { AttendancePinKiosk } from "@/components/staff/attendance-pin-kiosk";
 
 type Tab = "people" | "attendance" | "payroll";
+
+/**
+ * Geolocation/PIN attendance check-in is planned for a later stage. The backend
+ * APIs and hooks exist, but the UI is hidden behind this flag until then.
+ */
+const ATTENDANCE_CHECKIN_ENABLED = false;
 
 const ATTENDANCE_STATUSES: { id: AttendanceStatus; label: string }[] = [
   { id: "PRESENT", label: "Present" },
@@ -344,6 +356,11 @@ export default function StaffHubPage() {
 
   const markMutation = useMarkAttendance(date);
   const bulkMutation = useBulkMarkAttendance(date);
+  const checkInMutation = useStaffCheckIn(date);
+  const checkOutMutation = useStaffCheckOut(date);
+  const setAttendancePinMutation = useSetAttendancePin();
+  const todayKey = orgTodayKey(timezone);
+  const isToday = date === todayKey;
   const createStaffMutation = useCreateStaff();
   const updateStaffMutation = useUpdateStaff();
   const generatePayrollMutation = useGeneratePayroll(year, month);
@@ -416,6 +433,7 @@ export default function StaffHubPage() {
         : new Date().toISOString().slice(0, 10),
       status: staff.status,
       notes: staff.notes ?? "",
+      attendancePin: "",
       ...access,
     });
     setProfileOpen(true);
@@ -455,6 +473,11 @@ export default function StaffHubPage() {
             canProcessReturns: values.canProcessReturns,
             canViewOwnAttendance: values.canViewOwnAttendance,
             canViewOwnSales: values.canViewOwnSales,
+            canManageInventory: values.canManageInventory,
+            canViewAllAttendance: values.canViewAllAttendance,
+            canViewAllSales: values.canViewAllSales,
+            canViewOwnDeliveries: values.canViewOwnDeliveries,
+            canUpdateDeliveryStatus: values.canUpdateDeliveryStatus,
           }
         : undefined,
     };
@@ -466,6 +489,12 @@ export default function StaffHubPage() {
           ...payload,
           status: values.status,
         });
+        if (values.attendancePin.trim().length >= 4) {
+          await setAttendancePinMutation.mutateAsync({
+            staffId: profileTarget.id,
+            pin: values.attendancePin.trim(),
+          });
+        }
       } else {
         await createStaffMutation.mutateAsync(payload);
       }
@@ -577,16 +606,20 @@ export default function StaffHubPage() {
 
       {tab === "attendance" && (
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)]">
+          {ATTENDANCE_CHECKIN_ENABLED && canMark ? (
+            <div className="xl:col-span-2">
+              <AttendancePinKiosk date={todayKey} />
+            </div>
+          ) : null}
           <div className="min-w-0 space-y-5">
             <Card className="rounded-2xl border-0 shadow-md">
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="text-lg">Mark attendance</CardTitle>
                 <div className="flex flex-wrap gap-2">
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={date}
-                    max={orgTodayKey(timezone)}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={setDate}
+                    toDate={parseISO(orgTodayKey(timezone))}
                     className="h-10 w-auto rounded-xl"
                   />
                   {canMark && (
@@ -668,6 +701,48 @@ export default function StaffHubPage() {
                           );
                         })}
                       </div>
+                      {ATTENDANCE_CHECKIN_ENABLED && canMark && isToday ? (
+                        <div className="mt-2 flex gap-2 lg:mt-0 lg:shrink-0">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 rounded-lg text-xs"
+                            disabled={
+                              checkInMutation.isPending || !!attendance?.checkInAt
+                            }
+                            onClick={() =>
+                              checkInMutation.mutate(staff.id, {
+                                onError: (err) =>
+                                  applyError(err, "Could not check in"),
+                              })
+                            }
+                          >
+                            <LogIn className="mr-1 h-3 w-3" />
+                            In
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 rounded-lg text-xs"
+                            disabled={
+                              checkOutMutation.isPending ||
+                              !attendance?.checkInAt ||
+                              !!attendance?.checkOutAt
+                            }
+                            onClick={() =>
+                              checkOutMutation.mutate(staff.id, {
+                                onError: (err) =>
+                                  applyError(err, "Could not check out"),
+                              })
+                            }
+                          >
+                            <LogOut className="mr-1 h-3 w-3" />
+                            Out
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                   ))
                 )}

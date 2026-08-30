@@ -50,6 +50,8 @@ type StaffSalesSidebarProps = {
   open: boolean;
   period: DashboardPeriod;
   exactDate: string;
+  rangeFrom?: string;
+  rangeTo?: string;
   periodLabel: string;
   staffList: StaffSummary[];
   paymentMethods: string[];
@@ -62,6 +64,8 @@ export function StaffSalesSidebar({
   open,
   period,
   exactDate,
+  rangeFrom,
+  rangeTo,
   periodLabel,
   staffList,
   paymentMethods,
@@ -81,9 +85,20 @@ export function StaffSalesSidebar({
         ? [
             ...queryKeys.modules.shop.staffInvoices(orgId, period, selectedStaff),
             period === "date" ? exactDate : "",
+            period === "range" ? `${rangeFrom}-${rangeTo}` : "",
           ]
         : ["disabled"],
     queryFn: () => {
+      if (period === "range" && rangeFrom && rangeTo) {
+        const params = new URLSearchParams({
+          staffName: selectedStaff!,
+          from: rangeFrom,
+          to: rangeTo,
+        });
+        return apiFetch<StaffInvoicesData>(
+          `/api/v1/shop/dashboard/staff-invoices?${params}`
+        );
+      }
       const params = new URLSearchParams({
         period,
         staffName: selectedStaff!,

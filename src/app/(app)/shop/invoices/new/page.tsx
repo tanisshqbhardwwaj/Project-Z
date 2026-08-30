@@ -162,7 +162,7 @@ export default function NewInvoicePage() {
           <div>
             <h1 className="text-2xl font-bold sm:text-3xl">New invoice</h1>
             <p className="text-sm text-muted-foreground">
-              Live preview updates as you add items
+              Live preview on the left updates as you add items on the right
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -225,11 +225,11 @@ export default function NewInvoicePage() {
           </div>
         ) : null}
 
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[2fr_3fr]">
-          <div className="shop-invoice-print-mount order-2 min-w-0 xl:order-1 xl:sticky xl:top-4 xl:self-start max-xl:pointer-events-none max-xl:fixed max-xl:left-[-9999px] max-xl:top-0 max-xl:z-0 max-xl:opacity-0">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="shop-invoice-print-mount order-2 min-w-0 lg:order-1 lg:sticky lg:top-4 lg:self-start max-lg:pointer-events-none max-lg:fixed max-lg:left-[-9999px] max-lg:top-0 max-lg:z-0 max-lg:opacity-0">
             <InvoiceLivePreview invoice={draft} cashTender={printCashTender} />
           </div>
-          <div className="order-1 min-w-0 xl:order-2">
+          <div className="order-1 min-w-0 lg:order-2">
             <InvoiceEntryForm
               resetKey={resetKey}
               duplicateSaleId={duplicateSaleId}

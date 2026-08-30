@@ -21,6 +21,11 @@ export async function ensureShopSaleSchema() {
           `ALTER TABLE "ShopSale" ADD COLUMN "pricingJson" TEXT NOT NULL DEFAULT '{}'`
         );
       }
+      if (!cols.some((c) => c.name === "kotJson")) {
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE "ShopSale" ADD COLUMN "kotJson" TEXT`
+        );
+      }
 
       await prisma.$executeRawUnsafe(
         `CREATE TABLE IF NOT EXISTS "ShopBillCounter" (

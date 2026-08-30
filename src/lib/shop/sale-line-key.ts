@@ -14,6 +14,8 @@ export function saleLineKey(item: {
  * invoice printed today still says "Size M" after the product is renamed or the
  * variant is deleted, and so returns can never bring back the wrong size.
  */
+import type { ShopItemKind } from "@/lib/shop/sector-mode";
+
 export type SaleItemJson = {
   name: string;
   qty: number;
@@ -27,6 +29,9 @@ export type SaleItemJson = {
   variantLabel?: string;
   unit?: string;
   costPaisePerUnit?: number;
+  staffId?: string;
+  staffName?: string;
+  itemKind?: ShopItemKind;
 };
 
 function optionalString(value: unknown): string | undefined {
@@ -51,6 +56,14 @@ export function parseSaleItems(raw: unknown): SaleItemJson[] {
         color: optionalString(o.color),
         variantLabel: optionalString(o.variantLabel),
         unit: optionalString(o.unit),
+        staffId: optionalString(o.staffId),
+        staffName: optionalString(o.staffName),
+        itemKind:
+          o.itemKind === "PRODUCT" ||
+          o.itemKind === "SERVICE" ||
+          o.itemKind === "MENU_ITEM"
+            ? (o.itemKind as ShopItemKind)
+            : undefined,
         costPaisePerUnit:
           typeof o.costPaisePerUnit === "number" ? o.costPaisePerUnit : undefined,
       };

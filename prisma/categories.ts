@@ -1,5 +1,5 @@
 import type { BusinessType, PrismaClient, ShopSector } from "@prisma/client";
-import { getBusinessTypeConfig } from "@/lib/org/business-type";
+import { getBusinessTypeConfig, isShopVertical } from "@/lib/org/business-type";
 import { getShopSectorConfig } from "@/lib/org/shop-sector";
 
 export async function seedExpenseCategories(
@@ -9,9 +9,11 @@ export async function seedExpenseCategories(
   shopSector?: ShopSector | null
 ) {
   const categories =
-    businessType === "SHOPKEEPER"
-      ? getShopSectorConfig(shopSector).expenseCategories
-      : getBusinessTypeConfig(businessType).expenseCategories;
+    businessType === "SERVICE"
+      ? getBusinessTypeConfig("SERVICE").expenseCategories
+      : businessType === "SHOPKEEPER"
+        ? getShopSectorConfig(shopSector).expenseCategories
+        : getBusinessTypeConfig(businessType).expenseCategories;
 
   for (const name of categories) {
     await prisma.expenseCategory.upsert({

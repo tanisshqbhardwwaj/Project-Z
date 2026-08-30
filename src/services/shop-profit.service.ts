@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { parseSaleItemsJson } from "@/lib/shop/inventory-analytics";
+import { branchWhere, type BranchScope } from "@/lib/shop/branch-context";
 import { ensureShopExtendedSchema } from "@/lib/shop/ensure-shop-extended-schema";
 import { ensureShopFeaturesSchema } from "@/lib/shop/ensure-shop-features-schema";
 import { getExpenseSummary } from "./shop-expense.service";
@@ -42,15 +43,18 @@ export async function getShopProfitAnalytics(input: {
   period?: ProfitPeriod;
   from?: Date;
   to?: Date;
+  branchScope?: BranchScope;
 }) {
   await ensureShopExtendedSchema();
   await ensureShopFeaturesSchema();
   const period = input.period ?? "today";
   const { start, end } = periodBounds(period, input.from, input.to);
+  const branchFilter = branchWhere(input.branchScope ?? "all");
 
   const sales = await prisma.shopSale.findMany({
     where: {
       organizationId: input.organizationId,
+      ...branchFilter,
       status: "COMPLETED",
       createdAt: { gte: start, lte: end },
     },
@@ -67,6 +71,9 @@ export async function getShopProfitAnalytics(input: {
     where: {
       organizationId: input.organizationId,
       createdAt: { gte: start, lte: end },
+      ...(branchFilter.branchId
+        ? { shopSale: { branchId: branchFilter.branchId } }
+        : {}),
     },
     select: { refundAmountPaise: true, lines: { select: { returnQty: true, unitPricePaise: true } } },
   }).catch(() => []);
@@ -120,6 +127,7 @@ export async function getShopProfitAnalytics(input: {
     grossProfitPaise: grossProfitPaise.toString(),
     expensePaise: expensePaise.toString(),
     netProfitPaise: netProfitPaise.toString(),
+    expenseCount: expenseSummary.expenseCount,
     purchaseTotalPaise: purchaseSummary.totalPaise,
     purchaseCount: purchaseSummary.purchaseCount,
     expensesByCategory: expenseSummary.byCategory,
@@ -131,11 +139,13 @@ export async function getShopProfitReport(input: {
   organizationId: string;
   from: Date;
   to: Date;
+  branchScope?: BranchScope;
 }) {
   return getShopProfitAnalytics({
     organizationId: input.organizationId,
     period: "custom",
     from: input.from,
     to: input.to,
+    branchScope: input.branchScope,
   });
 }

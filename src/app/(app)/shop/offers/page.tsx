@@ -11,6 +11,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
@@ -356,19 +357,17 @@ export default function ShopOffersPage() {
               ) : null}
               <div className="space-y-1.5">
                 <Label>Start date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={setStartDate}
                   className="rounded-xl"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>End date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={setEndDate}
                   className="rounded-xl"
                 />
               </div>

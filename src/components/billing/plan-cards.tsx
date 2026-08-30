@@ -111,13 +111,22 @@ export function StorageUsageBar({
   quotaLabel,
   percent,
   label = "Cloud photos & files",
+  warningThreshold = 90,
+  nearLimitMessage,
+  atLimitMessage,
 }: {
   usedLabel: string;
   quotaLabel: string;
   percent: number;
   label?: string;
+  /** Show a warning when usage reaches this percent (default 90). */
+  warningThreshold?: number;
+  nearLimitMessage?: string;
+  atLimitMessage?: string;
 }) {
   const pct = Math.min(100, Math.max(0, percent));
+  const barColor =
+    pct >= 100 ? "bg-amber-500" : pct >= warningThreshold ? "bg-amber-500" : "bg-primary";
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-sm">
@@ -128,14 +137,15 @@ export function StorageUsageBar({
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            pct >= 90 ? "bg-amber-500" : "bg-primary"
-          )}
+          className={cn("h-full rounded-full transition-all", barColor)}
           style={{ width: `${pct}%` }}
         />
       </div>
-      {pct >= 100 ? (
+      {pct >= 100 && atLimitMessage ? (
+        <p className="text-xs text-amber-600">{atLimitMessage}</p>
+      ) : pct >= warningThreshold && nearLimitMessage ? (
+        <p className="text-xs text-amber-600">{nearLimitMessage}</p>
+      ) : pct >= 100 ? (
         <p className="text-xs text-amber-600">
           Cloud full — billing still works. Delete photos or upgrade for more backup space.
         </p>

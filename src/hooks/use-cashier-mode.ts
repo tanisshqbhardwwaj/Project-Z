@@ -17,13 +17,14 @@ import {
   subscribeCashierPreview,
   writeCashierPreviewEnabled,
 } from "@/lib/staff/cashier-preview-storage";
+import { isShopVertical } from "@/lib/org/business-type";
 
 export function useCashierMode() {
   const role = useAuthStore((s) => s.role) as OrgRole | null;
   const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
   const linkedStaffAccess = useAuthStore((s) => s.linkedStaffAccess);
   const linkedStaffName = useAuthStore((s) => s.linkedStaffName);
-  const isShopkeeper = activeBusinessType === "SHOPKEEPER";
+  const isShopVerticalOrg = isShopVertical(activeBusinessType);
 
   const previewMode = useSyncExternalStore(
     subscribeCashierPreview,
@@ -36,20 +37,20 @@ export function useCashierMode() {
   }, []);
 
   const active =
-    isCashierExperience({ role, previewMode, isShopkeeper });
+    isCashierExperience({ role, previewMode, isShopkeeper: isShopVerticalOrg });
 
   const access: StaffAccess =
     resolveCashierAccess({
       role,
       linkedStaffAccess,
       previewMode,
-      isShopkeeper,
+      isShopkeeper: isShopVerticalOrg,
     }) ?? emptyCashierAccess();
 
   const navItems: CashierNavItem[] = active ? cashierNavItems(access) : [];
   const homePath = active ? cashierHomePath(access) : "/dashboard";
 
-  const isRealCashier = role === "CASHIER" && isShopkeeper;
+  const isRealCashier = role === "CASHIER" && isShopVerticalOrg;
   const isOwnerPreview = active && !isRealCashier && previewMode;
 
   return {

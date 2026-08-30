@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
@@ -291,7 +292,7 @@ export default function ShopExpensesPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Date</Label>
-                    <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="h-11 rounded-xl" />
+                    <DatePicker value={expenseDate} onChange={setExpenseDate} className="h-11 rounded-xl" />
                   </div>
                   <div className="space-y-2">
                     <Label>Type</Label>

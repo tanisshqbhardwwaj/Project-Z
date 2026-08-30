@@ -21,6 +21,7 @@ export const productVariantSchema = z.object({
 export const createProductSchema = z
   .object({
     name: z.string().min(1).max(160),
+    itemKind: z.enum(["PRODUCT", "SERVICE", "MENU_ITEM"]).optional(),
     description: z.string().max(1000).optional().nullable(),
     brand: z.string().max(80).optional().nullable(),
     categoryKey: z.string().max(80).optional().nullable(),

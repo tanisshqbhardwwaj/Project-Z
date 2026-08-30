@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { formatINR } from "@/lib/finance/money";
@@ -123,12 +124,10 @@ export function StaffAdvancePanel({
 
             <div className="space-y-1.5">
               <Label>Date given</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={advanceGivenDate}
-                onChange={(e) => onAdvanceGivenDateChange(e.target.value)}
+                onChange={onAdvanceGivenDateChange}
                 className="h-11 rounded-xl"
-                required
               />
             </div>
 

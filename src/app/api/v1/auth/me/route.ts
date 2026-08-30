@@ -80,6 +80,7 @@ export async function GET() {
           shopSector: m.organization.shopSector,
           settings: m.organization.settings,
           enableStaff: m.organization.enableStaff,
+          plan: m.organization.plan,
         });
         return {
           ...m,

@@ -47,6 +47,17 @@ export type ShopInvoiceSettings = {
   paymentTerminal?: PaymentTerminalConfig;
 };
 
+export type PaymentReminderSettings = {
+  /** When false, cron and alerts are off. Default true on eligible plans. */
+  enabled?: boolean;
+  /** Only remind when balance is at least this amount (rupees). Default 100. */
+  minBalanceRupees?: number;
+  /** Minimum days between WhatsApp/manual reminders per customer. Default 7. */
+  daysBetweenReminders?: number;
+  /** Remind when no ledger activity for this many days. Default 3. */
+  idleDaysBeforeReminder?: number;
+};
+
 export type ShopOrgSettings = {
   brandName?: string;
   logoUrl?: string | null;
@@ -62,6 +73,7 @@ export type ShopOrgSettings = {
   /** Free-text description when the org selected the OTHER business type. */
   customBusinessType?: string;
   invoice?: ShopInvoiceSettings;
+  paymentReminders?: PaymentReminderSettings;
 };
 
 export type ShopLabelBranding = {
@@ -225,6 +237,43 @@ export function parseShopInvoiceSettings(settings: unknown): ShopInvoiceSettings
   };
 }
 
+export function parsePaymentReminderSettings(settings: unknown): PaymentReminderSettings {
+  const raw = readShopRaw(settings).paymentReminders;
+  if (!raw || typeof raw !== "object") return {};
+  const r = raw as Record<string, unknown>;
+  return {
+    enabled: typeof r.enabled === "boolean" ? r.enabled : undefined,
+    minBalanceRupees:
+      typeof r.minBalanceRupees === "number" && r.minBalanceRupees >= 0
+        ? r.minBalanceRupees
+        : undefined,
+    daysBetweenReminders:
+      typeof r.daysBetweenReminders === "number" &&
+      r.daysBetweenReminders >= 1 &&
+      r.daysBetweenReminders <= 90
+        ? Math.round(r.daysBetweenReminders)
+        : undefined,
+    idleDaysBeforeReminder:
+      typeof r.idleDaysBeforeReminder === "number" &&
+      r.idleDaysBeforeReminder >= 0 &&
+      r.idleDaysBeforeReminder <= 90
+        ? Math.round(r.idleDaysBeforeReminder)
+        : undefined,
+  };
+}
+
+export function resolvedPaymentReminderSettings(
+  settings: unknown
+): Required<PaymentReminderSettings> {
+  const parsed = parsePaymentReminderSettings(settings);
+  return {
+    enabled: parsed.enabled ?? true,
+    minBalanceRupees: parsed.minBalanceRupees ?? 100,
+    daysBetweenReminders: parsed.daysBetweenReminders ?? 7,
+    idleDaysBeforeReminder: parsed.idleDaysBeforeReminder ?? 3,
+  };
+}
+
 export function parseShopOrgSettings(settings: unknown): ShopOrgSettings {
   const s = readShopRaw(settings);
   const invoice = parseShopInvoiceSettings(settings);
@@ -240,6 +289,10 @@ export function parseShopOrgSettings(settings: unknown): ShopOrgSettings {
         ? s.customBusinessType.trim()
         : undefined,
     invoice: Object.keys(invoice).length > 0 ? invoice : undefined,
+    paymentReminders: (() => {
+      const pr = parsePaymentReminderSettings(settings);
+      return Object.keys(pr).length > 0 ? pr : undefined;
+    })(),
   };
 }
 
@@ -434,6 +487,14 @@ export function mergeShopOrgSettings(
       nextShop.invoice = merged;
     } else {
       delete nextShop.invoice;
+    }
+  }
+  if (shopPatch.paymentReminders !== undefined) {
+    const merged = { ...(prev.paymentReminders ?? {}), ...shopPatch.paymentReminders };
+    if (Object.keys(merged).length > 0) {
+      nextShop.paymentReminders = merged;
+    } else {
+      delete nextShop.paymentReminders;
     }
   }
 

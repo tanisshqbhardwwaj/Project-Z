@@ -29,6 +29,7 @@ export function InvoicePreviewRoot({
   return (
     <div
       id={SHOP_INVOICE_PREVIEW_ID}
+      data-paper-width-mm={parseFloat(layout.width) || 80}
       className={`mx-auto box-border bg-white ${layout.tailwindWidthClass} ${
         framed
           ? "rounded-sm shadow-[0_8px_30px_rgba(0,0,0,0.12)] ring-1 ring-black/5 print:shadow-none print:ring-0"

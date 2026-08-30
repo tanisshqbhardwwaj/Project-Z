@@ -21,6 +21,12 @@ export type Permission =
   | "shop.expense.view"
   | "shop.profit.view"
   | "shop.activity.view"
+  | "service.appointments.manage"
+  | "service.packages.manage"
+  | "service.contracts.manage"
+  | "service.commission.view"
+  | "delivery.manage"
+  | "delivery.view_own"
   | "report.export"
   | "audit.view"
   | "vendor.manage"
@@ -53,6 +59,11 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "shop.expense.view",
     "shop.profit.view",
     "shop.activity.view",
+    "service.appointments.manage",
+    "service.packages.manage",
+    "service.contracts.manage",
+    "service.commission.view",
+    "delivery.manage",
     "report.export",
     "audit.view",
     "vendor.manage",
@@ -80,6 +91,11 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "vendor.manage",
     "document.upload",
     "staff.view",
+    "service.appointments.manage",
+    "service.packages.manage",
+    "service.contracts.manage",
+    "service.commission.view",
+    "delivery.manage",
   ],
   ACCOUNTANT: [
     "project.view_all",
@@ -101,9 +117,12 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "staff.manage",
     "attendance.mark",
     "payroll.manage",
+    "service.appointments.manage",
+    "service.commission.view",
+    "delivery.manage",
   ],
-  VIEWER: ["project.view_assigned", "financial.view", "staff.view"],
-  CASHIER: [],
+  VIEWER: ["project.view_assigned", "financial.view", "staff.view", "service.commission.view"],
+  CASHIER: ["service.appointments.manage", "delivery.view_own"],
 };
 
 export function canManageShopPurchases(role: OrgRole): boolean {

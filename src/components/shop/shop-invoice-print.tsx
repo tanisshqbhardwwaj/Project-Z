@@ -88,6 +88,8 @@ type ShopInvoicePrintProps = {
   cashTender?: CashTenderInfo | null;
   /** Barcode height in px — smaller on 58mm paper. */
   barcodeHeight?: number;
+  /** Marks this print as a reissued duplicate copy of the original bill. */
+  duplicateCopy?: boolean;
 };
 
 export function ShopInvoicePrint({
@@ -96,6 +98,7 @@ export function ShopInvoicePrint({
   compact,
   cashTender,
   barcodeHeight = 32,
+  duplicateCopy = false,
 }: ShopInvoicePrintProps) {
   const t = template ?? {
     displayName: invoice.orgName,
@@ -152,6 +155,12 @@ export function ShopInvoicePrint({
       : documentKind === "EXCHANGE_INVOICE"
         ? "Exchange Invoice"
         : t.headerTitle;
+  const documentNumberLabel =
+    documentKind === "CREDIT_NOTE"
+      ? "Return"
+      : documentKind === "EXCHANGE_INVOICE"
+        ? "Exchange"
+        : "Bill";
 
   const allocatedLines = !isReturnDoc
     ? resolveInvoiceLineAllocations(invoice.items, {
@@ -254,6 +263,11 @@ export function ShopInvoicePrint({
         <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-neutral-500">
           {documentTitle}
         </p>
+        {duplicateCopy ? (
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-700">
+            Duplicate copy
+          </p>
+        ) : null}
         {t.gstin ? (
           <p className="mt-2 font-mono text-[10px] text-neutral-600">GSTIN {t.gstin}</p>
         ) : null}
@@ -269,7 +283,7 @@ export function ShopInvoicePrint({
         ) : null}
         {invoice.billNumber ? (
           <p className="mt-2 font-mono text-sm font-semibold">
-            {isReturnDoc ? "Doc" : "Bill"} #{invoice.billNumber}
+            {documentNumberLabel} #{invoice.billNumber}
           </p>
         ) : null}
         {invoice.originalBillNumber ? (

@@ -22,7 +22,7 @@ export function ProjectsSection() {
       id="projects"
       eyebrow="PROJECT MANAGEMENT"
       title="Running Projects? Manage Them Too."
-      description="Built for contractors, architects, builders, renovation teams, and project-based businesses that need more than billing."
+      description="Built for contractors, architects, and project-based businesses that need more than billing."
       className="bg-[#f6f7fb]"
       headingClassName="text-2xl sm:text-3xl"
       innerClassName="lg:py-16"

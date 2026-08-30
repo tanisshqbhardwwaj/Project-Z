@@ -1,40 +1,51 @@
 import { Check } from "lucide-react";
 import { SectionShell } from "@/components/marketing/shared/section-shell";
+import { isServiceVerticalEnabled } from "@/lib/org/service-vertical";
 
 const INDUSTRIES = [
   {
-    title: "Retail & Stores",
-    items: ["Billing", "Inventory", "Customers", "Sales", "Expenses"],
+    title: "Store Management",
+    items: ["Billing", "Inventory", "Customers", "Sales", "Purchases", "Expenses"],
+  },
+  {
+    title: "Service Management",
+    items: [
+      "Customer management",
+      "Invoices & payments",
+      "Restaurants & cafes",
+      "Salons & repairs",
+      "Expenses",
+      "Business records",
+    ],
+    hiddenWhenServiceDisabled: true,
   },
   {
     title: "Contractors",
-    items: ["Project management", "Project expenses", "Partners", "Billing", "Profit tracking"],
+    items: ["Work orders", "Project expenses", "Partners", "Client billing", "Profit tracking"],
   },
   {
     title: "Architects",
-    items: ["Client billing", "Project expenses", "Partner management", "Project tracking"],
-  },
-  {
-    title: "Builders & Renovation Teams",
-    items: ["Project-wise expenses", "Billing", "Partners", "Payments", "Profit tracking"],
-  },
-  {
-    title: "Service Businesses",
-    items: ["Customer management", "Invoices", "Payments", "Expenses", "Business records"],
+    items: ["Design projects", "Client billing", "Partner management", "Expenses", "Project tracking"],
   },
 ] as const;
 
 export function IndustriesSection() {
+  const industries = INDUSTRIES.filter(
+    (industry) =>
+      !("hiddenWhenServiceDisabled" in industry && industry.hiddenWhenServiceDisabled) ||
+      isServiceVerticalEnabled()
+  );
+
   return (
     <SectionShell
       id="industries"
       eyebrow="FOR EVERY BUSINESS"
       title="One Platform. Different Businesses."
-      description="Whether you run a shop, manage construction sites, or serve clients — start with billing and add what you need as you grow."
+      description="Whether you run a store, serve clients, or manage projects — start with billing and add what you need as you grow."
       className="bg-[#f6f7fb]"
     >
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {INDUSTRIES.map((industry) => (
+        {industries.map((industry) => (
           <article
             key={industry.title}
             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"

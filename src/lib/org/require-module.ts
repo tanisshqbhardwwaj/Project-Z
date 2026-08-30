@@ -1,44 +1,27 @@
-import { prisma } from "@/lib/db/prisma";
+import type { BillingPlan, BusinessType, ShopSector } from "@prisma/client";
 import type { ModuleKey } from "@/lib/org/modules";
 import {
   getModuleDefinition,
   resolveEnabledModules,
   type OrgSettingsJson,
 } from "@/lib/org/modules";
-import type { BusinessType, ShopSector } from "@prisma/client";
+import { effectiveModulesForPlan } from "@/lib/billing/entitlements";
+import { requireEntitledModule, getEntitlements } from "@/lib/billing/entitlement-engine";
+import { getCachedOrganization } from "@/lib/db/request-cache";
 import { sanitizeShopSettingsForClient } from "@/lib/org/shop-settings";
 
 export async function getOrgModuleContext(organizationId: string) {
-  const org = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: {
-      id: true,
-      businessType: true,
-      shopSector: true,
-      enableStaff: true,
-      timezone: true,
-      settings: true,
-    },
-  });
+  const org = await getCachedOrganization(organizationId);
   if (!org) throw new Error("Organization not found");
   const settings = (org.settings ?? {}) as OrgSettingsJson;
-  const enabledModules = resolveEnabledModules({
-    businessType: org.businessType,
-    shopSector: org.shopSector,
-    settings,
-    enableStaffLegacy: org.enableStaff,
-  });
+  const { enabledModules } = await getEntitlements(organizationId);
   return { org, settings, enabledModules };
 }
 
 export async function requireModule(organizationId: string, moduleKey: ModuleKey) {
-  const { org, enabledModules } = await getOrgModuleContext(organizationId);
-  if (!enabledModules[moduleKey]) {
-    const def = getModuleDefinition(moduleKey);
-    throw new Error(
-      `${def?.description ?? moduleKey} is not enabled. Turn it on in Manage Organization → Features.`
-    );
-  }
+  await requireEntitledModule(organizationId, moduleKey);
+  const org = await getCachedOrganization(organizationId);
+  if (!org) throw new Error("Organization not found");
   return org;
 }
 
@@ -62,15 +45,21 @@ export function modulesPayloadForClient(input: {
   shopSector: ShopSector | null;
   settings: unknown;
   enableStaff: boolean;
+  plan?: BillingPlan;
 }) {
   const settings = sanitizeShopSettingsForClient(
     parseOrgSettings(input.settings) as Record<string, unknown>
   ) as OrgSettingsJson;
-  const enabled = resolveEnabledModules({
+  const orgEnabled = resolveEnabledModules({
     businessType: input.businessType,
     shopSector: input.shopSector,
     settings,
     enableStaffLegacy: input.enableStaff,
   });
-  return { settings, enabledModules: enabled };
+  const enabledModules = input.plan
+    ? effectiveModulesForPlan(input.plan, orgEnabled)
+    : orgEnabled;
+  return { settings, enabledModules };
 }
+
+export { getModuleDefinition };

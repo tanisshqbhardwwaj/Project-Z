@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { PageLoader } from "@/components/ui/page-loader";
 import { FormFeedback } from "@/components/ui/form-feedback";
@@ -831,19 +832,17 @@ export function RecurringExpensePanel({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Starts</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={setStartDate}
                   className="h-11 rounded-xl"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Ends (optional)</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={setEndDate}
                   className="h-11 rounded-xl"
                 />
               </div>
@@ -927,10 +926,9 @@ export function RecurringExpensePanel({
               </div>
               <div className="space-y-1.5">
                 <Label>Paid on</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={payDate}
-                  onChange={(e) => setPayDate(e.target.value)}
+                  onChange={setPayDate}
                   className="h-11 rounded-xl"
                 />
               </div>

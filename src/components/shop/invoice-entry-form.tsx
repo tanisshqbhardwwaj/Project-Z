@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, apiFetchRaw } from "@/lib/api/client";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { queryKeys } from "@/lib/query/keys";
 import { Button } from "@/components/ui/button";
 import { DeleteIconButton } from "@/components/ui/delete-icon-button";
@@ -41,7 +42,6 @@ import type { TerminalCollectOutcome } from "@/hooks/use-payment-terminal-collec
 import {
   computeInvoicePricing,
   formatInvoiceMoney,
-  formatLineDiscountHint,
   resolveInvoiceLineAllocations,
   shouldShowLineDiscountHints,
 } from "@/lib/shop/invoice-pricing";
@@ -72,12 +72,24 @@ import {
   variantOptionText,
 } from "@/components/shop/variant-picker";
 import { saleLineItems, saleLinesToDraftCart } from "@/lib/shop/sale-invoice-mapper";
+import { resolveShopBusinessTypes } from "@/lib/org/shop-settings";
+import {
+  catalogLabelForSectors,
+  hasMenuBilling,
+  hasServiceCatalog,
+  type ShopItemKind,
+} from "@/lib/shop/sector-mode";
+import {
+  filterInventoryForCatalog,
+  InvoiceCatalogPicker,
+  type CatalogCategory,
+} from "@/components/shop/invoice-catalog-picker";
+import { getModuleDefinition, moduleLabel, moduleRoute } from "@/lib/org/modules";
+import { getActiveBranchId } from "@/lib/api/client";
+import { parseKotPayload, type KotPayload } from "@/lib/shop/kot";
 import { variantSubtitle } from "@/lib/shop/variant-display";
-
-/** Size/colour qualifier for a cart row, empty for products without variants. */
-function saleLineVariantSubtitle(line: SaleLine): string {
-  return variantSubtitle(line);
-}
+import { useKotPrint } from "@/components/shop/kot-print";
+import { InvoiceCartTable } from "@/components/shop/invoice-cart-table";
 
 function FormSection({
   title,
@@ -140,6 +152,7 @@ type ShopSaleResult = {
   createdBy?: { name: string } | null;
   /** Local-first saves use `items` on the response instead of `itemsJson`. */
   items?: ShopSaleResult["itemsJson"];
+  kotJson?: unknown;
 };
 
 type InventoryItem = {
@@ -154,7 +167,14 @@ type InventoryItem = {
   sellPaise: string | null;
   unit: string;
   description?: string | null;
-  product?: { id: string; name: string; brand: string | null } | null;
+  product?: {
+    id: string;
+    name: string;
+    brand: string | null;
+    categoryKey?: string | null;
+    subCategoryKey?: string | null;
+    itemKind?: ShopItemKind | null;
+  } | null;
 };
 
 type StaffOption = { id: string; name: string; roleTitle: string };
@@ -165,7 +185,7 @@ type InvoiceEntryFormProps = {
     sale: ShopSaleResult,
     invoice: ShopInvoiceData,
     cashTender?: CashTender | null,
-    options?: { print?: boolean }
+    options?: { print?: boolean; kot?: KotPayload | null }
   ) => void;
   resetKey?: number;
   duplicateSaleId?: string | null;
@@ -179,6 +199,9 @@ export function InvoiceEntryForm({
 }: InvoiceEntryFormProps) {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
   const orgName = useAuthStore((s) => s.activeOrganizationName);
+  const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
+  const activeShopSector = useAuthStore((s) => s.activeShopSector);
+  const activeOrgSettings = useAuthStore((s) => s.activeOrgSettings);
   const userName = useAuthStore((s) => s.user?.name);
   const { enabledModules } = useAuthStore();
   const inventoryEnabled = isModuleEnabled(enabledModules, "shop_inventory");
@@ -196,6 +219,28 @@ export function InvoiceEntryForm({
   useKeepAwake(true);
   const { toast } = useToast();
   const printAfterSaveRef = useRef(true);
+  const { queueKotPrint, printKot, KotPrintLayer } = useKotPrint();
+
+  const shopBusinessTypes = useMemo(
+    () => resolveShopBusinessTypes(activeOrgSettings?.shop, activeShopSector),
+    [activeOrgSettings?.shop, activeShopSector]
+  );
+  const showCatalogTabs =
+    inventoryEnabled &&
+    (hasMenuBilling(shopBusinessTypes) || hasServiceCatalog(shopBusinessTypes));
+  const showLineStaff =
+    staffEnabled && hasServiceCatalog(shopBusinessTypes);
+  const catalogSectionLabel = catalogLabelForSectors(shopBusinessTypes);
+  const inventoryModuleLabel = moduleLabel(
+    "shop_inventory",
+    activeBusinessType ?? "SHOPKEEPER",
+    shopBusinessTypes
+  );
+  const inventoryCatalogHref =
+    getModuleDefinition("shop_inventory") != null
+      ? moduleRoute(getModuleDefinition("shop_inventory")!, activeBusinessType ?? "SHOPKEEPER")
+      : "/shop/inventory";
+  const activeBranchId = getActiveBranchId();
 
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const qc = useQueryClient();
@@ -205,6 +250,12 @@ export function InvoiceEntryForm({
     settled: boolean;
   } | null>(null);
   const promptedCartKeyRef = useRef<string | null>(null);
+  const saleClientIdRef = useRef<string>(
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `sale-${Date.now()}`
+  );
+  const serverInventoryCache = useRef(new Map<string, InventoryItem>());
   const prevResetKeyRef = useRef(resetKey);
   const draftRestoredRef = useRef(false);
 
@@ -237,6 +288,8 @@ export function InvoiceEntryForm({
   const [offerSelectionSettled, setOfferSelectionSettled] = useState(false);
   const [offerPickerOpen, setOfferPickerOpen] = useState(false);
   const [pendingOfferId, setPendingOfferId] = useState<string | null>(null);
+  const [catalogCategoryKey, setCatalogCategoryKey] = useState("");
+  const [catalogSubCategoryKey, setCatalogSubCategoryKey] = useState("");
 
   const cartOfferKey = useMemo(
     () =>
@@ -245,6 +298,7 @@ export function InvoiceEntryForm({
         .join("|"),
     [cart]
   );
+  const debouncedCartOfferKey = useDebouncedValue(cartOfferKey, 250);
 
   useEffect(() => {
     if (taxRatePercent === "" && invoiceTemplate.defaultTaxRatePercent > 0) {
@@ -470,10 +524,79 @@ export function InvoiceEntryForm({
   }, [cartOfferKey]);
 
   const inventoryQuery = useQuery({
-    queryKey: orgId ? queryKeys.modules.shop.inventory(orgId) : ["disabled"],
-    queryFn: () => apiFetch<InventoryItem[]>("/api/v1/shop/inventory"),
+    queryKey: orgId
+      ? [...queryKeys.modules.shop.inventory(orgId, activeBranchId), "billing"]
+      : ["disabled"],
+    queryFn: async () => {
+      const json = await apiFetchRaw<{
+        data: InventoryItem[];
+        meta?: { totalCount?: number; searchMode?: boolean };
+      }>("/api/v1/shop/inventory?for=billing");
+      return {
+        items: json.data ?? [],
+        searchMode: json.meta?.searchMode ?? false,
+        totalCount: json.meta?.totalCount ?? json.data?.length ?? 0,
+      };
+    },
     enabled: !!orgId && inventoryEnabled,
   });
+
+  const inventoryLoadError =
+    inventoryQuery.error instanceof Error ? inventoryQuery.error.message : null;
+
+  const inventorySearchMode = inventoryQuery.data?.searchMode ?? false;
+  const inventoryTotalCount = inventoryQuery.data?.totalCount ?? 0;
+
+  const searchInventoryOnServer = useCallback(async (q: string) => {
+    const json = await apiFetchRaw<{ data: InventoryItem[] }>(
+      `/api/v1/shop/inventory?q=${encodeURIComponent(q)}&limit=40`
+    );
+    const items = json.data ?? [];
+    for (const item of items) {
+      serverInventoryCache.current.set(item.id, item);
+    }
+    return items;
+  }, []);
+
+  const categoriesQuery = useQuery({
+    queryKey: orgId ? [...queryKeys.modules.shop.inventory(orgId), "categories"] : ["disabled"],
+    queryFn: () =>
+      apiFetch<{ categories: CatalogCategory[] }>("/api/v1/shop/categories"),
+    enabled: !!orgId && inventoryEnabled && showCatalogTabs,
+  });
+
+  const pickableInventory = useMemo(() => {
+    const all = inventoryQuery.data?.items ?? [];
+    if (!showCatalogTabs) return all;
+    return filterInventoryForCatalog(all, catalogCategoryKey, catalogSubCategoryKey);
+  }, [
+    inventoryQuery.data?.items,
+    showCatalogTabs,
+    catalogCategoryKey,
+    catalogSubCategoryKey,
+  ]);
+
+  const useInventorySearchPicker = inventorySearchMode || showStockSearch;
+  const showInventoryPicker =
+    inventoryEnabled &&
+    (inventoryQuery.isLoading ||
+      pickableInventory.length > 0 ||
+      inventorySearchMode ||
+      inventoryTotalCount > 0);
+
+  const resolveInventoryItem = useCallback(
+    (itemId: string) =>
+      pickableInventory.find((i) => i.id === itemId) ??
+      (inventoryQuery.data?.items ?? []).find((i) => i.id === itemId) ??
+      serverInventoryCache.current.get(itemId),
+    [pickableInventory, inventoryQuery.data?.items]
+  );
+
+  useEffect(() => {
+    if (inventorySearchMode) {
+      setShowStockSearch(true);
+    }
+  }, [inventorySearchMode]);
 
   const staffQuery = useQuery({
     queryKey: orgId ? queryKeys.staff.list(orgId, "ACTIVE") : ["disabled"],
@@ -498,7 +621,7 @@ export function InvoiceEntryForm({
     queryKey: orgId ? queryKeys.modules.shop.heldBills(orgId) : ["disabled"],
     queryFn: () => apiFetch<DbHeldBill[]>("/api/v1/shop/held-bills"),
     enabled: !!orgId,
-    refetchInterval: 15000,
+    refetchInterval: 60_000,
   });
 
   const heldBills = heldBillsQuery.data ?? [];
@@ -592,7 +715,7 @@ export function InvoiceEntryForm({
       ? [
           ...queryKeys.modules.shop.offers(orgId),
           "preview",
-          cartOfferKey,
+          debouncedCartOfferKey,
           selectedOfferId,
           offerSelectionSettled,
         ]
@@ -665,6 +788,10 @@ export function InvoiceEntryForm({
         body: JSON.stringify(body),
       }),
     onSuccess: (sale) => {
+      saleClientIdRef.current =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `sale-${Date.now()}`;
       if (orgId) {
         qc.invalidateQueries({ queryKey: queryKeys.modules.shop.invoices(orgId) });
         qc.invalidateQueries({ queryKey: queryKeys.modules.shop.sales(orgId) });
@@ -725,8 +852,18 @@ export function InvoiceEntryForm({
         sale,
         invoice,
         paymentMethod === "CASH" ? buildCashTender(cartTotal, cashReceivedRupees) : null,
-        { print: printAfterSaveRef.current }
+        {
+          print: printAfterSaveRef.current,
+          kot: parseKotPayload(sale.kotJson),
+        }
       );
+      const kot = parseKotPayload(sale.kotJson);
+      if (kot && printAfterSaveRef.current) {
+        queueKotPrint(kot);
+        window.requestAnimationFrame(() => {
+          void printKot();
+        });
+      }
       toast({
         title: sale.billNumber ? `Invoice ${sale.billNumber} saved` : "Invoice saved",
         variant: "success",
@@ -743,11 +880,11 @@ export function InvoiceEntryForm({
       return;
     }
     if (line.inventoryItemId) {
-      const label = saleLineVariantSubtitle(line) || line.name;
+      const label = variantSubtitle(line) || line.name;
       const available = availableQtyForInventoryLine(
         line.inventoryItemId,
         cart,
-        inventoryQuery.data ?? [],
+        inventoryQuery.data?.items ?? [],
         lineId
       );
       if (available === "unknown") {
@@ -755,7 +892,7 @@ export function InvoiceEntryForm({
         return;
       }
       if (available !== "infinite" && nextQty > available) {
-        const inv = (inventoryQuery.data ?? []).find((i) => i.id === line.inventoryItemId);
+        const inv = (inventoryQuery.data?.items ?? []).find((i) => i.id === line.inventoryItemId);
         showWarning(stockLimitMessage(label, available, inv?.unit ?? line.unit ?? "pcs"));
         return;
       }
@@ -871,7 +1008,7 @@ export function InvoiceEntryForm({
     const available = availableQtyForInventoryLine(
       inventoryItemId,
       cartSource,
-      inventoryQuery.data ?? []
+      inventoryQuery.data?.items ?? []
     );
     if (available === "unknown") {
       showWarning(`${nameForError} is no longer in inventory`);
@@ -879,7 +1016,7 @@ export function InvoiceEntryForm({
     }
     if (available === "infinite") return true;
     if (addQty > available) {
-      const inv = (inventoryQuery.data ?? []).find((i) => i.id === inventoryItemId);
+      const inv = (inventoryQuery.data?.items ?? []).find((i) => i.id === inventoryItemId);
       showWarning(stockLimitMessage(nameForError, available, inv?.unit ?? "pcs"));
       return false;
     }
@@ -896,7 +1033,23 @@ export function InvoiceEntryForm({
       color: item.color ?? undefined,
       variantLabel: item.variantLabel ?? undefined,
       unit: item.unit ?? undefined,
+      itemKind: item.product?.itemKind ?? undefined,
     };
+  }
+
+  function setLineStaff(lineId: string, staffId: string) {
+    const staff = (staffQuery.data ?? []).find((s) => s.id === staffId);
+    setCart((prev) =>
+      prev.map((l) =>
+        l.id === lineId
+          ? {
+              ...l,
+              staffId: staffId || undefined,
+              staffName: staff?.name,
+            }
+          : l
+      )
+    );
   }
 
   function addInventoryToCart(item: InventoryItem, qtyNum: number) {
@@ -918,7 +1071,7 @@ export function InvoiceEntryForm({
 
   function pickInventoryItem(itemId: string) {
     setSelectedInventoryId(itemId);
-    const item = (inventoryQuery.data ?? []).find((i) => i.id === itemId);
+    const item = resolveInventoryItem(itemId);
     if (!item) return;
     setItemName(variantOptionText(item));
     if (item.sellPaise) {
@@ -941,7 +1094,7 @@ export function InvoiceEntryForm({
       return;
     }
     const picked = selectedInventoryId
-      ? (inventoryQuery.data ?? []).find((i) => i.id === selectedInventoryId)
+      ? resolveInventoryItem(selectedInventoryId)
       : undefined;
     setCart((prev) =>
       mergeLineIntoCart(prev, {
@@ -1127,8 +1280,8 @@ export function InvoiceEntryForm({
         );
       }
     }
-    if (inventoryEnabled && (inventoryQuery.data ?? []).length > 0) {
-      const stockCheck = validateCartStock(cart, inventoryQuery.data ?? []);
+    if (inventoryEnabled && (inventoryQuery.data?.items ?? []).length > 0) {
+      const stockCheck = validateCartStock(cart, inventoryQuery.data?.items ?? []);
       if (!stockCheck.ok) {
         return showWarning(stockCheck.message);
       }
@@ -1164,6 +1317,7 @@ export function InvoiceEntryForm({
 
     try {
       await createMutation.mutateAsync({
+        clientId: saleClientIdRef.current,
         customerId: selectedCustomerId,
         customerName: customerName.trim() || null,
         customerPhone: customerPhone.trim() || null,
@@ -1203,6 +1357,8 @@ export function InvoiceEntryForm({
           ...(line.color ? { color: line.color } : {}),
           ...(line.variantLabel ? { variantLabel: line.variantLabel } : {}),
           ...(line.unit ? { unit: line.unit } : {}),
+          ...(line.staffId ? { staffId: line.staffId } : {}),
+          ...(line.itemKind ? { itemKind: line.itemKind } : {}),
         })),
       });
     } catch (err) {
@@ -1332,7 +1488,7 @@ export function InvoiceEntryForm({
         onSubmit={(e) => void completeSale(e, true)}
         className="overflow-hidden rounded-2xl border bg-card shadow-sm"
       >
-        <div className="space-y-5 p-4 sm:p-5">
+        <div className="space-y-4 p-4 sm:p-5">
           <FormSection title="Customer">
             <CustomerPicker
               customerName={customerName}
@@ -1388,7 +1544,28 @@ export function InvoiceEntryForm({
             </div>
           </FormSection>
 
-          <FormSection title="Items" className="border-t pt-5">
+          <FormSection title={catalogSectionLabel} className="border-t pt-4">
+            {!inventoryEnabled ? (
+              <p className="rounded-lg border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{inventoryModuleLabel}</span> is turned
+                off for this organization. Enable it under{" "}
+                <Link
+                  href="/settings/organization"
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                >
+                  Settings → Organization → Features
+                </Link>{" "}
+                to pick products from your catalog, or keep adding items manually below.
+              </p>
+            ) : null}
+
+            {inventoryEnabled && inventoryLoadError ? (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
+                Could not load {inventoryModuleLabel.toLowerCase()}: {inventoryLoadError}. Check your
+                branch selection in the header, or try switching organization.
+              </p>
+            ) : null}
+
             {inventoryEnabled && (
               <div className="flex gap-2">
                 <div className="relative min-w-0 flex-1">
@@ -1416,42 +1593,94 @@ export function InvoiceEntryForm({
               </div>
             )}
 
-            {inventoryEnabled && (inventoryQuery.data ?? []).length > 0 && (
+            {inventoryEnabled && showCatalogTabs && (categoriesQuery.data?.categories ?? []).length > 0 ? (
+              <InvoiceCatalogPicker
+                businessTypes={shopBusinessTypes}
+                categories={categoriesQuery.data?.categories ?? []}
+                categoryKey={catalogCategoryKey}
+                subCategoryKey={catalogSubCategoryKey}
+                onCategoryChange={(key) => {
+                  setCatalogCategoryKey(key);
+                  setCatalogSubCategoryKey("");
+                }}
+                onSubCategoryChange={setCatalogSubCategoryKey}
+              />
+            ) : null}
+
+            {showInventoryPicker ? (
               <div className="space-y-2">
+                <Label className="text-sm">Select from inventory</Label>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs text-muted-foreground">
-                    {showStockSearch
-                      ? "Search by name, size, SKU or barcode"
-                      : "Every size is listed separately"}
+                    {useInventorySearchPicker
+                      ? inventorySearchMode
+                        ? `Search ${inventoryTotalCount.toLocaleString()} products by name, size, SKU or barcode`
+                        : "Search by name, size, SKU or barcode"
+                      : "Pick a product — every size is listed separately"}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowStockSearch((v) => !v)}
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    {showStockSearch ? "Use dropdown" : "Search stock"}
-                  </button>
+                  {!inventorySearchMode && pickableInventory.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowStockSearch((v) => !v)}
+                      className="shrink-0 text-xs font-medium text-primary hover:underline"
+                    >
+                      {showStockSearch ? "Use dropdown" : "Search stock"}
+                    </button>
+                  ) : null}
                 </div>
-                {showStockSearch ? (
+                {useInventorySearchPicker ? (
                   <VariantSearchPicker
-                    options={inventoryQuery.data ?? []}
+                    options={pickableInventory}
+                    searchMode={inventorySearchMode}
+                    onServerSearch={inventorySearchMode ? searchInventoryOnServer : undefined}
                     onSelect={(option) => {
-                      const item = (inventoryQuery.data ?? []).find(
-                        (i) => i.id === option.id
-                      );
+                      const item =
+                        pickableInventory.find((i) => i.id === option.id) ??
+                        serverInventoryCache.current.get(option.id);
                       if (item) addInventoryToCart(item, Number(qty) || 1);
                     }}
-                    emptyLabel="No product matches that search"
+                    emptyLabel={
+                      inventorySearchMode
+                        ? "Type to search your inventory"
+                        : "No product matches that search"
+                    }
                   />
                 ) : (
                   <VariantSelect
-                    options={inventoryQuery.data ?? []}
+                    options={pickableInventory}
                     value={selectedInventoryId}
                     onChange={pickInventoryItem}
+                    placeholder="Pick from stock…"
                   />
                 )}
               </div>
-            )}
+            ) : null}
+
+            {inventoryEnabled &&
+            !inventoryQuery.isLoading &&
+            !inventoryLoadError &&
+            !showInventoryPicker &&
+            inventoryTotalCount === 0 ? (
+              <p className="rounded-lg border border-dashed px-3 py-3 text-sm text-muted-foreground">
+                No {inventoryModuleLabel.toLowerCase()} items yet for this branch.{" "}
+                <Link
+                  href={inventoryCatalogHref}
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                >
+                  Add products in {inventoryModuleLabel}
+                </Link>{" "}
+                first, or enter items manually below.
+              </p>
+            ) : null}
+
+            {inventoryEnabled &&
+            !inventorySearchMode &&
+            pickableInventory.length === 0 &&
+            (inventoryQuery.data?.items ?? []).length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No items in this category — pick another tab or add from manual entry below.
+              </p>
+            ) : null}
 
             <div className="grid grid-cols-12 gap-2">
               <Input
@@ -1494,7 +1723,7 @@ export function InvoiceEntryForm({
             </div>
 
             {cart.length === 0 ? (
-              <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-lg border border-dashed py-6 text-center text-sm text-muted-foreground">
                 No items yet — add above or scan a barcode
               </p>
             ) : (
@@ -1508,102 +1737,19 @@ export function InvoiceEntryForm({
                   <ShoppingBag className="mr-2 h-4 w-4" />
                   Cart · {cart.length} · ₹{cartTotal.toFixed(2)}
                 </Button>
-                <div className="hidden overflow-x-auto rounded-lg border sm:block">
-                  <table className="w-full min-w-[320px] text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
-                      <th className="px-3 py-2.5 font-medium">Item</th>
-                      <th className="px-2 py-2.5 text-center font-medium">Qty</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Rate</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Amount</th>
-                      <th className="w-9" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.map((line, idx) => {
-                      const allocated = cartLineAllocations?.[idx];
-                      const hasLineDiscount =
-                        allocated != null && allocated.lineDiscountRupees > 0.004;
-                      const unitRate = line.priceRupees;
-                      const listAmount = lineTotal(line);
-                      const amount = hasLineDiscount
-                        ? allocated.discountedLineRupees
-                        : listAmount;
-                      const hint = hasLineDiscount
-                        ? formatLineDiscountHint(allocated, invoiceTemplate)
-                        : null;
-                      const fmt = (n: number) => formatInvoiceMoney(n, invoiceTemplate);
-                      return (
-                      <tr key={line.id} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="px-3 py-2.5">
-                          <span className="block font-medium leading-snug">{line.name}</span>
-                          {saleLineVariantSubtitle(line) ? (
-                            <span className="mt-1 inline-block rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                              {saleLineVariantSubtitle(line)}
-                            </span>
-                          ) : null}
-                          {hint ? (
-                            <span className="mt-1 block text-xs font-medium text-emerald-700">
-                              {hint}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="px-2 py-2.5">
-                          <div className="mx-auto flex w-fit items-center rounded-lg border bg-background">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 shrink-0 rounded-none rounded-l-lg p-0 min-h-0"
-                              onClick={() => updateCartLineQty(line.id, -1)}
-                              aria-label={`Decrease ${line.name} quantity`}
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <span className="min-w-[2.5rem] border-x px-2 text-center text-sm font-semibold tabular-nums">
-                              {line.qty}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 shrink-0 rounded-none rounded-r-lg p-0 min-h-0"
-                              onClick={() => updateCartLineQty(line.id, 1)}
-                              aria-label={`Increase ${line.name} quantity`}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                          {fmt(unitRate)}
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          {hasLineDiscount ? (
-                            <div className="tabular-nums">
-                              <span className="block text-xs text-muted-foreground line-through">
-                                {fmt(listAmount)}
-                              </span>
-                              <span className="block font-semibold">{fmt(amount)}</span>
-                            </div>
-                          ) : (
-                            <span className="font-semibold tabular-nums">{fmt(amount)}</span>
-                          )}
-                        </td>
-                        <td className="px-1 py-2.5">
-                          <DeleteIconButton
-                            variant="ghost"
-                            onClick={() =>
-                              setCart((prev) => prev.filter((l) => l.id !== line.id))
-                            }
-                            aria-label={`Remove ${line.name}`}
-                          />
-                        </td>
-                      </tr>
-                    );
-                    })}
-                  </tbody>
-                  </table>
+                <div className="hidden max-h-[min(360px,42vh)] overflow-y-auto sm:block">
+                  <InvoiceCartTable
+                    cart={cart}
+                    cartLineAllocations={cartLineAllocations}
+                    invoiceTemplate={invoiceTemplate}
+                    showLineStaff={showLineStaff}
+                    staffOptions={staffQuery.data ?? []}
+                    onQtyDelta={updateCartLineQty}
+                    onRemove={(lineId) =>
+                      setCart((prev) => prev.filter((l) => l.id !== lineId))
+                    }
+                    onStaffChange={setLineStaff}
+                  />
                 </div>
                 <Sheet open={cartSheetOpen} onOpenChange={setCartSheetOpen}>
                   <SheetContent>
@@ -1636,7 +1782,7 @@ export function InvoiceEntryForm({
             )}
           </FormSection>
 
-          <FormSection title="Offer" className="border-t pt-5">
+          <FormSection title="Offer" className="border-t pt-4">
             {cart.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Add items to see the offers that apply.
@@ -1683,7 +1829,7 @@ export function InvoiceEntryForm({
             )}
           </FormSection>
 
-          <FormSection title="Discount & tax" className="border-t pt-5">
+          <FormSection title="Discount & tax" className="border-t pt-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -2079,6 +2225,7 @@ export function InvoiceEntryForm({
         </div>
       </form>
     </div>
+    <KotPrintLayer />
     </>
   );
 }

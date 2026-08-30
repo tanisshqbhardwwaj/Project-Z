@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { apiFetch, ApiClientError, setActiveOrganizationId } from "@/lib/api/client";
 import type { BusinessType } from "@/lib/org/business-type";
 import type { ShopSector } from "@/lib/org/shop-sector";
+import type { BillingPlan } from "@prisma/client";
 import type { EnabledModulesMap } from "@/hooks/use-enabled-modules";
 import type { OrgSettingsJson } from "@/lib/org/modules";
 import type { StaffAccess } from "@/lib/staff/access";
@@ -17,6 +18,7 @@ export type OrgMembership = {
     businessType?: BusinessType;
     shopSector?: ShopSector | null;
     enableStaff?: boolean;
+    plan?: BillingPlan;
     timezone?: string;
     enabledModules?: EnabledModulesMap;
   };

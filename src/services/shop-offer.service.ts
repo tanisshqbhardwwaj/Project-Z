@@ -199,20 +199,33 @@ export async function deleteOffer(organizationId: string, userId: string, offerI
 
 export async function enrichOfferCartLines(
   organizationId: string,
-  items: OfferCartLine[]
+  items: OfferCartLine[],
+  inventoryMap?: Map<string, { sectorMeta: unknown }>
 ): Promise<OfferCartLine[]> {
   const ids = items
     .map((i) => i.inventoryItemId)
     .filter((id): id is string => Boolean(id));
   if (ids.length === 0) return items;
 
-  const inventory = await prisma.inventoryItem.findMany({
-    where: { organizationId, id: { in: ids } },
-    select: { id: true, sectorMeta: true },
-  });
-  const categoryById = new Map(
-    inventory.map((i) => [i.id, parseInventoryCategory(i.sectorMeta)])
-  );
+  let categoryById: Map<string, string | null>;
+  if (inventoryMap) {
+    categoryById = new Map(
+      ids.map((id) => [
+        id,
+        inventoryMap.has(id)
+          ? parseInventoryCategory(inventoryMap.get(id)!.sectorMeta)
+          : null,
+      ])
+    );
+  } else {
+    const inventory = await prisma.inventoryItem.findMany({
+      where: { organizationId, id: { in: ids } },
+      select: { id: true, sectorMeta: true },
+    });
+    categoryById = new Map(
+      inventory.map((i) => [i.id, parseInventoryCategory(i.sectorMeta)])
+    );
+  }
 
   return items.map((item) => ({
     ...item,
@@ -225,10 +238,11 @@ export async function enrichOfferCartLines(
 export async function previewOffersForCart(
   organizationId: string,
   items: OfferCartLine[],
-  selection: OfferSelection = {}
+  selection: OfferSelection = {},
+  inventoryMap?: Map<string, { sectorMeta: unknown }>
 ): Promise<OfferPreviewResult> {
   await ensureShopFeaturesSchema();
-  const enriched = await enrichOfferCartLines(organizationId, items);
+  const enriched = await enrichOfferCartLines(organizationId, items, inventoryMap);
   const offers = await listActiveOffers(organizationId);
   return resolveOfferPreview(enriched, offers, selection);
 }
@@ -241,7 +255,8 @@ export async function computeOfferDiscountForSale(
     priceRupees: number;
     inventoryItemId?: string;
   }>,
-  selection: OfferSelection = {}
+  selection: OfferSelection = {},
+  inventoryMap?: Map<string, { sectorMeta: unknown }>
 ) {
   const lines: OfferCartLine[] = items.map((i) => ({
     name: i.name,
@@ -249,24 +264,27 @@ export async function computeOfferDiscountForSale(
     priceRupees: i.priceRupees,
     inventoryItemId: i.inventoryItemId,
   }));
-  return previewOffersForCart(organizationId, lines, selection);
+  return previewOffersForCart(organizationId, lines, selection, inventoryMap);
 }
 
 export async function recordOfferUsage(
   organizationId: string,
   offerDetails: { offerId: string; discountRupees: number }[]
 ) {
-  for (const d of offerDetails) {
-    await prisma.shopOffer.update({
-      where: { id: d.offerId, organizationId },
-      data: {
-        usageCount: { increment: 1 },
-        totalDiscountPaise: {
-          increment: BigInt(Math.round(d.discountRupees * 100)),
+  if (offerDetails.length === 0) return;
+  await prisma.$transaction(
+    offerDetails.map((d) =>
+      prisma.shopOffer.update({
+        where: { id: d.offerId, organizationId },
+        data: {
+          usageCount: { increment: 1 },
+          totalDiscountPaise: {
+            increment: BigInt(Math.round(d.discountRupees * 100)),
+          },
         },
-      },
-    });
-  }
+      })
+    )
+  );
 }
 
 export async function countActiveOffers(organizationId: string) {

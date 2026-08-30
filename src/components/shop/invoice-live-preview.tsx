@@ -33,21 +33,22 @@ export function InvoiceLivePreview({
 
   return (
     <div
-      className={`shop-invoice-print-mount min-w-0 max-w-full overflow-hidden rounded-2xl border bg-white shadow-sm ${className ?? ""}`}
+      className={`shop-invoice-print-mount min-w-0 max-w-full overflow-x-auto rounded-2xl border bg-white shadow-sm ${className ?? ""}`}
     >
-      <div className="print-hidden border-b bg-muted/40 px-2 py-1.5 text-[10px] font-medium text-muted-foreground">
-        Preview
+      <div className="print-hidden border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+        Invoice preview
         {!invoice.billNumber || invoice.billNumber === "DRAFT" ? (
-          <span className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[9px] text-amber-800">
+          <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
             Draft
           </span>
         ) : null}
       </div>
-      <div className="max-w-full overflow-x-auto bg-neutral-50/80 py-3">
-        <div className="flex min-w-min justify-center px-2">
+      <div className="max-w-full bg-neutral-50/80 py-4">
+        <div className="flex min-w-min justify-center px-3">
         <InvoicePreviewRoot
           paperSize={template.paperSize}
           printMarginMm={template.printMarginMm}
+          framed
         >
           <ShopInvoicePrint
             invoice={invoice}

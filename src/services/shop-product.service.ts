@@ -4,8 +4,11 @@ import { rupeesToPaise } from "@/lib/finance/money";
 import { requireModule } from "@/lib/org/require-module";
 import { normalizeBarcode, nextFreeBarcode } from "@/lib/shop/barcode";
 import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
+import { ensureDefaultBranch } from "@/lib/shop/branch-context";
+import { ensureShopBranchSchema } from "@/lib/shop/ensure-shop-branch-schema";
 import { mergeInventorySectorMeta } from "@/lib/shop/inventory-categories";
-import { isInfiniteStock } from "@/lib/shop/inventory";
+import { isInfiniteStock, INFINITE_STOCK_QTY } from "@/lib/shop/inventory";
+import { isNonStockItemKind, type ShopItemKind } from "@/lib/shop/sector-mode";
 import {
   buildVariantSku,
   variantDisplayName,
@@ -35,6 +38,8 @@ export type ProductVariantInput = {
 export type CreateProductInput = {
   organizationId: string;
   userId: string;
+  branchId?: string | null;
+  itemKind?: import("@/lib/shop/sector-mode").ShopItemKind;
   name: string;
   description?: string | null;
   brand?: string | null;
@@ -210,6 +215,7 @@ type PreparedVariant = {
 async function prepareVariants(input: {
   organizationId: string;
   productName: string;
+  itemKind?: ShopItemKind;
   variants: ProductVariantInput[];
   hasVariants: boolean;
   autoBarcode: boolean;
@@ -307,14 +313,18 @@ async function prepareVariants(input: {
     }
 
     const quantity = Math.max(0, variant.quantity ?? 0);
+    const itemKind = input.itemKind ?? "PRODUCT";
+    const finalQty = isNonStockItemKind(itemKind) ? INFINITE_STOCK_QTY : quantity;
     prepared.push({
       size,
       color,
       variantLabel: cleanText(variant.variantLabel),
       barcode,
       sku,
-      quantity,
-      reorderLevel: Math.max(0, variant.reorderLevel ?? input.defaultReorderLevel ?? 0),
+      quantity: finalQty,
+      reorderLevel: isNonStockItemKind(itemKind)
+        ? 0
+        : Math.max(0, variant.reorderLevel ?? input.defaultReorderLevel ?? 0),
       costPaise: toPaise(variant.costRupees ?? input.defaultCostRupees),
       sellPaise: toPaise(variant.sellRupees ?? input.defaultSellRupees),
       expiryDate: variant.expiryDate ?? null,
@@ -336,6 +346,8 @@ async function prepareVariants(input: {
 export async function createShopProduct(input: CreateProductInput) {
   await requireModule(input.organizationId, "shop_inventory");
   await ensureCatalogSchema();
+  await ensureShopBranchSchema(input.organizationId);
+  const branchId = input.branchId ?? (await ensureDefaultBranch(input.organizationId));
 
   const name = input.name.trim();
   if (name.length < 1) throw new Error("Product name is required");
@@ -363,6 +375,7 @@ export async function createShopProduct(input: CreateProductInput) {
   const prepared = await prepareVariants({
     organizationId: input.organizationId,
     productName: name,
+    itemKind: input.itemKind ?? "PRODUCT",
     variants: variantInputs,
     hasVariants: input.hasVariants,
     autoBarcode: input.autoBarcode !== false,
@@ -384,6 +397,7 @@ export async function createShopProduct(input: CreateProductInput) {
       data: {
         organizationId: input.organizationId,
         createdById: input.userId,
+        itemKind: input.itemKind ?? "PRODUCT",
         name,
         description,
         brand,
@@ -405,6 +419,7 @@ export async function createShopProduct(input: CreateProductInput) {
       await tx.inventoryItem.create({
         data: {
           organizationId: input.organizationId,
+          branchId,
           productId: created.id,
           name,
           description,
@@ -459,12 +474,14 @@ export async function addProductVariants(input: {
   organizationId: string;
   userId: string;
   productId: string;
+  branchId?: string | null;
   variants: ProductVariantInput[];
   autoBarcode?: boolean;
   autoSku?: boolean;
 }) {
   await requireModule(input.organizationId, "shop_inventory");
   await ensureCatalogSchema();
+  await ensureShopBranchSchema(input.organizationId);
 
   const product = await prisma.shopProduct.findFirst({
     where: { id: input.productId, organizationId: input.organizationId, deletedAt: null },
@@ -472,6 +489,11 @@ export async function addProductVariants(input: {
   });
   if (!product) throw new Error("Product not found");
   if (input.variants.length === 0) throw new Error("Add at least one variant");
+
+  const branchId =
+    input.branchId ??
+    product.variants.find((v) => v.branchId)?.branchId ??
+    (await ensureDefaultBranch(input.organizationId));
 
   const existingIdentities = new Set(
     product.variants.map(
@@ -510,6 +532,7 @@ export async function addProductVariants(input: {
         await tx.inventoryItem.create({
           data: {
             organizationId: input.organizationId,
+            branchId,
             productId: product.id,
             name: product.name,
             description: product.description,

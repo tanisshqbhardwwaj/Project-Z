@@ -15,7 +15,7 @@ export async function PATCH(request: Request) {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
     const body = await request.json();
     if (body.id) {
-      await markNotificationRead(body.id, ctx.userId);
+      await markNotificationRead(body.id, ctx.userId, ctx.organizationId);
     }
     return apiSuccess({ success: true });
   });

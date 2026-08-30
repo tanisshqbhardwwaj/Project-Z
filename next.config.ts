@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { APP_CONTENT_SECURITY_POLICY } from "./src/lib/security/csp";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: APP_CONTENT_SECURITY_POLICY },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
