@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   calculatePayrollBreakdown,
   calculateMonthlyPayrollPaise,
-} from "@/services/attendance-payroll.service";
+} from "@/lib/staff/payroll-math";
 
 const rupees = (value: number) => BigInt(Math.round(value * 100));
 

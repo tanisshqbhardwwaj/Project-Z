@@ -29,6 +29,8 @@ describe("parseShopDashboardPeriod", () => {
     expect(parseShopDashboardPeriod(null, null)).toEqual({
       period: "today",
       date: null,
+      from: null,
+      to: null,
     });
   });
 
