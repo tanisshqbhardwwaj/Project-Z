@@ -5,7 +5,7 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build:win": "node ../scripts/generate-tauri-icon.mjs && tauri build",
+    "build:win": "node ../scripts/generate-tauri-icon.mjs && node ../scripts/generate-nsis-assets.mjs && tauri build",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build"
   },

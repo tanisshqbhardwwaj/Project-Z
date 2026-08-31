@@ -1,28 +1,25 @@
-Put release installers here so the pricing page can serve them:
+# App downloads (BusinessOS by E-console)
 
-- `project-z-setup.exe` — Windows
-- `project-z.apk` — Android (build with `npm run android:build`)
+- `businessos-setup.exe` — Windows installer (saved as **BusinessOS-Setup.exe** in the browser)
+- `businessos.apk` — Android APK (saved as **BusinessOS.apk** in the browser)
 
-## Vercel (recommended)
+## Windows (Vercel / git)
 
-1. Build locally: `npm run desktop:build:win` (or copy your `.exe` here as `project-z-setup.exe`)
-2. Commit and push:
-   ```bash
-   git add public/downloads/project-z-setup.exe
-   git commit -m "Add Windows installer for pricing downloads"
-   git push
-   ```
-3. Vercel redeploys → **Download for Windows** works at `/downloads/project-z-setup.exe`
+1. Build locally: `npm run desktop:build:win`
+2. This copies the NSIS installer to `public/downloads/businessos-setup.exe`
+3. Commit and redeploy → **Download for Windows** works at `/downloads/businessos-setup.exe`
+
+Installer shows **BusinessOS** branding (not Project Z) and uses the BusinessOS icon.
 
 No env var needed if the file is in `public/downloads/`.
 
-## Alternative: host elsewhere
+## CDN (optional)
 
-Upload to Cloudflare R2 / S3 / GitHub Releases, then on Vercel set:
-
-```
-NEXT_PUBLIC_WINDOWS_DOWNLOAD_URL=https://your-cdn/project-z-setup.exe
-NEXT_PUBLIC_ANDROID_APK_URL=https://your-cdn/project-z.apk
+```env
+NEXT_PUBLIC_WINDOWS_DOWNLOAD_URL=https://your-cdn/businessos-setup.exe
+NEXT_PUBLIC_ANDROID_APK_URL=https://your-cdn/businessos.apk
 ```
 
-Redeploy after changing env vars.
+## Legacy names
+
+Older builds used `project-z.apk` and `project-z-setup.exe` (internal repo name). Those are no longer linked from the website.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthContext, handleApi, requirePermission, apiSuccess } from "@/lib/api/context";
 import { inviteMember, getOrganizationMembers } from "@/services/organization.service";
+import { getClientIp } from "@/lib/rate-limit";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
 import type { OrgRole } from "@prisma/client";
@@ -39,6 +40,7 @@ export async function POST(
       email: data.email,
       role: data.role as OrgRole,
       invitedById: ctx.userId,
+      clientIp: getClientIp(request),
     });
 
     return NextResponse.json({ data: serializeBigInt(invite) }, { status: 201 });

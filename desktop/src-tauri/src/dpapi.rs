@@ -45,7 +45,7 @@ pub fn unprotect(stored: &[u8]) -> Result<Vec<u8>, String> {
     if stored.starts_with(b"{") {
         return Ok(stored.to_vec());
     }
-    Err("Shop database is not a Project Z encrypted snapshot".into())
+    Err("Shop database is not a BusinessOS encrypted snapshot".into())
 }
 
 fn unprotect_blob(cipher: &[u8]) -> Result<Vec<u8>, String> {

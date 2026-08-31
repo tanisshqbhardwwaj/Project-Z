@@ -31,7 +31,7 @@ function resolvePublicUrl(env) {
     env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ||
     env.AUTH_URL?.trim().replace(/\/$/, "") ||
     env.CAPACITOR_SERVER_URL?.trim().replace(/\/$/, "");
-  return fromEnv || "https://beta-project-z.vercel.app";
+  return fromEnv || "https://www.econsole.in";
 }
 
 function patchFile(path, replacer) {
@@ -59,12 +59,22 @@ try {
 
 console.log(`Native app URL → ${publicUrl} (host: ${host})`);
 
-patchFile("desktop/dist/index.html", (content) =>
-  content.replace(
-    /var PRODUCTION_URL = "[^"]*";/,
-    `var PRODUCTION_URL = "${publicUrl}";`
-  )
-);
+function patchProductionUrl(path) {
+  patchFile(path, (content) =>
+    content.replace(
+      /var PRODUCTION_URL = "[^"]*";/,
+      `var PRODUCTION_URL = "${publicUrl}";`
+    )
+  );
+}
+
+for (const shellPath of [
+  "desktop/shell/index.html",
+  "desktop/dist/index.html",
+  "android-www/index.html",
+]) {
+  patchProductionUrl(shellPath);
+}
 
 patchFile("desktop/src-tauri/tauri.conf.json", (content) => {
   try {

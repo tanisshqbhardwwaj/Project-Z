@@ -1,6 +1,6 @@
-# Project Z
+# Project Z (BusinessOS)
 
-Multi-tenant SaaS for Indian contractors, architects, builders, and shopkeepers. One account can belong to up to three organizations; navigation, labels, and modules follow the org’s business type.
+**BusinessOS by E-console** — multi-tenant SaaS for Indian contractors, architects, builders, and shopkeepers. This repository is the internal **Project Z** codebase that powers BusinessOS at [www.econsole.in](https://www.econsole.in).
 
 ## What it covers
 

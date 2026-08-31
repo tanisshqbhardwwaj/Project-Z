@@ -2,7 +2,10 @@ import { test, expect } from "@playwright/test";
 
 test("landing page is public and light", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /with confidence/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /e-console/i })).toBeVisible();
+  await expect(
+    page.getByRole("paragraph").filter({ hasText: /powering digital possibilities/i })
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: /log in/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /get started/i }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: /simple pricing/i })).toHaveCount(0);

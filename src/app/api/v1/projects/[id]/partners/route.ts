@@ -12,6 +12,7 @@ import {
   canManageProject,
 } from "@/services/project.service";
 import { prisma } from "@/lib/db/prisma";
+import { getClientIp } from "@/lib/rate-limit";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
 
@@ -75,6 +76,7 @@ export async function POST(
       organizationId: ctx.organizationId,
       email,
       invitedById: ctx.userId,
+      clientIp: getClientIp(request),
     });
     return NextResponse.json({ data: serializeBigInt(invite) }, { status: 201 });
   });

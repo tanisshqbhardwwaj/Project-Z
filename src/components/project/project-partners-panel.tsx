@@ -120,7 +120,7 @@ export function ProjectPartnersPanel({
   function shareWhatsApp() {
     if (!inviteLink) return;
     const text = encodeURIComponent(
-      `Join my work order on Project Z (link expires in 24h): ${inviteLink}`
+      `Join my work order on BusinessOS (link expires in 24h): ${inviteLink}`
     );
     window.open(`https://wa.me/?text=${text}`, "_blank");
   }

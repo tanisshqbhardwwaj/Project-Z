@@ -1,6 +1,10 @@
 # Android (Capacitor)
 
-The APK loads the live Project Z web app in a WebView and stores shop data in **SQLCipher** on the device.
+The APK loads the live **BusinessOS by E-console** web app in a WebView and stores shop data in **SQLCipher** on the device.
+
+- **Launcher name:** BusinessOS (home screen)
+- **Window title:** BusinessOS · E-console
+- **Production host:** `https://www.econsole.in`
 
 ## Build (Windows)
 
@@ -8,7 +12,7 @@ The APK loads the live Project Z web app in a WebView and stores shop data in **
 npm run android:build
 ```
 
-This sets `CAPACITOR_SERVER_URL` (default from NEXT_PUBLIC_APP_URL (`http://localhost:3000`)), syncs Capacitor, builds a debug APK, and copies it to `public/downloads/project-z.apk`.
+This sets `CAPACITOR_SERVER_URL` (default from NEXT_PUBLIC_APP_URL), syncs Capacitor, builds a debug APK, and copies it to `public/downloads/businessos.apk`.
 
 Override the host:
 

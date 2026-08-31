@@ -1,6 +1,9 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   checkRateLimit,
+  enforceResendEmailRateLimitByIp,
+  RATE_LIMITS,
+  RateLimitError,
   resetRateLimitStoreForTests,
 } from "@/lib/rate-limit";
 
@@ -25,5 +28,13 @@ describe("rate limit", () => {
     if (!blocked.ok) {
       expect(blocked.retryAfterSec).toBeGreaterThan(0);
     }
+  });
+
+  it("allows up to 5 Resend emails per IP per day", async () => {
+    const ip = "203.0.113.50";
+    for (let i = 0; i < RATE_LIMITS.resendEmail.limit; i++) {
+      await expect(enforceResendEmailRateLimitByIp(ip)).resolves.toBeUndefined();
+    }
+    await expect(enforceResendEmailRateLimitByIp(ip)).rejects.toBeInstanceOf(RateLimitError);
   });
 });

@@ -14,15 +14,23 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Project Z — Billing, inventory & business management",
+  title: "BusinessOS — Billing, inventory & business management",
   description:
-    "Billing, inventory, staff, and projects for Indian retailers, service businesses, contractors, and architects — one platform, from A to Z.",
+    "BusinessOS by E-console — Powering Digital Possibilities. Billing, inventory, staff, and projects for Indian businesses. Manage. Automate. Grow.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
-    title: "Project Z",
+    title: "BusinessOS",
     statusBarStyle: "default",
   },
-  applicationName: "Project Z",
+  applicationName: "BusinessOS",
 };
 
 export const viewport: Viewport = {

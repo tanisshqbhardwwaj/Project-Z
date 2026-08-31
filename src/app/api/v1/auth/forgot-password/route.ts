@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { handleApi } from "@/lib/api/context";
-import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { enforceRateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { z } from "zod";
 import { sendEmail, passwordResetEmailHtml } from "@/lib/email";
 import { generateToken } from "@/lib/utils";
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
         subject: "Reset your password",
         html: passwordResetEmailHtml(user.name, url),
         devLink: url,
+        clientIp: getClientIp(request),
       });
     }
 

@@ -5,9 +5,9 @@ import { auth } from "@/lib/auth";
 import { getPublicMarketingConfig } from "@/lib/marketing/public-config";
 
 export const metadata: Metadata = {
-  title: "Project Z — Professional Billing & Business Management",
+  title: "E-console — Powering Digital Possibilities",
   description:
-    "Create professional digital invoices, manage customers and sales, track inventory and expenses, and grow your business — from billing to complete business management.",
+    "E-console on econsole.in — Powering Digital Possibilities. Run your business on BusinessOS: billing, inventory, staff, and projects. Manage. Automate. Grow.",
 };
 
 export default async function HomePage() {

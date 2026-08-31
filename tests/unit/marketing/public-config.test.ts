@@ -26,12 +26,14 @@ describe("getPublicMarketingConfig", () => {
     expect(config.phoneUrl).toBe("tel:+919876543210");
     expect(config.emailUrl).toBe("mailto:hello@example.com");
     expect(config.androidApkUrl).toBe("https://example.com/app.apk");
-    expect(config.windowsDownloadUrl).toBe("/downloads/project-z-setup.exe");
+    expect(config.windowsDownloadUrl).toBe("/downloads/businessos-setup.exe");
   });
 
   it("returns committed apk path without filesystem checks", () => {
     const config = getPublicMarketingConfig();
-    expect(config.androidApkUrl).toBe("/downloads/project-z.apk");
+    expect(config.androidApkUrl).toBe("/downloads/businessos.apk");
+    expect(config.androidApkDownloadName).toBe("BusinessOS.apk");
+    expect(config.windowsDownloadName).toBe("BusinessOS-Setup.exe");
   });
 
   it("ignores incomplete contact values", () => {

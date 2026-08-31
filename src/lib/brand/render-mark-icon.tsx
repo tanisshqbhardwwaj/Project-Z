@@ -1,46 +1,61 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ReactElement } from "react";
+import {
+  BUSINESSOS_MARK_DARK_PATH,
+  BUSINESSOS_MARK_LIGHT_PATH,
+  BUSINESSOS_MARK_PATH,
+} from "@/lib/brand/constants";
 
-/** Shared Project Z mark for Next.js ImageResponse (icon / apple-icon). */
-export function renderBrandMarkIcon(size: number): ReactElement {
-  const radius = Math.round(size * 0.25);
-  const border = Math.max(1, Math.round(size * 0.02));
-  const inner = Math.round(size * 0.72);
+const cache = new Map<string, string>();
+
+function getMarkDataUrl(relativePath: string, fallbackPath: string): string {
+  const key = `${relativePath}|${fallbackPath}`;
+  if (cache.has(key)) return cache.get(key)!;
+
+  const candidates = [relativePath, fallbackPath].map((p) =>
+    join(process.cwd(), "public", p.replace(/^\//, ""))
+  );
+
+  for (const filePath of candidates) {
+    if (existsSync(filePath)) {
+      const dataUrl = `data:image/png;base64,${readFileSync(filePath).toString("base64")}`;
+      cache.set(key, dataUrl);
+      return dataUrl;
+    }
+  }
+
+  throw new Error(`Missing brand mark: ${relativePath}`);
+}
+
+/** Shared BusinessOS mark for Next.js ImageResponse (icon / apple-icon). */
+export function renderBrandMarkIcon(size: number, variant: "light" | "dark" = "light"): ReactElement {
+  const radius = Math.round(size * 0.22);
+  const padding = Math.round(size * 0.08);
+  const inner = size - padding * 2;
+  const bg = variant === "dark" ? "#0F172A" : "#FFFFFF";
+  const markPath = variant === "dark" ? BUSINESSOS_MARK_DARK_PATH : BUSINESSOS_MARK_LIGHT_PATH;
 
   return (
     <div
       style={{
         width: size,
         height: size,
-        background: "#FFFFFF",
+        background: bg,
         borderRadius: radius,
-        border: `${border}px solid #E2E8F0`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <svg width={inner} height={inner} viewBox="0 0 48 48" fill="none">
-        <defs>
-          <linearGradient id="pz-icon-gradient" x1="6" y1="42" x2="42" y2="6" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#22D3EE" />
-            <stop offset="0.35" stopColor="#FACC15" />
-            <stop offset="0.65" stopColor="#FB923C" />
-            <stop offset="1" stopColor="#A855F7" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M10 10H34M34 10L10 38M10 38H34"
-          stroke="url(#pz-icon-gradient)"
-          strokeWidth="4.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="10" cy="10" r="3.5" fill="url(#pz-icon-gradient)" />
-        <circle cx="34" cy="10" r="3.5" fill="url(#pz-icon-gradient)" />
-        <circle cx="10" cy="38" r="3.5" fill="url(#pz-icon-gradient)" />
-        <circle cx="34" cy="38" r="3.5" fill="url(#pz-icon-gradient)" />
-        <circle cx="22" cy="24" r="3" fill="url(#pz-icon-gradient)" />
-      </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={getMarkDataUrl(markPath, BUSINESSOS_MARK_PATH)}
+        alt=""
+        width={inner}
+        height={inner}
+        style={{ objectFit: "contain" }}
+      />
     </div>
   );
 }

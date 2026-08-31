@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { mk } from "@/components/marketing/marketing-theme";
 
 type FlowStepProps = {
   steps: string[];
@@ -11,7 +12,7 @@ export function FlowStep({ steps, className, compact }: FlowStepProps) {
   return (
     <div
       className={cn(
-        "flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center",
+        "flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center",
         className
       )}
     >
@@ -19,7 +20,9 @@ export function FlowStep({ steps, className, compact }: FlowStepProps) {
         <div key={step} className="flex flex-col items-center gap-2 sm:flex-row">
           <span
             className={cn(
-              "rounded-xl border border-slate-200 bg-white px-3 py-2 text-center font-medium text-slate-900 shadow-sm",
+              "rounded-xl border px-4 py-2.5 text-center font-medium shadow-sm",
+              mk.card,
+              mk.heading,
               compact ? "text-xs" : "text-sm"
             )}
           >
@@ -27,8 +30,8 @@ export function FlowStep({ steps, className, compact }: FlowStepProps) {
           </span>
           {i < steps.length - 1 ? (
             <>
-              <ArrowDown className="h-4 w-4 shrink-0 text-slate-400 sm:hidden" aria-hidden />
-              <ArrowRight className="hidden h-4 w-4 shrink-0 text-slate-400 sm:block" aria-hidden />
+              <ArrowDown className={cn("h-4 w-4 shrink-0 sm:hidden", mk.muted)} aria-hidden />
+              <ArrowRight className={cn("hidden h-4 w-4 shrink-0 sm:block", mk.muted)} aria-hidden />
             </>
           ) : null}
         </div>

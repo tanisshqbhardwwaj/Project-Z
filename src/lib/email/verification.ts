@@ -1,11 +1,16 @@
 import { prisma } from "@/lib/db/prisma";
 import { sendEmail, verificationEmailHtml } from "@/lib/email";
+import { PRODUCT_NAME } from "@/lib/brand/constants";
+import { getPublicAppUrl } from "@/lib/app/public-url";
 import { generateToken } from "@/lib/utils";
 
-export async function createVerificationTokenAndSendEmail(user: {
-  email: string;
-  name: string;
-}) {
+export async function createVerificationTokenAndSendEmail(
+  user: {
+    email: string;
+    name: string;
+  },
+  options?: { clientIp?: string }
+) {
   await prisma.verificationToken.deleteMany({
     where: { identifier: user.email },
   });
@@ -17,13 +22,14 @@ export async function createVerificationTokenAndSendEmail(user: {
     data: { identifier: user.email, token, expires },
   });
 
-  const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`;
+  const verifyUrl = `${getPublicAppUrl()}/verify-email?token=${token}`;
 
   await sendEmail({
     to: user.email,
-    subject: "Verify your email - Project Z",
+    subject: `Verify your email - ${PRODUCT_NAME}`,
     html: verificationEmailHtml(user.name, verifyUrl),
     devLink: verifyUrl,
+    clientIp: options?.clientIp,
   });
 
   return { verifyUrl };

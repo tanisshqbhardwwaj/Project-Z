@@ -1,6 +1,6 @@
 # Resend + Custom Domain Setup
 
-Use this so **any user** can register and receive verification emails in production.
+Use this so **any user** can register and receive verification emails in production for **BusinessOS** (hosted at `https://www.econsole.in`).
 
 Without a verified domain, `onboarding@resend.dev` only delivers to **the email on your Resend account**.
 
@@ -8,8 +8,8 @@ Without a verified domain, `onboarding@resend.dev` only delivers to **the email 
 
 ## What you need
 
-- A **domain you control** (e.g. `yourname.com`)
-- DNS managed in **Cloudflare** (recommended — you may already use it for R2)
+- Domain **`econsole.in`** (or a subdomain you verify in Resend, e.g. `admin.econsole.in`)
+- DNS managed at **BigRock** (or your registrar)
 - A **Resend** account with an API key
 
 ---
@@ -18,28 +18,21 @@ Without a verified domain, `onboarding@resend.dev` only delivers to **the email 
 
 1. Go to [resend.com/domains](https://resend.com/domains)
 2. Click **Add Domain**
-3. Enter your domain, e.g. `yourname.com` (not a subdomain first time — use root domain)
+3. Enter your domain, e.g. `admin.econsole.in` or `econsole.in`
 4. Resend shows DNS records to add (usually **SPF**, **DKIM**, and sometimes **MX**)
 
-Keep this tab open — you’ll copy records in Step 2.
+Keep this tab open — you'll copy records in Step 2.
 
 ---
 
-## Step 2 — Add DNS records in Cloudflare
+## Step 2 — Add DNS records at BigRock
 
-1. [dash.cloudflare.com](https://dash.cloudflare.com) → select your domain
-2. **DNS** → **Records** → **Add record** for each row Resend shows
-
-Typical records (yours may differ — **use exactly what Resend shows**):
-
-| Type | Name | Content | Proxy |
-|------|------|---------|-------|
-| TXT | `@` or `send` | `v=spf1 include:...` (from Resend) | **DNS only** (grey cloud) |
-| TXT | `resend._domainkey` | long DKIM string from Resend | DNS only |
-| MX | `send` | feedback-smtp... (if Resend asks) | DNS only |
+1. Log in at [manage.bigrock.in](https://manage.bigrock.in)
+2. **Domain Manager** → **econsole.in** → **Manage DNS Records**
+3. Add each record Resend shows (TXT/MX on names like `send` or `resend._domainkey`)
 
 **Important:**
-- Turn **proxy OFF** (grey cloud) for email DNS records
+- Do **not** remove the website A/CNAME records for `@` and `www` (Vercel)
 - Copy values **exactly** from Resend — no extra quotes or spaces
 
 ---
@@ -52,7 +45,7 @@ Typical records (yours may differ — **use exactly what Resend shows**):
 
 ---
 
-## Step 4 — Create API key (if you don’t have one)
+## Step 4 — Create API key (if you don't have one)
 
 1. [resend.com/api-keys](https://resend.com/api-keys) → **Create API Key**
 2. Permission: **Sending access** (or Full access)
@@ -67,24 +60,25 @@ Typical records (yours may differ — **use exactly what Resend shows**):
 | Key | Value |
 |-----|--------|
 | `RESEND_API_KEY` | `re_xxxxxxxx` |
-| `EMAIL_FROM` | `Project Z <noreply@yourname.com>` |
+| `EMAIL_FROM` | `E-console <noreply@admin.econsole.in>` |
+| `AUTH_URL` | `https://www.econsole.in` |
+| `NEXT_PUBLIC_APP_URL` | `https://www.econsole.in` |
 
 **Rules for `EMAIL_FROM`:**
-- Use an address **on your verified domain**, e.g. `noreply@yourname.com`
-- Format: `Project Z <noreply@yourname.com>` or just `noreply@yourname.com`
+- Use an address **on your verified Resend domain**
+- Format: `E-console <noreply@admin.econsole.in>` or just `noreply@admin.econsole.in`
 - **No quotes** in the Vercel value box
-
-Replace `yourname.com` with your real domain.
+- Do **not** use `onboarding@resend.dev` in production
 
 ---
 
 ## Step 6 — Redeploy
 
-Wait for a **new deployment** from latest GitHub commit (don’t Redeploy an old one).
+Wait for a **new deployment** from latest GitHub commit (don't Redeploy an old one).
 
 Then test:
-1. Open your app → **Register** with any real email
-2. Check inbox (and spam) for verification email
+1. Open `https://www.econsole.in` → **Register** with any real email
+2. Check inbox (and spam) for verification email from BusinessOS
 
 ---
 
@@ -97,39 +91,50 @@ Then test:
 | Only Resend account email works | Still using `onboarding@resend.dev` — switch to your domain |
 | DNS verified but no send | Redeploy Vercel after changing `EMAIL_FROM` |
 | Gmail marks as spam | Wait 24h; ensure SPF + DKIM both green in Resend |
+| Verify link goes to wrong host | `AUTH_URL` and `NEXT_PUBLIC_APP_URL` must both be `https://www.econsole.in` |
 
 ---
 
-## Quick test without a domain (temporary)
+## Quick test without a domain (local dev only)
 
-If you **don’t have a domain yet**:
+For **local development** only:
 
-1. Keep `EMAIL_FROM=Project Z <onboarding@resend.dev>`
+1. Keep `EMAIL_FROM=BusinessOS <onboarding@resend.dev>`
 2. **Register using the same email you used to sign up for Resend**
 3. Resend will deliver only to that address
 
-For real users/partners, you **need a verified domain**.
+For real users, you **need a verified domain** in production.
 
-### Beta test allowlist (no domain yet)
+---
 
-On Vercel, set:
+## Beta test allowlist (closed beta only)
+
+For a **closed beta** (not public launch), you may temporarily set:
 
 ```env
-TEST_EMAIL_ALLOWLIST=tanishqbhardwaj03@gmail.com,gs9818860351@gmail.com
+ALLOW_BETA_EMAIL_BYPASS=true
+TEST_EMAIL_ALLOWLIST=friend1@gmail.com,friend2@gmail.com
 ```
 
-Those addresses **auto-verify on register** — no Resend email sent. Remove this variable before public launch.
+Those addresses **auto-verify on register** — no Resend email sent.
+
+**Before public launch:**
+- Remove `ALLOW_BETA_EMAIL_BYPASS` (or set to `false`)
+- Remove `TEST_EMAIL_ALLOWLIST`
+- Production builds **fail** if bypass is still enabled
 
 ---
 
 ## Example after setup
 
-Domain: `acmebuilders.in`
+Domain verified: `admin.econsole.in`
 
 Vercel:
 ```env
 RESEND_API_KEY=re_abc123...
-EMAIL_FROM=Project Z <noreply@acmebuilders.in>
+EMAIL_FROM=E-console <noreply@admin.econsole.in>
+AUTH_URL=https://www.econsole.in
+NEXT_PUBLIC_APP_URL=https://www.econsole.in
 ```
 
-Users register with `partner@gmail.com` → they receive verification email.
+Users register with `partner@gmail.com` → they receive a BusinessOS verification email.

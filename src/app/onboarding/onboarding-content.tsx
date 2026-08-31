@@ -6,6 +6,7 @@ import { apiFetch, setActiveOrganizationId } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { logoutUser } from "@/lib/auth/logout-client";
 import { AppLogo } from "@/components/brand/app-logo";
+import { AppearanceMenu } from "@/components/theme/appearance-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -152,14 +153,17 @@ export default function OnboardingContent() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+        <AppearanceMenu />
+      </div>
       <div className="mb-8 w-full max-w-lg">
-        <AppLogo href="/dashboard" variant="full" className="mx-auto w-full" />
+        <AppLogo href="/dashboard" variant="full" brandMode="dual" className="mx-auto w-full" />
       </div>
       <Card className="w-full max-w-lg rounded-2xl shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">
-            {isNewOrg ? "Create Organization" : "Welcome to Project Z"}
+            {isNewOrg ? "Create Organization" : `Welcome to BusinessOS`}
           </CardTitle>
           <CardDescription>
             {isNewOrg

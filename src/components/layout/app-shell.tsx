@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Search, Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppLogo, APP_SHELL_HEADER_HEIGHT } from "@/components/brand/app-logo";
+import { COMPANY_LINE, COMPANY_NAME } from "@/lib/brand/constants";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
 import { BranchSwitcher } from "@/components/layout/branch-switcher";
 import { SearchShortcutKeys } from "@/components/layout/search-shortcut-keys";
@@ -14,7 +15,7 @@ import { useBusinessType } from "@/hooks/use-business-type";
 import { useNavGroups, type NavItem } from "@/hooks/use-nav-items";
 import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
 import { useCommandPaletteStore } from "@/stores/command-palette-store";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { AppearanceMenu } from "@/components/theme/appearance-menu";
 import { SyncBadge } from "@/components/sync/sync-badge";
 import { CashierModeBanner } from "@/components/layout/cashier-mode-banner";
 import { useCashierMode } from "@/hooks/use-cashier-mode";
@@ -104,9 +105,9 @@ export function AppSidebar() {
           APP_SHELL_HEADER_HEIGHT
         )}
       >
-        <AppLogo href="/dashboard" variant="mark" />
+        <AppLogo href="/dashboard" variant="compact" brandMode="product" showCompanyTagline />
       </div>
-      <nav className="flex-1 overflow-y-auto p-3 pb-6">
+      <nav className="flex-1 overflow-y-auto p-3 pb-4">
         {cashierMode ? (
           <SidebarSection
             label="Cashier"
@@ -126,6 +127,11 @@ export function AppSidebar() {
           </>
         )}
       </nav>
+      <div className="shrink-0 border-t px-4 py-3">
+        <p className="text-center text-[10px] font-medium leading-snug text-muted-foreground">
+          {COMPANY_LINE}
+        </p>
+      </div>
     </aside>
   );
 }
@@ -320,7 +326,13 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-        <AppLogo href="/dashboard" variant="mark" className="shrink-0 md:hidden" />
+        <AppLogo
+          href="/dashboard"
+          variant="compact"
+          brandMode="product"
+          className="shrink-0 md:hidden"
+          showCompanyTagline={false}
+        />
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <OrgSwitcher currentOrgName={orgName} />
           <BranchSwitcher />
@@ -351,7 +363,7 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
         <Search className="h-5 w-5" />
       </Button>
       <SyncBadge />
-      <ThemeToggle />
+      <AppearanceMenu />
     </header>
     </>
   );

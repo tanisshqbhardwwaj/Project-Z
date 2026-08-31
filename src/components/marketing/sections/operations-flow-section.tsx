@@ -1,6 +1,8 @@
 import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { SectionShell } from "@/components/marketing/shared/section-shell";
 import { FlowStep } from "@/components/marketing/shared/flow-step";
+import { mk } from "@/components/marketing/marketing-theme";
 
 const OPERATIONS_FEATURES = [
   "Product & inventory management",
@@ -24,21 +26,21 @@ export function OperationsFlowSection() {
       eyebrow="BUSINESS OPERATIONS"
       title="More Than Just Billing"
       description="After creating invoices, manage the operations behind those invoices — products, stock, purchases, and profit — all connected."
-      className="bg-[#f6f7fb]"
+      className={mk.sectionAlt}
     >
-      <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
-        <p className="mb-6 text-center text-sm font-medium text-slate-500">
-          How your business flows through Project Z
+      <div className={cn("mt-12 rounded-2xl border p-8 lg:p-10", mk.card)}>
+        <p className={cn("mb-8 text-center text-sm font-medium sm:text-base", mk.muted)}>
+          How your business flows through BusinessOS
         </p>
         <FlowStep steps={[...FLOW_STEPS]} />
       </div>
-      <ul className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {OPERATIONS_FEATURES.map((item) => (
           <li
             key={item}
-            className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+            className={cn("flex items-start gap-3 rounded-xl border px-5 py-4 text-sm sm:text-base", mk.card, mk.bodyStrong)}
           >
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
             {item}
           </li>
         ))}

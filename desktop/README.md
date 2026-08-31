@@ -1,6 +1,6 @@
-# Project Z Desktop (Tauri 2)
+# BusinessOS Desktop (E-console / Tauri 2)
 
-Windows shop POS shell. Shop data is a **DPAPI-encrypted** snapshot at `%AppData%\ProjectZ\{orgId}\shop.db` (tied to the Windows user). The WebView CSP is set in `src-tauri/tauri.conf.json`. Offline mutations sync through `/api/v1/sync/push`; the sidecar also drains `/api/v1/sync/outbox/drain` (8 attempts, then failed).
+Windows shop POS shell for **BusinessOS by E-console**. Window title: **BusinessOS · E-console**. Shop data is a **DPAPI-encrypted** snapshot at `%AppData%\ProjectZ\{orgId}\shop.db` (tied to the Windows user; internal path retained for compatibility).
 
 ## Prerequisites
 

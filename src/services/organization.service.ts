@@ -152,6 +152,7 @@ export async function inviteMember(input: {
   email: string;
   role: OrgRole;
   invitedById: string;
+  clientIp?: string;
 }) {
   const { invite, url } = await createInviteLink(input);
 
@@ -159,6 +160,7 @@ export async function inviteMember(input: {
     to: input.email,
     subject: `Invitation to join ${invite.organization.name}`,
     html: inviteEmailHtml(invite.organization.name, url),
+    clientIp: input.clientIp,
   });
 
   return invite;
