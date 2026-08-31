@@ -5,6 +5,9 @@
 
 const LOCAL_HOST_PATTERNS = ["localhost", "127.0.0.1", "0.0.0.0"];
 
+/** Canonical production host — matches src/lib/brand/constants.ts */
+const DEFAULT_PRODUCTION_APP_URL = "https://www.econsole.in";
+
 function isLocalHost(value) {
   return LOCAL_HOST_PATTERNS.some((pattern) => value.includes(pattern));
 }
@@ -135,7 +138,22 @@ const CHECKS = [
   },
 ];
 
+export function applyVercelProductionDefaults(env = process.env) {
+  if (!env.VERCEL) return false;
+  let applied = false;
+  if (!env.AUTH_URL?.trim()) {
+    env.AUTH_URL = DEFAULT_PRODUCTION_APP_URL;
+    applied = true;
+  }
+  if (!env.NEXT_PUBLIC_APP_URL?.trim()) {
+    env.NEXT_PUBLIC_APP_URL = DEFAULT_PRODUCTION_APP_URL;
+    applied = true;
+  }
+  return applied;
+}
+
 export function validateProductionEnv(env = process.env) {
+  applyVercelProductionDefaults(env);
   /** @type {string[]} */
   const errors = [];
 

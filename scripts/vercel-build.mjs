@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { printProductionEnvErrors, validateProductionEnv } from "./validate-production-env.mjs";
+import { applyVercelProductionDefaults, printProductionEnvErrors, validateProductionEnv } from "./validate-production-env.mjs";
 
 const LOCAL_PRISMA_URL = "file:./dev.db";
 
@@ -14,6 +14,11 @@ function ensurePrismaCliDatabaseUrl() {
 }
 
 if (process.env.VERCEL) {
+  if (applyVercelProductionDefaults()) {
+    console.log(
+      "ℹ Using default production URLs (https://www.econsole.in) — set AUTH_URL and NEXT_PUBLIC_APP_URL in Vercel to override."
+    );
+  }
   const errors = validateProductionEnv();
   if (errors.length > 0) {
     printProductionEnvErrors(errors);
