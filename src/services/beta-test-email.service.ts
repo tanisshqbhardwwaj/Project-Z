@@ -3,19 +3,12 @@ import { MAX_BETA_TEST_EMAILS } from "@/lib/email/beta-test-constants";
 
 export { MAX_BETA_TEST_EMAILS };
 
-const BUILTIN_BETA_ALLOWLIST = [
-  "tanishqbhardwaj03@gmail.com",
-  "gs9818860351@gmail.com",
-  "tanishqbhardwaj457@gmail.com",
-  "bhardwajanil50@yahoo.com",
-] as const;
-
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function staticAllowlist(): Set<string> {
-  const set = new Set<string>(BUILTIN_BETA_ALLOWLIST);
+function envAllowlist(): Set<string> {
+  const set = new Set<string>();
   const raw = process.env.TEST_EMAIL_ALLOWLIST?.trim();
   if (raw) {
     for (const e of raw.split(",")) {
@@ -27,9 +20,10 @@ function staticAllowlist(): Set<string> {
 }
 
 export function isStaticTestEmailAllowlisted(email: string): boolean {
-  return staticAllowlist().has(normalizeEmail(email));
+  return envAllowlist().has(normalizeEmail(email));
 }
 
+/** Beta bypass is off in production unless explicitly enabled for a closed beta. */
 export function isBetaEmailBypassEnabled(): boolean {
   if (process.env.NODE_ENV !== "production") return true;
   return process.env.ALLOW_BETA_EMAIL_BYPASS === "true";

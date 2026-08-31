@@ -1,34 +1,107 @@
-import { cn } from "@/lib/utils";
+"use client";
 
-export function ProjectZMark({ className }: { className?: string }) {
+import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+import { cn } from "@/lib/utils";
+import {
+  BUSINESSOS_MARK_DARK_PATH,
+  BUSINESSOS_MARK_LIGHT_PATH,
+  BUSINESSOS_MARK_PATH,
+  BUSINESSOS_LOGO_PATH,
+  ECONSOLE_MARK_DARK_PATH,
+  ECONSOLE_MARK_LIGHT_PATH,
+  ECONSOLE_MARK_PATH,
+  ECONSOLE_LOGO_PATH,
+} from "@/lib/brand/constants";
+import {
+  getThemeServerSnapshot,
+  getThemeSnapshot,
+  subscribeTheme,
+} from "@/lib/theme/theme";
+
+type BrandMarkProps = {
+  className?: string;
+};
+
+function useResolvedTheme() {
+  return useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
+}
+
+function ThemeMark({
+  className,
+  lightSrc,
+  darkSrc,
+  fallbackSrc,
+  alt = "",
+}: BrandMarkProps & {
+  lightSrc: string;
+  darkSrc: string;
+  fallbackSrc: string;
+  alt?: string;
+}) {
+  const theme = useResolvedTheme();
+  const preferred = theme === "dark" ? darkSrc : lightSrc;
+  const [src, setSrc] = useState(preferred);
+
+  useEffect(() => {
+    setSrc(preferred);
+  }, [preferred]);
+
   return (
-    <svg
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={cn("shrink-0", className)}
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="pz-mark-gradient" x1="6" y1="42" x2="42" y2="6" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#22D3EE" />
-          <stop offset="0.35" stopColor="#FACC15" />
-          <stop offset="0.65" stopColor="#FB923C" />
-          <stop offset="1" stopColor="#A855F7" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M10 10H34M34 10L10 38M10 38H34"
-        stroke="url(#pz-mark-gradient)"
-        strokeWidth="4.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="10" cy="10" r="3.5" fill="url(#pz-mark-gradient)" />
-      <circle cx="34" cy="10" r="3.5" fill="url(#pz-mark-gradient)" />
-      <circle cx="10" cy="38" r="3.5" fill="url(#pz-mark-gradient)" />
-      <circle cx="34" cy="38" r="3.5" fill="url(#pz-mark-gradient)" />
-      <circle cx="22" cy="24" r="3" fill="url(#pz-mark-gradient)" />
-    </svg>
+    <img
+      src={src}
+      alt={alt}
+      aria-hidden={alt ? undefined : true}
+      onError={() => {
+        if (src !== fallbackSrc) setSrc(fallbackSrc);
+      }}
+      className={cn("shrink-0 object-contain", className)}
+    />
+  );
+}
+
+/** Company icon mark (E-console) — switches for light/dark theme. */
+export function EConsoleMark({ className }: BrandMarkProps) {
+  return (
+    <ThemeMark
+      className={className}
+      lightSrc={ECONSOLE_MARK_LIGHT_PATH}
+      darkSrc={ECONSOLE_MARK_DARK_PATH}
+      fallbackSrc={ECONSOLE_MARK_PATH}
+    />
+  );
+}
+
+/** Product/app icon mark (BusinessOS B). Internal name retained for compatibility. */
+export function ProjectZMark({ className }: BrandMarkProps) {
+  return (
+    <ThemeMark
+      className={className}
+      lightSrc={BUSINESSOS_MARK_LIGHT_PATH}
+      darkSrc={BUSINESSOS_MARK_DARK_PATH}
+      fallbackSrc={BUSINESSOS_MARK_PATH}
+    />
+  );
+}
+
+/** Full E-console logo lockup (icon + wordmark + tagline). */
+export function EConsoleLogo({ className }: BrandMarkProps) {
+  return (
+    <img
+      src={ECONSOLE_LOGO_PATH}
+      alt="E-console — Powering Digital Possibilities"
+      className={cn("h-auto w-full max-w-[280px] object-contain", className)}
+    />
+  );
+}
+
+/** Full BusinessOS logo lockup (icon + wordmark + tagline). */
+export function BusinessOSLogo({ className }: BrandMarkProps) {
+  return (
+    <img
+      src={BUSINESSOS_LOGO_PATH}
+      alt="BusinessOS — Manage. Automate. Grow."
+      className={cn("h-auto w-full max-w-[320px] object-contain", className)}
+    />
   );
 }

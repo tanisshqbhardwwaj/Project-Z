@@ -5,7 +5,7 @@ import { hashPassword } from "@/lib/auth";
 import { createVerificationTokenAndSendEmail } from "@/lib/email/verification";
 import { isTestEmailAllowlisted } from "@/lib/email/test-allowlist";
 import { handleApi } from "@/lib/api/context";
-import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { enforceRateLimit, getClientIp, RATE_LIMITS, RateLimitError } from "@/lib/rate-limit";
 
 const schema = z.object({
   email: z.string().email(),
@@ -53,11 +53,15 @@ export async function POST(request: Request) {
     }
 
     try {
-      await createVerificationTokenAndSendEmail({
-        email: user.email,
-        name: user.name,
-      });
+      await createVerificationTokenAndSendEmail(
+        {
+          email: user.email,
+          name: user.name,
+        },
+        { clientIp: getClientIp(request) }
+      );
     } catch (e) {
+      if (e instanceof RateLimitError) throw e;
       // Keep the account in development so local setup works when Resend blocks the recipient.
       if (process.env.NODE_ENV === "development") {
         return NextResponse.json({
@@ -79,7 +83,7 @@ export async function POST(request: Request) {
         {
           error: {
             code: "EMAIL_SEND_FAILED",
-            message: `Could not send verification email: ${message}. Check EMAIL_FROM uses a verified Resend domain or onboarding@resend.dev for testing.`,
+            message: `Could not send verification email: ${message}. Check EMAIL_FROM uses a verified Resend domain (e.g. E-console <noreply@admin.econsole.in>).`,
           },
         },
         { status: 502 }

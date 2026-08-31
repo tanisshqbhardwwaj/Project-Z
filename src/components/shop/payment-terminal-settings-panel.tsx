@@ -71,7 +71,7 @@ export function PaymentTerminalSettingsPanel({
         <CardTitle className="text-lg">Card machine</CardTitle>
         <p className="text-sm text-muted-foreground">
           Connect Paytm, Pine Labs, Razorpay POS, PhonePe, MSwipe, or a local USB
-          bridge. Machine rent and MDR are billed to the shop — not Project Z.
+          bridge. Machine rent and MDR are billed to the shop — not BusinessOS.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

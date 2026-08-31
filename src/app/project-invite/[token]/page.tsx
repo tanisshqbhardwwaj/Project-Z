@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AppLogo } from "@/components/brand/app-logo";
+import { AppearanceMenu } from "@/components/theme/appearance-menu";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
@@ -55,9 +56,12 @@ export default function ProjectInvitePage({ params }: { params: Promise<{ token:
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+        <AppearanceMenu />
+      </div>
       <div className="mb-8 w-full max-w-md">
-        <AppLogo href="/login" variant="full" className="mx-auto w-full" />
+        <AppLogo href="/login" variant="full" brandMode="dual" className="mx-auto w-full" />
       </div>
       <Card className="w-full max-w-md rounded-2xl shadow-lg">
         <CardHeader>

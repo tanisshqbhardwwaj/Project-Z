@@ -18,11 +18,11 @@ Copy `.env.example` to your hosting provider and set:
 | `TURSO_AUTH_TOKEN` | Yes | From `turso db tokens create` |
 | `DATABASE_URL` | Local only | `file:./dev.db` for local SQLite dev |
 | `AUTH_SECRET` | Yes | `openssl rand -base64 32` |
-| `AUTH_URL` | Yes | Public app URL, e.g. `https://app.example.com` |
+| `AUTH_URL` | Yes | Public app URL, e.g. `https://www.econsole.in` |
 | `NEXT_PUBLIC_APP_URL` | Yes | Same as `AUTH_URL` |
 | `S3_*` | Yes | Production bucket credentials |
 | `RESEND_API_KEY` | Yes | Email delivery |
-| `EMAIL_FROM` | Yes | Verified sender domain |
+| `EMAIL_FROM` | Yes | Verified sender, e.g. `E-console <noreply@admin.econsole.in>` |
 | `AI_PROVIDER` | Yes | `groq`, `gemini`, or `manual` |
 | `GROQ_API_KEY` / `GEMINI_API_KEY` | If using AI | |
 | `INNGEST_EVENT_KEY` | Recommended | Enables durable extraction queue |

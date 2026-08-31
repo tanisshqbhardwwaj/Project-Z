@@ -1,4 +1,4 @@
-# Build a sideload Android APK and copy to public/downloads/project-z.apk
+# Build a sideload Android APK and copy to public/downloads/businessos.apk
 # Usage: npm run android:build            (release; requires signing config)
 #        npm run android:build -- -Debug  (unsigned debug APK for local testing)
 # Release builds FAIL if no keystore.properties is present — no silent debug fallback.
@@ -29,37 +29,21 @@ if (-not (Test-Path $env:ANDROID_HOME)) {
   exit 1
 }
 
-if (-not $env:CAPACITOR_SERVER_URL) {
-  node scripts/sync-native-app-url.mjs 2>$null | Out-Null
-  if (-not $env:CAPACITOR_SERVER_URL) {
-    $dotEnv = Join-Path $PSScriptRoot "..\.env"
-    if (Test-Path $dotEnv) {
-      Get-Content $dotEnv | ForEach-Object {
-        if ($_ -match '^\s*(NEXT_PUBLIC_APP_URL|AUTH_URL|CAPACITOR_SERVER_URL)\s*=\s*(.+)\s*$') {
-          $val = $Matches[2].Trim().Trim('"').Trim("'")
-          if (-not $env:CAPACITOR_SERVER_URL -and $Matches[1] -ne "CAPACITOR_SERVER_URL") {
-            $env:CAPACITOR_SERVER_URL = $val
-          } elseif ($Matches[1] -eq "CAPACITOR_SERVER_URL") {
-            $env:CAPACITOR_SERVER_URL = $val
-          }
-        }
-      }
-    }
-  }
-  if (-not $env:CAPACITOR_SERVER_URL) {
-    $env:CAPACITOR_SERVER_URL = "https://beta-project-z.vercel.app"
-  }
-  Write-Host "CAPACITOR_SERVER_URL=$($env:CAPACITOR_SERVER_URL)"
-}
+# Distribution APKs always load production (never localhost from a dev .env).
+$env:CAPACITOR_SERVER_URL = "https://www.econsole.in"
+$env:NEXT_PUBLIC_APP_URL = $env:CAPACITOR_SERVER_URL
+Write-Host "CAPACITOR_SERVER_URL=$($env:CAPACITOR_SERVER_URL)"
 
 Write-Host "Syncing native app URLs..."
 node scripts/sync-native-app-url.mjs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "Preparing brand icons..."
 node scripts/android-prepare.mjs
 
 Write-Host "Syncing Capacitor android..."
 npx cap sync android
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $keystoreProps = @("android\keystore.properties", "keystore.properties") |
   Where-Object { Test-Path $_ } |
@@ -103,7 +87,7 @@ try {
 $apk = Join-Path (Get-Location) $apkRelative
 
 $destDir = Join-Path (Get-Location) "public\downloads"
-$dest = Join-Path $destDir "project-z.apk"
+$dest = Join-Path $destDir "businessos.apk"
 
 if (-not (Test-Path $apk)) {
   Write-Host "APK not found at $apk" -ForegroundColor Red

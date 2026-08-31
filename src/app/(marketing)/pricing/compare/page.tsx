@@ -5,9 +5,11 @@ import { PlanComparisonTable } from "@/components/marketing/plan-comparison-tabl
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Button } from "@/components/ui/button";
 import { outlineCta } from "@/components/marketing/cta";
+import { mk } from "@/components/marketing/marketing-theme";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Compare Plans — Project Z",
+  title: "Compare Plans — E-console",
   description:
     "Full feature comparison for Basic, Starter, Business, and Professional plans. See billing, inventory, staff, expenses, and project features side by side.",
 };
@@ -15,15 +17,15 @@ export const metadata: Metadata = {
 export default function ComparePlansPage() {
   return (
     <div className="flex flex-1 flex-col">
-      <div className="mx-auto w-full max-w-6xl px-4 pt-14 lg:pt-20">
-        <Button asChild variant="ghost" size="sm" className="mb-6 -ml-2 text-slate-600">
+      <div className={cn(mk.container, "pt-16 lg:pt-24")}>
+        <Button asChild variant="ghost" size="sm" className={cn("mb-8 -ml-2", mk.link)}>
           <Link href="/pricing">
             <ArrowLeft className="h-4 w-4" />
             Back to pricing
           </Link>
         </Button>
         <PlanComparisonTable />
-        <div className="mt-12 flex flex-wrap gap-3 pb-16">
+        <div className="mt-14 flex flex-wrap gap-4 pb-20">
           <Button asChild className={outlineCta}>
             <Link href="/pricing">View plan prices</Link>
           </Button>

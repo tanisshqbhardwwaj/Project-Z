@@ -59,8 +59,8 @@ const CHECKS = [
     key: "AUTH_URL",
     label: "Auth URL",
     validate(value) {
-      if (!value) return "is missing. Set to your Vercel URL, e.g. https://your-app.vercel.app";
-      if (isLocalHost(value)) return "must be your public Vercel URL, not localhost.";
+      if (!value) return "is missing. Set to your public app URL, e.g. https://www.econsole.in";
+      if (isLocalHost(value)) return "must be your public app URL, not localhost.";
       if (!value.startsWith("https://")) return "must use https:// in production.";
       return null;
     },
@@ -87,12 +87,15 @@ const CHECKS = [
     key: "EMAIL_FROM",
     label: "Email from address",
     validate(value) {
-      if (!value) return "is missing. Example: Project Z <onboarding@resend.dev>";
+      if (!value) return "is missing. Example: E-console <noreply@admin.econsole.in>";
       const from = value.trim().replace(/^["']|["']$/g, "");
       const plain = /^[^\s<>]+@[^\s<>]+\.[^\s<>]+$/;
       const named = /^.+ <[^\s<>]+@[^\s<>]+\.[^\s<>]+>$/;
       if (!plain.test(from) && !named.test(from)) {
-        return 'has invalid format. Use: onboarding@resend.dev or Project Z <onboarding@resend.dev> (no extra quotes).';
+        return 'has invalid format. Use: noreply@admin.econsole.in or E-console <noreply@admin.econsole.in> (no extra quotes).';
+      }
+      if (from.toLowerCase().includes("onboarding@resend.dev")) {
+        return "must use a verified domain sender in production (e.g. E-console <noreply@admin.econsole.in>), not onboarding@resend.dev.";
       }
       return null;
     },
@@ -156,7 +159,13 @@ export function validateProductionEnv(env = process.env) {
 
   if (env.AUTH_URL && env.NEXT_PUBLIC_APP_URL && env.AUTH_URL !== env.NEXT_PUBLIC_APP_URL) {
     errors.push(
-      "AUTH_URL and NEXT_PUBLIC_APP_URL must match exactly (same https://your-app.vercel.app URL)."
+      "AUTH_URL and NEXT_PUBLIC_APP_URL must match exactly (same https://www.econsole.in URL)."
+    );
+  }
+
+  if (env.ALLOW_BETA_EMAIL_BYPASS === "true") {
+    errors.push(
+      "ALLOW_BETA_EMAIL_BYPASS=true — verification bypass is enabled. Set to false or remove before public launch."
     );
   }
 
@@ -176,11 +185,6 @@ export function productionEnvWarnings(env = process.env) {
   } else if (!hasUpstash && hasTurso) {
     warnings.push(
       "Using Turso for distributed rate limits. Optional: add Upstash Redis for lower latency at https://upstash.com"
-    );
-  }
-  if (env.NODE_ENV === "production" && env.ALLOW_BETA_EMAIL_BYPASS === "true") {
-    warnings.push(
-      "ALLOW_BETA_EMAIL_BYPASS=true — beta allowlist emails skip verification in production. Disable before public launch."
     );
   }
   return warnings;

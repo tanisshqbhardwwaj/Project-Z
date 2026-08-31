@@ -3,10 +3,12 @@ import { ContactSales } from "@/components/marketing/contact-sales";
 import { DownloadApps } from "@/components/marketing/download-apps";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { PublicPricing } from "@/components/marketing/public-pricing";
+import { mk } from "@/components/marketing/marketing-theme";
+import { cn } from "@/lib/utils";
 import { getPublicMarketingConfig } from "@/lib/marketing/public-config";
 
 export const metadata: Metadata = {
-  title: "Pricing — Project Z",
+  title: "Pricing — E-console",
   description: "Simple monthly plans for shops. Contact us for yearly or multi-shop rates.",
 };
 
@@ -15,15 +17,15 @@ export default function PricingPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="mx-auto w-full max-w-6xl px-4 pt-14 lg:pt-20">
+      <div className={cn(mk.container, "pt-16 lg:pt-24")}>
         <PublicPricing />
       </div>
-      <div className="mt-16 border-t border-slate-200 bg-white">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 lg:py-20">
+      <div className={cn("mt-20 border-t", mk.sectionBorder, mk.sectionBase)}>
+        <div className={cn(mk.container, "py-20 lg:py-28")}>
           <ContactSales config={config} />
         </div>
       </div>
-      <div className="mx-auto w-full max-w-6xl px-4 py-16 lg:py-20">
+      <div className={cn(mk.container, "py-20 lg:py-28")}>
         <DownloadApps config={config} />
       </div>
       <MarketingFooter />

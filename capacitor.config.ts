@@ -5,7 +5,7 @@ const network = capacitorNetworkFlags();
 
 const config: CapacitorConfig = {
   appId: "com.projectz.shop",
-  appName: "Project Z",
+  appName: "BusinessOS · E-console",
   webDir: "android-www",
   server: {
     androidScheme: "https",

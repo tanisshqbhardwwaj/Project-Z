@@ -1,8 +1,10 @@
 import { SectionShell } from "@/components/marketing/shared/section-shell";
+import { mk } from "@/components/marketing/marketing-theme";
+import { cn } from "@/lib/utils";
 
 const FAQ = [
   {
-    q: "Is Project Z only for shops?",
+    q: "Is BusinessOS only for shops?",
     a: "No. Billing and invoicing is the starting point for every business. Retailers use inventory and sales; contractors and architects add project management, expenses, and partner tracking on the same platform.",
   },
   {
@@ -33,17 +35,14 @@ export function FaqSection() {
       id="faq"
       eyebrow="FAQ"
       title="Common Questions"
-      className="bg-[#f6f7fb]"
+      className={mk.sectionAlt}
       centered
     >
-      <dl className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
+      <dl className="mx-auto mt-12 grid max-w-6xl gap-6 sm:grid-cols-2">
         {FAQ.map((item) => (
-          <div
-            key={item.q}
-            className="rounded-2xl border border-slate-200 bg-white p-5"
-          >
-            <dt className="font-semibold text-slate-950">{item.q}</dt>
-            <dd className="mt-2 text-sm leading-relaxed text-slate-600">{item.a}</dd>
+          <div key={item.q} className={cn(mk.card, "p-6")}>
+            <dt className={cn("text-base font-semibold lg:text-lg", mk.heading)}>{item.q}</dt>
+            <dd className={cn("mt-3 text-sm leading-relaxed sm:text-base", mk.body)}>{item.a}</dd>
           </div>
         ))}
       </dl>

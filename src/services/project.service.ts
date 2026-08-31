@@ -340,6 +340,7 @@ export async function inviteProjectPartner(input: {
   organizationId: string;
   email: string;
   invitedById: string;
+  clientIp?: string;
 }) {
   const { invite, url, projectName, workOrderNumber } = await createProjectInviteLink(input);
 
@@ -348,6 +349,7 @@ export async function inviteProjectPartner(input: {
     subject: `Partner invite: ${projectName}${workOrderNumber ? ` (WO #${workOrderNumber})` : ""}`,
     html: projectPartnerInviteEmailHtml(projectName, workOrderNumber ?? null, url),
     devLink: url,
+    clientIp: input.clientIp,
   });
 
   return invite;

@@ -32,4 +32,4 @@ for (const entry of readdirSync(brandIcons)) {
   }
 }
 
-console.log("Android launcher icons copied from Project Z brand mark.");
+console.log("Android launcher icons copied from BusinessOS brand mark.");

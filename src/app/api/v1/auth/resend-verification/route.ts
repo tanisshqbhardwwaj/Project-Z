@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { createVerificationTokenAndSendEmail } from "@/lib/email/verification";
 import { isTestEmailAllowlisted } from "@/lib/email/test-allowlist";
 import { handleApi } from "@/lib/api/context";
-import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { enforceRateLimit, getClientIp, RATE_LIMITS, RateLimitError } from "@/lib/rate-limit";
 
 const schema = z.object({ email: z.string().email() });
 
@@ -42,11 +42,15 @@ export async function POST(request: Request) {
     }
 
     try {
-      await createVerificationTokenAndSendEmail({
-        email: user.email,
-        name: user.name,
-      });
+      await createVerificationTokenAndSendEmail(
+        {
+          email: user.email,
+          name: user.name,
+        },
+        { clientIp: getClientIp(request) }
+      );
     } catch (e) {
+      if (e instanceof RateLimitError) throw e;
       const message = e instanceof Error ? e.message : "Failed to send email";
       return NextResponse.json(
         { error: { code: "EMAIL_SEND_FAILED", message } },

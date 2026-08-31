@@ -103,6 +103,10 @@ export function cycleThemePreference(): Theme {
   return next;
 }
 
+export function setThemePreference(theme: Theme): ResolvedTheme {
+  return applyTheme(theme);
+}
+
 export function initThemeListener(onChange?: (theme: ResolvedTheme) => void): () => void {
   if (typeof window === "undefined") return () => undefined;
 

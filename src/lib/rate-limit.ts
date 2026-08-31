@@ -13,8 +13,8 @@ let lastCleanup = Date.now();
 export class RateLimitError extends Error {
   readonly retryAfterSec: number;
 
-  constructor(retryAfterSec: number) {
-    super(`Too many requests. Try again in ${retryAfterSec} seconds.`);
+  constructor(retryAfterSec: number, message?: string) {
+    super(message ?? `Too many requests. Try again in ${retryAfterSec} seconds.`);
     this.name = "RateLimitError";
     this.retryAfterSec = retryAfterSec;
   }
@@ -207,6 +207,25 @@ export async function enforceRateLimit(
   }
 }
 
+const DAY_MS = 24 * 60 * 60_000;
+
+/** Max outbound Resend emails per client IP per rolling 24 hours. */
+export async function enforceResendEmailRateLimit(request: Request): Promise<void> {
+  await enforceResendEmailRateLimitByIp(getClientIp(request));
+}
+
+export async function enforceResendEmailRateLimitByIp(ip: string): Promise<void> {
+  const { limit, windowMs } = RATE_LIMITS.resendEmail;
+  const result = await checkRateLimitAsync(`resend:email:${ip}`, limit, windowMs);
+  if (!result.ok) {
+    const hours = Math.max(1, Math.ceil(result.retryAfterSec / 3600));
+    throw new RateLimitError(
+      result.retryAfterSec,
+      `Daily email limit reached (${limit} emails per 24 hours from this network). Try again in about ${hours} hour${hours === 1 ? "" : "s"}.`
+    );
+  }
+}
+
 /** Reset store between tests. */
 export function resetRateLimitStoreForTests() {
   store.clear();
@@ -217,4 +236,6 @@ export const RATE_LIMITS = {
   auth: { limit: 10, windowMs: 15 * 60_000 },
   upload: { limit: 20, windowMs: 60 * 60_000 },
   aiRerun: { limit: 30, windowMs: 60 * 60_000 },
+  /** Shared cap for all Resend outbound mail from one IP (register, verify, reset, invites). */
+  resendEmail: { limit: 5, windowMs: DAY_MS },
 } as const;

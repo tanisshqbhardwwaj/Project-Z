@@ -4,7 +4,7 @@
   "description": "Default desktop capabilities",
   "windows": ["main"],
   "remote": {
-    "urls": ["http://127.0.0.1:*", "http://localhost:*", "https://beta-project-z.vercel.app"]
+    "urls": ["http://127.0.0.1:*", "http://localhost:*", "https://www.econsole.in", "https://econsole.in"]
   },
   "permissions": ["core:default", "core:event:default", "shop-db"]
 }

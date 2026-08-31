@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Project Z</string>
-    <string name="title_activity_main">Project Z</string>
+    <string name="app_name">BusinessOS</string>
+    <string name="title_activity_main">BusinessOS · E-console</string>
     <string name="package_name">com.projectz.shop</string>
     <string name="custom_url_scheme">com.projectz.shop</string>
 </resources>

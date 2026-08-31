@@ -30,5 +30,6 @@ if (process.env.VERCEL) {
 }
 
 ensurePrismaCliDatabaseUrl();
+run("node scripts/generate-brand-assets.mjs");
 run("npx prisma generate");
 run("npx next build");

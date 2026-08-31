@@ -1,6 +1,8 @@
-# Free Trial Deploy (No Custom Domain)
+# Free Trial Deploy (BusinessOS)
 
-Deploy Project Z for **$0** using Turso (SQLite) + Vercel + R2. No PostgreSQL or Docker required.
+Deploy **BusinessOS** (Project Z codebase) for **$0** using Turso (SQLite) + Vercel + R2. No PostgreSQL or Docker required.
+
+Production domain: **`https://www.econsole.in`**
 
 ## What you need (all free tiers)
 
@@ -61,9 +63,9 @@ S3_BUCKET=project-z
 Quick version:
 1. [resend.com/domains](https://resend.com/domains) → **Add Domain** → add DNS records in Cloudflare → **Verify**
 2. [resend.com/api-keys](https://resend.com/api-keys) → create key → `RESEND_API_KEY`
-3. On Vercel: `EMAIL_FROM=Project Z <noreply@YOUR-DOMAIN.com>` (no quotes)
+3. On Vercel: `EMAIL_FROM=E-console <noreply@admin.econsole.in>` (no quotes)
 
-Temporary testing only (no domain): `EMAIL_FROM=Project Z <onboarding@resend.dev>` and register with your **Resend account email**.
+Temporary testing only (local dev): `EMAIL_FROM=BusinessOS <onboarding@resend.dev>` and register with your **Resend account email**.
 
 ---
 
@@ -76,11 +78,11 @@ Temporary testing only (no domain): `EMAIL_FROM=Project Z <onboarding@resend.dev
 TURSO_DATABASE_URL=libsql://project-z-xxxxx.turso.io
 TURSO_AUTH_TOKEN=eyJhbG...
 AUTH_SECRET=<openssl rand -base64 32>
-AUTH_URL=https://YOUR-APP.vercel.app
-NEXT_PUBLIC_APP_URL=https://YOUR-APP.vercel.app
+AUTH_URL=https://www.econsole.in
+NEXT_PUBLIC_APP_URL=https://www.econsole.in
 AI_PROVIDER=manual
 RESEND_API_KEY=re_...
-EMAIL_FROM=Project Z <onboarding@resend.dev>
+EMAIL_FROM=E-console <noreply@admin.econsole.in>
 S3_ENDPOINT=https://...
 S3_REGION=auto
 S3_ACCESS_KEY_ID=...
@@ -90,7 +92,7 @@ S3_BUCKET=project-z
 
 3. **Remove** any old `DATABASE_URL` pointing at `localhost:5433` from Vercel — the build will fail if it's still there.
 4. Deploy
-5. After first deploy, set `AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your exact `https://xxx.vercel.app` URL, then redeploy.
+5. After first deploy, confirm `AUTH_URL` and `NEXT_PUBLIC_APP_URL` are both `https://www.econsole.in`, then redeploy if you changed them.
 
 Migrations apply automatically to Turso during build.
 

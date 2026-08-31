@@ -1,8 +1,8 @@
 [package]
 name = "project-z-desktop"
 version = "0.1.0"
-description = "Project Z shop desktop shell"
-authors = ["Project Z"]
+description = "BusinessOS by E-console — shop desktop shell"
+authors = ["E-console"]
 edition = "2021"
 
 [build-dependencies]

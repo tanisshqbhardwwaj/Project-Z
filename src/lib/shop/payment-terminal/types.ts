@@ -71,7 +71,7 @@ export const TERMINAL_PROVIDER_CATALOG: TerminalProviderMeta[] = [
   {
     id: "none",
     label: "None (manual)",
-    description: "Enter amount on the machine yourself; Project Z records Card/UPI only.",
+    description: "Enter amount on the machine yourself; BusinessOS records Card/UPI only.",
     connection: "manual",
     credentialFields: [],
   },

@@ -83,7 +83,7 @@ export default function MembersContent() {
 
   function shareWhatsApp() {
     if (!inviteLink) return;
-    const text = encodeURIComponent(`Join my organization on Project Z: ${inviteLink}`);
+    const text = encodeURIComponent(`Join my organization on BusinessOS: ${inviteLink}`);
     window.open(`https://wa.me/?text=${text}`, "_blank");
   }
 

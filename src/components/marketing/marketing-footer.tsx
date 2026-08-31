@@ -1,43 +1,45 @@
 import Link from "next/link";
-
+import { cn } from "@/lib/utils";
+import { AppLogo } from "@/components/brand/app-logo";
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand/constants";
+import { mk } from "@/components/marketing/marketing-theme";
 export function MarketingFooter() {
   return (
-    <footer className="mt-auto border-t border-slate-200 bg-white">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:flex-row sm:items-start sm:justify-between">
-        <div className="max-w-sm space-y-2">
-          <p className="text-sm font-semibold tracking-wide text-slate-950">PROJECT Z</p>
-          <p className="text-sm leading-relaxed text-slate-600">
-            Professional digital billing and business management — start with invoicing, grow into
-            inventory, expenses, and projects.
+    <footer className={cn("mt-auto border-t", mk.sectionBorder, mk.sectionBase)}>
+      <div className={cn(mk.container, "flex flex-col gap-10 py-14 sm:flex-row sm:items-start sm:justify-between")}>
+        <div className="max-w-md space-y-4">
+          <AppLogo href="/" brandMode="company" variant="compact" />
+          <p className={cn("text-sm leading-relaxed sm:text-base", mk.body)}>            Our product <span className={cn("font-semibold", mk.heading)}>{PRODUCT_NAME}</span> powers
+            billing, inventory, expenses, and projects. {PRODUCT_TAGLINE}
           </p>
         </div>
-        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-slate-600">
-          <Link href="/#billing" className="hover:text-slate-950">
+        <div className={cn("flex flex-wrap gap-x-8 gap-y-3 text-sm", mk.body)}>
+          <Link href="/#billing" className={mk.link}>
             Features
           </Link>
-          <Link href="/pricing" className="hover:text-slate-950">
+          <Link href="/pricing" className={mk.link}>
             Pricing
           </Link>
-          <Link href="/pricing/compare" className="hover:text-slate-950">
+          <Link href="/pricing/compare" className={mk.link}>
             Compare plans
           </Link>
-          <Link href="/#faq" className="hover:text-slate-950">
+          <Link href="/#faq" className={mk.link}>
             FAQ
           </Link>
-          <Link href="/#downloads" className="hover:text-slate-950">
+          <Link href="/#downloads" className={mk.link}>
             Get the app
           </Link>
-          <Link href="/login" className="hover:text-slate-950">
+          <Link href="/login" className={mk.link}>
             Log In
           </Link>
-          <Link href="/register" className="font-medium text-slate-950 hover:underline">
+          <Link href="/register" className={cn("font-medium", mk.heading, "hover:underline")}>
             Create account
           </Link>
         </div>
       </div>
-      <div className="border-t border-slate-200 bg-[#f6f7fb]">
-        <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4 text-xs text-slate-500 sm:flex-row sm:justify-between">
-          <span>© {new Date().getFullYear()} Project Z. All rights reserved.</span>
+      <div className={cn("border-t", mk.sectionBorder, mk.sectionAlt)}>
+        <div className={cn(mk.container, "flex flex-col gap-2 py-6 text-xs sm:flex-row sm:justify-between", mk.muted)}>
+          <span>© {new Date().getFullYear()} E-console. All rights reserved.</span>
           <span>GST-ready · Offline Android · Web & Windows</span>
         </div>
       </div>
@@ -47,6 +49,6 @@ export function MarketingFooter() {
 
 export function SectionEyebrow({ children }: { children: string }) {
   return (
-    <p className="text-xs font-semibold tracking-[0.18em] text-slate-500">{children}</p>
+    <p className={cn("text-xs font-semibold tracking-[0.18em]", mk.muted)}>{children}</p>
   );
 }

@@ -493,7 +493,7 @@ export default function SettingsProfilePage() {
           <div>
             <p className="font-medium">Sign out</p>
             <p className="text-sm text-muted-foreground">
-              Log out of Project Z on this device.
+              Log out of BusinessOS on this device.
             </p>
           </div>
           <Button variant="outline" className="rounded-xl" onClick={handleLogout}>

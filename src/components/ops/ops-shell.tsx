@@ -90,7 +90,7 @@ export function OpsShell({ children }: { children: React.ReactNode }) {
         <div className="flex h-16 items-center gap-2 border-b px-4">
           <Shield className="h-5 w-5 text-primary" />
           <div>
-            <p className="text-sm font-semibold leading-none">Project Z Ops</p>
+            <p className="text-sm font-semibold leading-none">BusinessOS Ops</p>
             <p className="text-[11px] text-muted-foreground">Founder console</p>
           </div>
         </div>
@@ -149,7 +149,7 @@ export function OpsShell({ children }: { children: React.ReactNode }) {
           <SheetTitle className="sr-only">Ops navigation</SheetTitle>
           <div className="flex h-16 items-center gap-2 border-b px-4">
             <Shield className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Project Z Ops</span>
+            <span className="font-semibold">BusinessOS Ops</span>
           </div>
           <NavLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
