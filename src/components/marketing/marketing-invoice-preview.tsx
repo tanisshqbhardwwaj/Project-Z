@@ -48,18 +48,19 @@ const DEMO_LAYOUT = resolvePaperLayout(DEMO_TEMPLATE.paperSize, DEMO_TEMPLATE.pr
 
 export function MarketingInvoicePreview() {
   return (
-    <div className="relative mx-auto w-full max-w-md lg:max-w-none lg:justify-self-end">
+    <div className="relative w-full lg:justify-self-stretch xl:justify-self-end">
       <div
         className={cn(
           "overflow-hidden rounded-3xl border bg-white shadow-[0_24px_60px_-24px_rgba(15,23,42,0.25)]",
           "border-slate-200 dark:border-slate-700 dark:bg-slate-900",
-          "dark:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.5)]"
+          "dark:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.5)]",
+          "xl:max-w-2xl xl:justify-self-end 2xl:max-w-3xl"
         )}
       >
         <div className="border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
           <p className={cn("text-xs font-semibold uppercase tracking-wide", mk.muted)}>Invoice preview</p>
         </div>
-        <div className="max-h-[420px] overflow-hidden bg-neutral-50/80 py-4 dark:bg-slate-800/50">
+        <div className="max-h-[420px] overflow-hidden bg-neutral-50/80 py-4 dark:bg-slate-800/50 xl:max-h-[520px] 2xl:max-h-[580px]">
           <div className="flex justify-center px-2">
             <InvoicePreviewRoot
               paperSize={DEMO_TEMPLATE.paperSize}

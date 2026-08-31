@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { navyCta } from "@/components/marketing/cta";
+import { mk } from "@/components/marketing/marketing-theme";
 import {
   getThemeServerSnapshot,
   getThemeSnapshot,
@@ -37,7 +38,7 @@ export function MarketingHeader() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-950/95">
-      <div className={cn("mx-auto grid h-16 w-full max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-6 lg:px-8 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]")}>
+      <div className={cn(mk.container, "grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]")}>
         {/* Left — logo */}
         <div className="min-w-0 justify-self-start">
           <AppLogo href="/" variant="compact" onLight={onLight} brandMode="company" />

@@ -32,14 +32,14 @@ export function HeroSection() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(37,99,235,0.08),transparent)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(37,99,235,0.15),transparent)]"
         aria-hidden
       />
-      <div className={cn(mk.container, "grid items-center gap-12 py-20 lg:grid-cols-2 lg:gap-16 lg:py-28")}>
-        <div className="relative space-y-8">
+      <div className={cn(mk.container, "grid items-center gap-12 py-20 lg:grid-cols-2 lg:gap-16 xl:gap-20 2xl:gap-28 lg:py-28")}>
+        <div className="relative space-y-8 xl:max-w-3xl 2xl:max-w-none">
           <SectionEyebrow>econsole.in</SectionEyebrow>
           <h1 className={cn("text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.5rem]", mk.heading)}>
             {COMPANY_NAME}
           </h1>
           <p className={cn("text-xl font-semibold sm:text-2xl", mk.bodyStrong)}>{COMPANY_TAGLINE}</p>
-          <p className={cn("max-w-xl text-base leading-relaxed sm:text-lg lg:text-xl", mk.body)}>
+          <p className={cn("max-w-2xl text-base leading-relaxed sm:text-lg lg:text-xl 2xl:max-w-3xl", mk.body)}>
             Run billing, inventory, expenses, and projects from one place on econsole.in — built for
             Indian retailers, contractors, architects, and service businesses.
           </p>
