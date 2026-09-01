@@ -6,17 +6,7 @@ import { serializeBigInt } from "@/lib/db/prisma";
 import { handleApi, apiSuccess } from "@/lib/api/context";
 import { modulesPayloadForClient } from "@/lib/org/require-module";
 import { isPlatformAdminEmail } from "@/lib/billing/platform-admin";
-
-const updateProfileSchema = z.object({
-  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
-  phone: z
-    .string()
-    .trim()
-    .max(20)
-    .optional()
-    .nullable()
-    .transform((value) => (value ? value : null)),
-});
+import { updateProfileSchema } from "@/lib/validation/fields";
 
 export async function GET() {
   return handleApi(async () => {

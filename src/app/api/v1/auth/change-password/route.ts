@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth, hashPassword, verifyPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
-
-const schema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(8, "New password must be at least 8 characters"),
-});
+import { changePasswordSchema } from "@/lib/validation/fields";
 
 export async function POST(request: Request) {
   return handleApi(async () => {
@@ -17,7 +12,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { currentPassword, newPassword } = schema.parse(body);
+    const { currentPassword, newPassword } = changePasswordSchema.parse(body);
+
+    if (currentPassword === newPassword) {
+      throw new ApiError(400, "VALIDATION_ERROR", "New password must be different from your current password");
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },

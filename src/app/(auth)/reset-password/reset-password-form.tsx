@@ -7,9 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldHint } from "@/components/ui/field-hint";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { requireField } from "@/lib/api/validation";
+import {
+  FIELD_LIMITS,
+  PASSWORD_HINT,
+  requireField,
+  requireSecurePassword,
+} from "@/lib/api/validation";
 
 export default function ResetPasswordForm() {
   const t = useTranslations("auth");
@@ -23,8 +29,7 @@ export default function ResetPasswordForm() {
     clear();
 
     const validationMessage =
-      requireField(password, "password") ??
-      (password.length < 8 ? "Password must be at least 8 characters" : null);
+      requireField(password, "password") ?? requireSecurePassword(password);
     if (validationMessage) {
       showWarning(validationMessage);
       return;
@@ -52,8 +57,17 @@ export default function ResetPasswordForm() {
         <form onSubmit={submit} className="space-y-4">
           <FormFeedback warning={warning} error={error} />
           <div className="space-y-2">
-            <Label>{t("password")}</Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Label htmlFor="reset-password">{t("password")}</Label>
+            <Input
+              id="reset-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              maxLength={FIELD_LIMITS.PASSWORD_MAX}
+              autoComplete="new-password"
+              required
+            />
+            <FieldHint>{PASSWORD_HINT}</FieldHint>
           </div>
           <Button type="submit" className="w-full">
             {t("resetPassword")}

@@ -31,6 +31,9 @@ export const DEFAULT_PRODUCTION_APP_URL = "https://www.econsole.in";
 /** Default verified Resend sender for production (admin.econsole.in subdomain). */
 export const DEFAULT_PRODUCTION_EMAIL_FROM = `${COMPANY_NAME} <noreply@admin.econsole.in>`;
 
+/** Sales, billing, and support contact email (no phone on marketing). */
+export const DEFAULT_CONTACT_EMAIL = "admin@econsole.in";
+
 /** Resend sandbox sender — local/testing only; delivers to Resend account email. */
 export const DEV_EMAIL_FROM = `${PRODUCT_NAME} <onboarding@resend.dev>`;
 

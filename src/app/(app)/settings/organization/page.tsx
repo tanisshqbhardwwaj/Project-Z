@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
+import { FieldHint } from "@/components/ui/field-hint";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { requireField } from "@/lib/api/validation";
+import { FIELD_LIMITS, requireOrganizationName } from "@/lib/api/validation";
 import {
   BUSINESS_TYPE_CONFIG,
   isShopVertical,
@@ -141,7 +142,7 @@ export default function OrganizationSettingsPage() {
     clear();
     setSavedMessage("");
 
-    const nameError = requireField(name, "organization name");
+    const nameError = requireOrganizationName(name);
     if (nameError) {
       showWarning(nameError);
       return;
@@ -157,6 +158,16 @@ export default function OrganizationSettingsPage() {
       !customBusinessType.trim()
     ) {
       showWarning("Tell us what your custom business type is");
+      return;
+    }
+    if (
+      businessType === "SHOPKEEPER" &&
+      businessTypes.includes("OTHER") &&
+      customBusinessType.trim().length > FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX
+    ) {
+      showWarning(
+        `Custom business type must be at most ${FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX} characters`
+      );
       return;
     }
 
@@ -284,9 +295,13 @@ export default function OrganizationSettingsPage() {
               id="org-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              maxLength={FIELD_LIMITS.ORG_NAME_MAX}
               className="h-12 rounded-xl"
               disabled={!isOwner}
             />
+            <FieldHint>
+              {FIELD_LIMITS.ORG_NAME_MIN}–{FIELD_LIMITS.ORG_NAME_MAX} characters
+            </FieldHint>
           </div>
 
           <div className="space-y-2">
@@ -371,7 +386,7 @@ export default function OrganizationSettingsPage() {
                     className="h-12 rounded-xl"
                     placeholder="e.g. Mobile Repair & Accessories"
                     disabled={!isOwner}
-                    maxLength={120}
+                    maxLength={FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX}
                   />
                 </div>
               ) : null}
@@ -401,6 +416,7 @@ export default function OrganizationSettingsPage() {
                     id="brand-name"
                     value={brandName}
                     onChange={(e) => setBrandName(e.target.value)}
+                    maxLength={FIELD_LIMITS.ORG_NAME_MAX}
                     className="h-12 rounded-xl"
                     placeholder={name || "Your brand"}
                     disabled={!isOwner}

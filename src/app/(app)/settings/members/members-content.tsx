@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MessageCircle, Mail, Link2 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -13,7 +13,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { useFetch } from "@/hooks/use-fetch";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { requireEmail } from "@/lib/api/validation";
+import { requireEmail, FIELD_LIMITS } from "@/lib/api/validation";
 import { useBusinessType } from "@/hooks/use-business-type";
 import { isShopVertical } from "@/lib/org/business-type";
 import { ORG_ROLE_LABELS } from "@/lib/permissions/rbac";
@@ -22,8 +22,11 @@ import type { OrgRole } from "@prisma/client";
 const INVITE_ROLES: OrgRole[] = ["PARTNER", "ACCOUNTANT", "VIEWER"];
 
 export default function MembersContent() {
+  const router = useRouter();
   const biz = useBusinessType();
-  const shopPeople = isShopVertical(biz.id);
+  const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
+  const initialized = useAuthStore((s) => s.initialized);
+  const shopPeople = isShopVertical(activeBusinessType);
   const { activeOrganizationId } = useAuthStore();
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<OrgRole>("PARTNER");
@@ -31,8 +34,14 @@ export default function MembersContent() {
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const [inviteLink, setInviteLink] = useState("");
 
+  useEffect(() => {
+    if (initialized && shopPeople) {
+      router.replace("/staff");
+    }
+  }, [initialized, shopPeople, router]);
+
   const { data: members, loading, refetch } = useFetch(
-    activeOrganizationId ? `org:${activeOrganizationId}:members` : null,
+    activeOrganizationId && !shopPeople ? `org:${activeOrganizationId}:members` : null,
     () =>
       apiFetch<
         Array<{
@@ -90,88 +99,77 @@ export default function MembersContent() {
     window.open(`https://wa.me/?text=${text}`, "_blank");
   }
 
+  if (!initialized || shopPeople) {
+    return <PageLoader label="Opening staff..." />;
+  }
+
   if (loading) return <PageLoader label="Loading members..." />;
 
   return (
     <div className="mx-auto max-w-lg space-y-5 pb-8">
-      <h1 className="text-2xl font-bold">
-        {shopPeople ? "People" : "Organization Team"}
-      </h1>
+      <h1 className="text-2xl font-bold">Organization Team</h1>
       <p className="text-sm text-muted-foreground">{biz.teamHint}</p>
 
-      {shopPeople ? (
-        <Card className="rounded-2xl border-0 shadow-md">
-          <CardContent className="space-y-3 pt-6">
-            <p className="text-sm">
-              Add people from Staff. Organization Team invites are not used for
-              store management.
-            </p>
-            <Link href="/staff">
-              <Button className="h-12 w-full rounded-xl">Add people from Staff</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="rounded-2xl border-0 shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg">Invite Org Team Member</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={invite} className="space-y-3">
-              <div className="space-y-2">
-                <Label>Role</Label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as OrgRole)}
-                  className="h-12 w-full rounded-xl border bg-background px-3"
-                >
-                  {INVITE_ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {ORG_ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="partner@email.com"
-                    className="h-12 rounded-xl"
-                    required
-                  />
-                  <Button type="submit" className="h-12 shrink-0 rounded-xl px-4">
-                    <Mail className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </form>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" className="rounded-xl" onClick={getLink}>
-                <Link2 className="mr-1 h-4 w-4" />
-                Get link
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl text-green-700"
-                onClick={shareWhatsApp}
-                disabled={!inviteLink}
+      <Card className="rounded-2xl border-0 shadow-md">
+        <CardHeader>
+          <CardTitle className="text-lg">Invite Org Team Member</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={invite} className="space-y-3">
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as OrgRole)}
+                className="h-12 w-full rounded-xl border bg-background px-3"
               >
-                <MessageCircle className="mr-1 h-4 w-4" />
-                WhatsApp
-              </Button>
+                {INVITE_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ORG_ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </select>
             </div>
-            {inviteLink && (
-              <p className="break-all rounded-lg bg-muted/60 p-3 text-xs">{inviteLink}</p>
-            )}
-            <FormFeedback warning={warning} error={error} />
-            {successMessage && <p className="text-sm text-green-700">{successMessage}</p>}
-          </CardContent>
-        </Card>
-      )}
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  maxLength={FIELD_LIMITS.EMAIL_MAX}
+                  placeholder="partner@email.com"
+                  className="h-12 rounded-xl"
+                  required
+                />
+                <Button type="submit" className="h-12 shrink-0 rounded-xl px-4">
+                  <Mail className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </form>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={getLink}>
+              <Link2 className="mr-1 h-4 w-4" />
+              Get link
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-xl text-green-700"
+              onClick={shareWhatsApp}
+              disabled={!inviteLink}
+            >
+              <MessageCircle className="mr-1 h-4 w-4" />
+              WhatsApp
+            </Button>
+          </div>
+          {inviteLink && (
+            <p className="break-all rounded-lg bg-muted/60 p-3 text-xs">{inviteLink}</p>
+          )}
+          <FormFeedback warning={warning} error={error} />
+          {successMessage && <p className="text-sm text-green-700">{successMessage}</p>}
+        </CardContent>
+      </Card>
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardContent className="divide-y pt-4">
@@ -183,17 +181,15 @@ export default function MembersContent() {
                 <p className="mt-1 text-xs text-muted-foreground capitalize">
                   Role: {m.role.toLowerCase()}
                 </p>
-                {!shopPeople ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {m.partnerProjectCount === 0
-                      ? `Not a ${biz.partnerLabel.toLowerCase()} on any ${biz.workItemSingularLower}`
-                      : m.partnerProjectCount === 1
-                        ? `${biz.partnerLabel} on 1 ${biz.workItemSingularLower}: ${m.partnerProjects[0]?.name ?? "—"}`
-                        : `${biz.partnerLabel} on ${m.partnerProjectCount} ${biz.workItemPlural.toLowerCase()}: ${m.partnerProjects
-                            .map((p) => p.name)
-                            .join(", ")}`}
-                  </p>
-                ) : null}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {m.partnerProjectCount === 0
+                    ? `Not a ${biz.partnerLabel.toLowerCase()} on any ${biz.workItemSingularLower}`
+                    : m.partnerProjectCount === 1
+                      ? `${biz.partnerLabel} on 1 ${biz.workItemSingularLower}: ${m.partnerProjects[0]?.name ?? "—"}`
+                      : `${biz.partnerLabel} on ${m.partnerProjectCount} ${biz.workItemPlural.toLowerCase()}: ${m.partnerProjects
+                          .map((p) => p.name)
+                          .join(", ")}`}
+                </p>
               </div>
               <span className="h-fit shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium">
                 {m.role}

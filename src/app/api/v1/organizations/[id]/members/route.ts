@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getAuthContext, handleApi, requirePermission, apiSuccess, ApiError } from "@/lib/api/context";
 import { inviteMember, getOrganizationMembers } from "@/services/organization.service";
 import { getClientIp } from "@/lib/rate-limit";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { z } from "zod";
 import type { OrgRole } from "@prisma/client";
 import {
   canCreateOrgTeamInvite,
   SHOP_STAFF_ONLY_INVITE_MESSAGE,
 } from "@/lib/staff/shop-staff-gate";
+import { emailFieldSchema } from "@/lib/validation/fields";
 
 const inviteSchema = z.object({
-  email: z.string().email(),
+  email: emailFieldSchema,
   role: z.enum(["PARTNER", "VIEWER", "ACCOUNTANT"]).default("PARTNER"),
 });
 

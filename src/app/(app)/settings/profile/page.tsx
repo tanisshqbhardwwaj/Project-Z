@@ -12,13 +12,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
+import { FieldHint } from "@/components/ui/field-hint";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { requireField } from "@/lib/api/validation";
+import {
+  FIELD_LIMITS,
+  PASSWORD_HINT,
+  firstValidationIssue,
+  requireEmail,
+  requirePersonName,
+  requirePhoneOptional,
+  requireSecurePassword,
+} from "@/lib/api/validation";
 import { MAX_BETA_TEST_EMAILS } from "@/lib/email/beta-test-constants";
 import { getBusinessTypeConfig, isShopVertical } from "@/lib/org/business-type";
 import { getShopSectorConfig } from "@/lib/org/shop-sector";
 import { Switch } from "@/components/ui/switch";
 import { useCashierMode } from "@/hooks/use-cashier-mode";
+import { AuthenticatorSettings } from "@/components/settings/authenticator-settings";
 import { hasPermission } from "@/lib/permissions/rbac";
 import type { OrgRole } from "@prisma/client";
 
@@ -95,7 +105,10 @@ export default function SettingsProfilePage() {
     clear();
     setSavedMessage("");
 
-    const validationMessage = requireField(name, "name");
+    const validationMessage = firstValidationIssue([
+      requirePersonName(name),
+      requirePhoneOptional(phone),
+    ]);
     if (validationMessage) {
       showWarning(validationMessage);
       return;
@@ -135,12 +148,12 @@ export default function SettingsProfilePage() {
       showPasswordWarning("Enter your current password");
       return;
     }
-    if (newPassword.length < 8) {
-      showPasswordWarning("New password must be at least 8 characters");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      showPasswordWarning("New passwords do not match");
+    const passwordValidation = firstValidationIssue([
+      requireSecurePassword(newPassword),
+      newPassword !== confirmPassword ? "New passwords do not match" : null,
+    ]);
+    if (passwordValidation) {
+      showPasswordWarning(passwordValidation);
       return;
     }
 
@@ -166,8 +179,9 @@ export default function SettingsProfilePage() {
     setBetaMessage("");
 
     const email = betaEmailInput.trim().toLowerCase();
-    if (!email) {
-      showBetaWarning("Enter an email address");
+    const emailError = requireEmail(email);
+    if (emailError) {
+      showBetaWarning(emailError);
       return;
     }
 
@@ -235,9 +249,13 @@ export default function SettingsProfilePage() {
                 id="profile-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={FIELD_LIMITS.PERSON_NAME_MAX}
                 className="h-12 rounded-xl"
                 autoComplete="name"
               />
+              <FieldHint>
+                {FIELD_LIMITS.PERSON_NAME_MIN}–{FIELD_LIMITS.PERSON_NAME_MAX} characters
+              </FieldHint>
             </div>
 
             <div className="space-y-2">
@@ -259,9 +277,12 @@ export default function SettingsProfilePage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Optional"
+                maxLength={FIELD_LIMITS.PHONE_MAX}
+                inputMode="tel"
                 className="h-12 rounded-xl"
                 autoComplete="tel"
               />
+              <FieldHint>10-digit Indian mobile, optional</FieldHint>
             </div>
 
             <Button
@@ -379,6 +400,7 @@ export default function SettingsProfilePage() {
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                maxLength={FIELD_LIMITS.PASSWORD_MAX}
                 className="h-12 rounded-xl"
                 autoComplete="current-password"
               />
@@ -390,9 +412,11 @@ export default function SettingsProfilePage() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                maxLength={FIELD_LIMITS.PASSWORD_MAX}
                 className="h-12 rounded-xl"
                 autoComplete="new-password"
               />
+              <FieldHint>{PASSWORD_HINT}</FieldHint>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm new password</Label>
@@ -401,6 +425,7 @@ export default function SettingsProfilePage() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                maxLength={FIELD_LIMITS.PASSWORD_MAX}
                 className="h-12 rounded-xl"
                 autoComplete="new-password"
               />
@@ -416,6 +441,8 @@ export default function SettingsProfilePage() {
           </Button>
         </CardContent>
       </Card>
+
+      <AuthenticatorSettings />
 
       {isPlatformAdmin ? (
         <Card className="rounded-2xl border-0 shadow-md">
@@ -440,6 +467,7 @@ export default function SettingsProfilePage() {
                 placeholder="tester@example.com"
                 value={betaEmailInput}
                 onChange={(e) => setBetaEmailInput(e.target.value)}
+                maxLength={FIELD_LIMITS.EMAIL_MAX}
                 className="h-12 flex-1 rounded-xl"
                 autoComplete="off"
               />

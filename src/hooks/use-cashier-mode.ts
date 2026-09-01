@@ -38,7 +38,12 @@ export function useCashierMode() {
   }, []);
 
   const active =
-    isCashierExperience({ role, previewMode, isShopkeeper: isShopVerticalOrg });
+    isCashierExperience({
+      role,
+      previewMode,
+      isShopkeeper: isShopVerticalOrg,
+      businessType: activeBusinessType,
+    });
 
   const access: StaffAccess =
     resolveCashierAccess({
@@ -46,6 +51,7 @@ export function useCashierMode() {
       linkedStaffAccess,
       previewMode,
       isShopkeeper: isShopVerticalOrg,
+      businessType: activeBusinessType,
     }) ?? emptyCashierAccess();
 
   const navItems: CashierNavItem[] = active ? cashierNavItems(access) : [];

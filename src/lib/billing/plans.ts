@@ -1,5 +1,6 @@
 import type { BillingPlan } from "@prisma/client";
 import type { ModuleKey } from "@/lib/org/modules";
+import { DEFAULT_CONTACT_EMAIL } from "@/lib/brand/constants";
 
 export type PlanDefinition = {
   code: BillingPlan;
@@ -188,6 +189,6 @@ export function billingContact(): string {
   return (
     process.env.BILLING_CONTACT ??
     process.env.NEXT_PUBLIC_BILLING_CONTACT ??
-    "Contact support to complete payment"
+    DEFAULT_CONTACT_EMAIL
   );
 }

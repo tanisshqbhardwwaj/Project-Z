@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageLoader } from "@/components/ui/page-loader";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { requireEmail } from "@/lib/api/validation";
+import { requireEmail, FIELD_LIMITS } from "@/lib/api/validation";
 
 type UserInfo = {
   id: string;
@@ -214,6 +214,7 @@ export function ProjectPartnersPanel({
                   placeholder="partner@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  maxLength={FIELD_LIMITS.EMAIL_MAX}
                   className="h-12 rounded-xl text-base"
                 />
                 <Button

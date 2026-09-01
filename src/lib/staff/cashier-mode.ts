@@ -48,11 +48,12 @@ export function resolveCashierAccess(input: {
   linkedStaffAccess: StaffAccess;
   previewMode: boolean;
   isShopkeeper: boolean;
+  businessType?: string | null;
 }): StaffAccess | null {
   if (
     shopStaffAccessApplies({
       role: input.role,
-      businessType: input.isShopkeeper ? "SHOPKEEPER" : "CONTRACTOR",
+      businessType: input.businessType ?? (input.isShopkeeper ? "SHOPKEEPER" : null),
     })
   ) {
     return input.linkedStaffAccess;
@@ -73,11 +74,12 @@ export function isCashierExperience(input: {
   role: OrgRole | null;
   previewMode: boolean;
   isShopkeeper: boolean;
+  businessType?: string | null;
 }): boolean {
   if (
     shopStaffAccessApplies({
       role: input.role,
-      businessType: input.isShopkeeper ? "SHOPKEEPER" : "CONTRACTOR",
+      businessType: input.businessType ?? (input.isShopkeeper ? "SHOPKEEPER" : null),
     })
   ) {
     return true;
