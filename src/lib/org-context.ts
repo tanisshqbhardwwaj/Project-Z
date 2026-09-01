@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { redirect } from "next/navigation";
+import { readActiveOrgCookie } from "@/lib/org/active-org-cookie";
 
 const organizationSelect = {
   id: true,
@@ -17,7 +18,8 @@ export async function getSessionAndOrg() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const activeOrgId = session.user.activeOrganizationId;
+  const cookieOrgId = await readActiveOrgCookie();
+  const activeOrgId = cookieOrgId ?? session.user.activeOrganizationId;
 
   const membership = activeOrgId
     ? await prisma.organizationMember.findUnique({

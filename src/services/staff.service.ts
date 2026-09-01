@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
-import { inviteMember } from "./organization.service";
+import { ApiError } from "@/lib/api/context";
+import { inviteMember, resendPendingInviteEmail } from "./organization.service";
 import { createAuditLog } from "./audit.service";
+import { logger } from "@/lib/logger";
 import { staffAccessFromForm } from "@/lib/staff/access";
 import {
   attachStaffAccessJson,
@@ -195,6 +197,54 @@ function resolveCommission(input: StaffCommissionInput) {
   };
 }
 
+async function assertStaffEmailAvailable(
+  organizationId: string,
+  email: string | null | undefined,
+  excludeStaffId?: string
+) {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized) return;
+
+  const duplicate = await prisma.staffMember.findFirst({
+    where: {
+      organizationId,
+      email: normalized,
+      status: "ACTIVE",
+      ...(excludeStaffId ? { NOT: { id: excludeStaffId } } : {}),
+    },
+    select: { id: true },
+  });
+  if (duplicate) {
+    throw new ApiError(
+      409,
+      "CONFLICT",
+      "A staff profile already uses this email"
+    );
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: normalized },
+    select: { id: true },
+  });
+  if (!existingUser) return;
+
+  const existingLink = await prisma.staffMember.findFirst({
+    where: {
+      organizationId,
+      userId: existingUser.id,
+      ...(excludeStaffId ? { NOT: { id: excludeStaffId } } : {}),
+    },
+    select: { id: true },
+  });
+  if (existingLink) {
+    throw new ApiError(
+      409,
+      "CONFLICT",
+      "This email is already linked to another staff profile"
+    );
+  }
+}
+
 async function ensureStaffLoginInvite(input: {
   organizationId: string;
   staffId: string;
@@ -210,13 +260,24 @@ async function ensureStaffLoginInvite(input: {
   });
 
   if (existingUser) {
-    await linkStaffToUser({
-      organizationId: input.organizationId,
-      staffId: input.staffId,
-      userId: existingUser.id,
-      actorUserId: input.invitedById,
+    const member = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: input.organizationId,
+          userId: existingUser.id,
+        },
+      },
+      select: { status: true },
     });
-    return;
+    if (member?.status === "ACTIVE") {
+      await linkStaffToUser({
+        organizationId: input.organizationId,
+        staffId: input.staffId,
+        userId: existingUser.id,
+        actorUserId: input.invitedById,
+      });
+      return;
+    }
   }
 
   const pendingInvite = await prisma.organizationInvite.findFirst({
@@ -226,14 +287,25 @@ async function ensureStaffLoginInvite(input: {
       acceptedAt: null,
       expiresAt: { gt: new Date() },
     },
+    include: { organization: { select: { name: true } } },
   });
-  if (pendingInvite) return;
+  if (pendingInvite) {
+    await resendPendingInviteEmail({
+      token: pendingInvite.token,
+      organizationName: pendingInvite.organization.name,
+      email,
+      fromStaff: true,
+    });
+    return;
+  }
 
   await inviteMember({
     organizationId: input.organizationId,
     email,
     role: "CASHIER",
     invitedById: input.invitedById,
+    requireEmailDelivery: false,
+    fromStaff: true,
   });
 }
 
@@ -261,6 +333,7 @@ export async function createStaffMember(input: {
   const roleTitle = input.roleTitle.trim();
   if (name.length < 2) throw new Error("Staff name must be at least 2 characters");
   if (!roleTitle) throw new Error("Role is required");
+  await assertStaffEmailAvailable(input.organizationId, input.email);
 
   const joinedAt =
     typeof input.joinedAt === "string"
@@ -287,7 +360,7 @@ export async function createStaffMember(input: {
       createdById: input.createdById,
       name,
       phone: input.phone?.trim() || null,
-      email: input.email?.trim() || null,
+      email: input.email?.trim().toLowerCase() || null,
       roleKey: input.roleKey?.trim() || null,
       roleTitle,
       cashierCode,
@@ -325,12 +398,19 @@ export async function createStaffMember(input: {
   });
 
   if (staff.email) {
-    await ensureStaffLoginInvite({
-      organizationId: input.organizationId,
-      staffId: staff.id,
-      email: staff.email,
-      invitedById: input.createdById,
-    });
+    try {
+      await ensureStaffLoginInvite({
+        organizationId: input.organizationId,
+        staffId: staff.id,
+        email: staff.email,
+        invitedById: input.createdById,
+      });
+    } catch (error) {
+      logger.error("staff.login_invite_failed", {
+        staffId: staff.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return {
@@ -368,7 +448,7 @@ export async function linkStaffToUser(input: {
   const staff = await prisma.staffMember.findFirst({
     where: { id: input.staffId, organizationId: input.organizationId },
   });
-  if (!staff) throw new Error("Staff member not found");
+  if (!staff) throw new ApiError(404, "NOT_FOUND", "Staff member not found");
 
   if (input.userId) {
     const member = await prisma.organizationMember.findUnique({
@@ -380,7 +460,11 @@ export async function linkStaffToUser(input: {
       },
     });
     if (!member || member.status !== "ACTIVE") {
-      throw new Error("User is not an active member of this organization");
+      throw new ApiError(
+        400,
+        "BAD_REQUEST",
+        "This email belongs to someone who is not a member of this organization. Send them an invite instead."
+      );
     }
 
     const existingLink = await prisma.staffMember.findFirst({
@@ -391,7 +475,11 @@ export async function linkStaffToUser(input: {
       },
     });
     if (existingLink) {
-      throw new Error("This login is already linked to another staff profile");
+      throw new ApiError(
+        409,
+        "CONFLICT",
+        "This login is already linked to another staff profile"
+      );
     }
   }
 
@@ -439,7 +527,15 @@ export async function updateStaffMember(input: {
   const existing = await prisma.staffMember.findFirst({
     where: { id: input.staffId, organizationId: input.organizationId },
   });
-  if (!existing) throw new Error("Staff member not found");
+  if (!existing) throw new ApiError(404, "NOT_FOUND", "Staff member not found");
+
+  if (input.email !== undefined) {
+    await assertStaffEmailAvailable(
+      input.organizationId,
+      input.email,
+      input.staffId
+    );
+  }
 
   const data: {
     name?: string;
@@ -470,7 +566,7 @@ export async function updateStaffMember(input: {
     data.name = name;
   }
   if (input.phone !== undefined) data.phone = input.phone?.trim() || null;
-  if (input.email !== undefined) data.email = input.email?.trim() || null;
+  if (input.email !== undefined) data.email = input.email?.trim().toLowerCase() || null;
   if (input.roleKey !== undefined) data.roleKey = input.roleKey?.trim() || null;
   if (input.paymentFrequency !== undefined) {
     data.paymentFrequency = input.paymentFrequency?.trim() || null;
@@ -573,12 +669,19 @@ export async function updateStaffMember(input: {
   });
 
   if (updated.email && !updated.userId) {
-    await ensureStaffLoginInvite({
-      organizationId: input.organizationId,
-      staffId: updated.id,
-      email: updated.email,
-      invitedById: input.actorUserId,
-    });
+    try {
+      await ensureStaffLoginInvite({
+        organizationId: input.organizationId,
+        staffId: updated.id,
+        email: updated.email,
+        invitedById: input.actorUserId,
+      });
+    } catch (error) {
+      logger.error("staff.login_invite_failed", {
+        staffId: updated.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   const accessJson =

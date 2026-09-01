@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isNativeAppUserAgent } from "@/lib/platform/native";
 
 function newCorrelationId(): string {
   return globalThis.crypto.randomUUID();
+}
+
+function isMarketingPath(pathname: string) {
+  return pathname === "/" || pathname === "/pricing" || pathname.startsWith("/pricing/");
 }
 
 const publicPaths = [
@@ -32,6 +37,14 @@ export default async function middleware(request: NextRequest) {
       return response;
     }
     return NextResponse.next();
+  }
+
+  if (isNativeAppUserAgent(request.headers.get("user-agent")) && isMarketingPath(pathname)) {
+    const sessionToken =
+      request.cookies.get("authjs.session-token")?.value ??
+      request.cookies.get("__Secure-authjs.session-token")?.value;
+    const dest = new URL(sessionToken ? "/dashboard" : "/login", request.url);
+    return NextResponse.redirect(dest);
   }
 
   const isPublic = publicPaths.some((p) => {

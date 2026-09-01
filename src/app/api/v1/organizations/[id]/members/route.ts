@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
-import { getAuthContext, handleApi, requirePermission, apiSuccess } from "@/lib/api/context";
+import { getAuthContext, handleApi, requirePermission, apiSuccess, ApiError } from "@/lib/api/context";
 import { inviteMember, getOrganizationMembers } from "@/services/organization.service";
 import { getClientIp } from "@/lib/rate-limit";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
 import type { OrgRole } from "@prisma/client";
+import {
+  canCreateOrgTeamInvite,
+  SHOP_STAFF_ONLY_INVITE_MESSAGE,
+} from "@/lib/staff/shop-staff-gate";
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["PARTNER", "VIEWER", "ACCOUNTANT", "CASHIER"]).default("PARTNER"),
+  role: z.enum(["PARTNER", "VIEWER", "ACCOUNTANT"]).default("PARTNER"),
 });
 
 export async function GET(
@@ -35,6 +39,9 @@ export async function POST(
 
     const body = await request.json();
     const data = inviteSchema.parse(body);
+    if (!canCreateOrgTeamInvite(ctx.businessType)) {
+      throw new ApiError(403, "SHOP_STAFF_ONLY", SHOP_STAFF_ONLY_INVITE_MESSAGE);
+    }
     const invite = await inviteMember({
       organizationId: ctx.organizationId,
       email: data.email,

@@ -17,7 +17,18 @@ export default function LoginForm() {
   const t = useTranslations("auth");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const inviteToken = callbackUrl.startsWith("/invite/")
+    ? callbackUrl.slice("/invite/".length).split("?")[0]
+    : null;
+  const registerHref = inviteToken
+    ? `/register?invite=${encodeURIComponent(inviteToken)}${
+        searchParams.get("email")
+          ? `&email=${encodeURIComponent(searchParams.get("email")!)}`
+          : ""
+      }`
+    : "/register";
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { warning, error, clear, showWarning, applyResponseError } = useFormFeedback();
@@ -52,7 +63,7 @@ export default function LoginForm() {
       return;
     }
 
-    router.push(searchParams.get("callbackUrl") ?? "/dashboard");
+    router.push(callbackUrl);
     router.refresh();
   }
 
@@ -83,7 +94,7 @@ export default function LoginForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">{t("password")}</Label>
-            <div className="relative">
+            <div className="relative has-password-toggle">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
@@ -110,7 +121,7 @@ export default function LoginForm() {
             <Link href="/forgot-password" className="text-primary hover:underline">
               {t("forgotPassword")}
             </Link>
-            <Link href="/register" className="text-primary hover:underline">
+            <Link href={registerHref} className="text-primary hover:underline">
               {t("noAccount")} {t("register")}
             </Link>
           </div>

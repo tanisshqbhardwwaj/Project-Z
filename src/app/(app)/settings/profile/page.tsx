@@ -294,9 +294,9 @@ export default function SettingsProfilePage() {
                   Manage Organization
                 </Button>
               </Link>
-              <Link href="/settings/members">
+              <Link href={isShopVertical(activeBusinessType) ? "/staff" : "/settings/members"}>
                 <Button variant="outline" className="rounded-xl">
-                  Manage Members
+                  {isShopVertical(activeBusinessType) ? "Manage Staff" : "Manage Members"}
                 </Button>
               </Link>
               {isOrgOwner ? (

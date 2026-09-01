@@ -7,6 +7,7 @@ import {
   requireStaffAccess,
 } from "@/lib/staff/require-staff-access";
 import { parseStaffAccess } from "@/lib/staff/access";
+import { shopStaffAccessApplies } from "@/lib/staff/shop-staff-gate";
 
 export async function orgHasInventoryManager(
   organizationId: string
@@ -25,10 +26,13 @@ export async function orgHasInventoryManager(
 export async function resolveCanManageInventory(
   organizationId: string,
   userId: string,
-  role: AuthContext["role"]
+  role: AuthContext["role"],
+  businessType?: string | null
 ): Promise<boolean> {
-  if (hasPermission(role, "shop.inventory.manage")) return true;
-  if (role !== "CASHIER") return false;
+  if (!shopStaffAccessApplies({ role, businessType }) && hasPermission(role, "shop.inventory.manage")) {
+    return true;
+  }
+  if (!shopStaffAccessApplies({ role, businessType }) && role !== "CASHIER") return false;
   const staff = await prisma.staffMember.findFirst({
     where: { organizationId, userId, status: "ACTIVE" },
     select: { id: true, roleKey: true },
@@ -45,22 +49,23 @@ export async function resolveCanManageInventory(
 }
 
 export async function requireInventoryManage(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "shop.inventory.manage")) return;
-  if (ctx.role === "CASHIER") {
-    const ok = await resolveCanManageInventory(
-      ctx.organizationId,
-      ctx.userId,
-      ctx.role
-    );
-    if (ok) return;
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "shop.inventory.manage")) {
+    return;
   }
+  const ok = await resolveCanManageInventory(
+    ctx.organizationId,
+    ctx.userId,
+    ctx.role,
+    ctx.businessType
+  );
+  if (ok) return;
   throw new ApiError(403, "FORBIDDEN", "Not allowed to manage inventory");
 }
 
 export async function requireAllStaffAttendance(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "staff.view")) return;
-  if (hasPermission(ctx.role, "attendance.mark")) return;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "staff.view")) return;
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "attendance.mark")) return;
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canViewAllAttendance");
     return;
   }
@@ -68,8 +73,8 @@ export async function requireAllStaffAttendance(ctx: AuthContext) {
 }
 
 export async function requireAllSalesRead(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "shop.sales")) return;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "shop.sales")) return;
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canViewAllSales");
     return;
   }
@@ -80,8 +85,8 @@ export async function requireAllSalesRead(ctx: AuthContext) {
 export async function allSalesStaffScope(
   ctx: AuthContext
 ): Promise<string | null | undefined> {
-  if (hasPermission(ctx.role, "shop.sales")) return null;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "shop.sales")) return null;
+  if (shopStaffAccessApplies(ctx)) {
     const staff = await getLinkedStaffRecord(ctx.organizationId, ctx.userId);
     if (!staff) {
       throw new ApiError(
@@ -99,15 +104,18 @@ export async function allSalesStaffScope(
 }
 
 export async function requireDeliveryManage(ctx: AuthContext) {
+  if (shopStaffAccessApplies(ctx)) {
+    throw new ApiError(403, "FORBIDDEN", "Not allowed to manage deliveries");
+  }
   if (hasPermission(ctx.role, "delivery.manage")) return;
   if (hasPermission(ctx.role, "shop.sales")) return;
   throw new ApiError(403, "FORBIDDEN", "Not allowed to manage deliveries");
 }
 
 export async function requireOwnDeliveries(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "delivery.manage")) return;
-  if (hasPermission(ctx.role, "delivery.view_own")) return;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "delivery.manage")) return;
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "delivery.view_own")) return;
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canViewOwnDeliveries");
     return;
   }
@@ -115,36 +123,36 @@ export async function requireOwnDeliveries(ctx: AuthContext) {
 }
 
 export async function requireDeliveryStatusUpdate(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "delivery.manage")) return;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "delivery.manage")) return;
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canUpdateDeliveryStatus");
     return;
   }
   throw new ApiError(403, "FORBIDDEN", "Not allowed to update delivery status");
 }
 
-/** Owners/partners use RBAC; linked cashiers need the canBill toggle. */
+/** Owners use RBAC; shop non-owners and cashiers need the canBill toggle. */
 export async function requireShopBilling(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "shop.sales")) return;
-  if (ctx.role === "CASHIER") {
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canBill");
     return;
   }
+  if (hasPermission(ctx.role, "shop.sales")) return;
   throw new ApiError(403, "FORBIDDEN", "Not allowed to create invoices");
 }
 
 export async function requireShopReturns(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "shop.sales")) return;
-  if (ctx.role === "CASHIER") {
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canProcessReturns");
     return;
   }
+  if (hasPermission(ctx.role, "shop.sales")) return;
   throw new ApiError(403, "FORBIDDEN", "Not allowed to process returns");
 }
 
 export async function canProcessShopReturns(ctx: AuthContext): Promise<boolean> {
-  if (hasPermission(ctx.role, "shop.sales")) return true;
-  if (ctx.role !== "CASHIER") return false;
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "shop.sales")) return true;
+  if (!shopStaffAccessApplies(ctx)) return false;
   try {
     await requireStaffAccess(ctx, "canProcessReturns");
     return true;
@@ -155,8 +163,8 @@ export async function canProcessShopReturns(ctx: AuthContext): Promise<boolean> 
 
 /** Scan / bill lookup: billing staff, return processors, or full sales access. */
 export async function requireShopScanAccess(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "shop.sales")) return;
-  if (ctx.role !== "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "shop.sales")) return;
+  if (!shopStaffAccessApplies(ctx)) {
     throw new ApiError(403, "FORBIDDEN", "Not allowed to scan");
   }
   try {
@@ -169,8 +177,8 @@ export async function requireShopScanAccess(ctx: AuthContext) {
 }
 
 export async function requireShopSalesRead(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "shop.sales")) return;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "shop.sales")) return;
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canViewOwnSales");
     return;
   }
@@ -181,8 +189,8 @@ export async function requireShopSalesRead(ctx: AuthContext) {
 export async function ownSalesStaffScope(
   ctx: AuthContext
 ): Promise<string | undefined> {
-  if (hasPermission(ctx.role, "shop.sales")) return undefined;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "shop.sales")) return undefined;
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canViewOwnSales");
     const staff = await getLinkedStaffRecord(ctx.organizationId, ctx.userId);
     if (!staff) {
@@ -221,9 +229,9 @@ export async function assertOwnSaleAccess(
 }
 
 export async function requireOwnAttendance(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "attendance.view_own")) return;
-  if (hasPermission(ctx.role, "attendance.mark")) return;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "attendance.view_own")) return;
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "attendance.mark")) return;
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canViewOwnAttendance");
     return;
   }
@@ -231,8 +239,8 @@ export async function requireOwnAttendance(ctx: AuthContext) {
 }
 
 export async function requireOwnSales(ctx: AuthContext) {
-  if (hasPermission(ctx.role, "shop.sales")) return;
-  if (ctx.role === "CASHIER") {
+  if (!shopStaffAccessApplies(ctx) && hasPermission(ctx.role, "shop.sales")) return;
+  if (shopStaffAccessApplies(ctx)) {
     await requireStaffAccess(ctx, "canViewOwnSales");
     return;
   }

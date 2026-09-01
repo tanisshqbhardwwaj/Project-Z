@@ -59,7 +59,7 @@ export type StaffRoleKey =
   | "WAITER"
   | "CUSTOM";
 
-/** Default capability bundles when a role preset is chosen (owner can override). */
+/** Suggested capability bundles (UI does not auto-apply these — owner checks boxes). */
 export const STAFF_ROLE_ACCESS_PRESETS: Record<
   StaffRoleKey,
   Partial<StaffAccess>

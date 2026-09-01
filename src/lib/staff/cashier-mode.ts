@@ -17,6 +17,8 @@ import {
 import { hasPermission } from "@/lib/permissions/rbac";
 import type { StaffAccess } from "@/lib/staff/access";
 import { defaultStaffAccess } from "@/lib/staff/access";
+import { shopStaffAccessApplies } from "@/lib/staff/shop-staff-gate";
+import { staffHomePath } from "@/lib/org/org-invites";
 
 export type CashierNavItem = {
   href: string;
@@ -47,7 +49,12 @@ export function resolveCashierAccess(input: {
   previewMode: boolean;
   isShopkeeper: boolean;
 }): StaffAccess | null {
-  if (input.role === "CASHIER") {
+  if (
+    shopStaffAccessApplies({
+      role: input.role,
+      businessType: input.isShopkeeper ? "SHOPKEEPER" : "CONTRACTOR",
+    })
+  ) {
     return input.linkedStaffAccess;
   }
   if (
@@ -61,13 +68,20 @@ export function resolveCashierAccess(input: {
   return null;
 }
 
-/** Simplified shell for counter staff (or owner preview). */
+/** Simplified shell for counter/staff (or owner preview). Shop non-owners always use it. */
 export function isCashierExperience(input: {
   role: OrgRole | null;
   previewMode: boolean;
   isShopkeeper: boolean;
 }): boolean {
-  if (input.role === "CASHIER" && input.isShopkeeper) return true;
+  if (
+    shopStaffAccessApplies({
+      role: input.role,
+      businessType: input.isShopkeeper ? "SHOPKEEPER" : "CONTRACTOR",
+    })
+  ) {
+    return true;
+  }
   if (
     input.previewMode &&
     input.isShopkeeper &&
@@ -189,11 +203,7 @@ export function cashierNavItems(access: StaffAccess): CashierNavItem[] {
 }
 
 export function cashierHomePath(access: StaffAccess): string {
-  if (access.canBill) return "/shop/invoices/new";
-  if (access.canViewOwnSales) return "/shop/invoices";
-  if (access.canProcessReturns) return "/shop/returns";
-  if (access.canViewOwnAttendance) return "/staff/me";
-  return "/cashier";
+  return staffHomePath(access);
 }
 
 const ALWAYS_ALLOWED = ["/cashier", "/settings/profile", "/settings/storage"];

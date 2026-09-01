@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import { MessageCircle, Mail, Link2 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -14,13 +15,15 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireEmail } from "@/lib/api/validation";
 import { useBusinessType } from "@/hooks/use-business-type";
+import { isShopVertical } from "@/lib/org/business-type";
 import { ORG_ROLE_LABELS } from "@/lib/permissions/rbac";
 import type { OrgRole } from "@prisma/client";
 
-const INVITE_ROLES: OrgRole[] = ["PARTNER", "ACCOUNTANT", "VIEWER", "CASHIER"];
+const INVITE_ROLES: OrgRole[] = ["PARTNER", "ACCOUNTANT", "VIEWER"];
 
 export default function MembersContent() {
   const biz = useBusinessType();
+  const shopPeople = isShopVertical(biz.id);
   const { activeOrganizationId } = useAuthStore();
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<OrgRole>("PARTNER");
@@ -44,7 +47,7 @@ export default function MembersContent() {
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeOrganizationId) return;
+    if (!activeOrganizationId || shopPeople) return;
     clear();
     setSuccessMessage("");
     const validationMessage = requireEmail(email);
@@ -66,7 +69,7 @@ export default function MembersContent() {
   }
 
   async function getLink() {
-    if (!activeOrganizationId) return;
+    if (!activeOrganizationId || shopPeople) return;
     clear();
     setSuccessMessage("");
     try {
@@ -91,69 +94,84 @@ export default function MembersContent() {
 
   return (
     <div className="mx-auto max-w-lg space-y-5 pb-8">
-      <h1 className="text-2xl font-bold">Organization Team</h1>
+      <h1 className="text-2xl font-bold">
+        {shopPeople ? "People" : "Organization Team"}
+      </h1>
       <p className="text-sm text-muted-foreground">{biz.teamHint}</p>
 
-      <Card className="rounded-2xl border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">Invite Org Team Member</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form onSubmit={invite} className="space-y-3">
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as OrgRole)}
-                className="h-12 w-full rounded-xl border bg-background px-3"
+      {shopPeople ? (
+        <Card className="rounded-2xl border-0 shadow-md">
+          <CardContent className="space-y-3 pt-6">
+            <p className="text-sm">
+              Add people from Staff. Organization Team invites are not used for
+              store management.
+            </p>
+            <Link href="/staff">
+              <Button className="h-12 w-full rounded-xl">Add people from Staff</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="rounded-2xl border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg">Invite Org Team Member</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form onSubmit={invite} className="space-y-3">
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as OrgRole)}
+                  className="h-12 w-full rounded-xl border bg-background px-3"
+                >
+                  {INVITE_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {ORG_ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="partner@email.com"
+                    className="h-12 rounded-xl"
+                    required
+                  />
+                  <Button type="submit" className="h-12 shrink-0 rounded-xl px-4">
+                    <Mail className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </form>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={getLink}>
+                <Link2 className="mr-1 h-4 w-4" />
+                Get link
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl text-green-700"
+                onClick={shareWhatsApp}
+                disabled={!inviteLink}
               >
-                {INVITE_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {ORG_ROLE_LABELS[r]}
-                    {r === "CASHIER" ? " — counter sales only" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-            <div className="flex gap-2">
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="partner@email.com"
-                className="h-12 rounded-xl"
-                required
-              />
-              <Button type="submit" className="h-12 shrink-0 rounded-xl px-4">
-                <Mail className="h-4 w-4" />
+                <MessageCircle className="mr-1 h-4 w-4" />
+                WhatsApp
               </Button>
             </div>
-            </div>
-          </form>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={getLink}>
-              <Link2 className="mr-1 h-4 w-4" />
-              Get link
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-xl text-green-700"
-              onClick={shareWhatsApp}
-              disabled={!inviteLink}
-            >
-              <MessageCircle className="mr-1 h-4 w-4" />
-              WhatsApp
-            </Button>
-          </div>
-          {inviteLink && (
-            <p className="break-all rounded-lg bg-muted/60 p-3 text-xs">{inviteLink}</p>
-          )}
-          <FormFeedback warning={warning} error={error} />
-          {successMessage && <p className="text-sm text-green-700">{successMessage}</p>}
-        </CardContent>
-      </Card>
+            {inviteLink && (
+              <p className="break-all rounded-lg bg-muted/60 p-3 text-xs">{inviteLink}</p>
+            )}
+            <FormFeedback warning={warning} error={error} />
+            {successMessage && <p className="text-sm text-green-700">{successMessage}</p>}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardContent className="divide-y pt-4">
@@ -165,15 +183,17 @@ export default function MembersContent() {
                 <p className="mt-1 text-xs text-muted-foreground capitalize">
                   Role: {m.role.toLowerCase()}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {m.partnerProjectCount === 0
-                    ? `Not a ${biz.partnerLabel.toLowerCase()} on any ${biz.workItemSingularLower}`
-                    : m.partnerProjectCount === 1
-                      ? `${biz.partnerLabel} on 1 ${biz.workItemSingularLower}: ${m.partnerProjects[0]?.name ?? "—"}`
-                      : `${biz.partnerLabel} on ${m.partnerProjectCount} ${biz.workItemPlural.toLowerCase()}: ${m.partnerProjects
-                          .map((p) => p.name)
-                          .join(", ")}`}
-                </p>
+                {!shopPeople ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {m.partnerProjectCount === 0
+                      ? `Not a ${biz.partnerLabel.toLowerCase()} on any ${biz.workItemSingularLower}`
+                      : m.partnerProjectCount === 1
+                        ? `${biz.partnerLabel} on 1 ${biz.workItemSingularLower}: ${m.partnerProjects[0]?.name ?? "—"}`
+                        : `${biz.partnerLabel} on ${m.partnerProjectCount} ${biz.workItemPlural.toLowerCase()}: ${m.partnerProjects
+                            .map((p) => p.name)
+                            .join(", ")}`}
+                  </p>
+                ) : null}
               </div>
               <span className="h-fit shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium">
                 {m.role}

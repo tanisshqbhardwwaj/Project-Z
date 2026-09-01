@@ -215,12 +215,14 @@ export function useNavGroups(): NavGroups {
         label: "Organization",
         key: "organization",
       });
-      tools.push({
-        href: "/settings/members",
-        icon: UsersRound,
-        label: "Members",
-        key: "members",
-      });
+      if (!isShopVerticalOrg) {
+        tools.push({
+          href: "/settings/members",
+          icon: UsersRound,
+          label: "Members",
+          key: "members",
+        });
+      }
       tools.push({
         href: "/settings/storage",
         icon: Cloud,

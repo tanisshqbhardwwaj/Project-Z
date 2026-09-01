@@ -3,13 +3,14 @@ import { sendEmail, verificationEmailHtml } from "@/lib/email";
 import { PRODUCT_NAME } from "@/lib/brand/constants";
 import { getPublicAppUrl } from "@/lib/app/public-url";
 import { generateToken } from "@/lib/utils";
+import { safeInviteNextPath } from "@/lib/org/org-invites";
 
 export async function createVerificationTokenAndSendEmail(
   user: {
     email: string;
     name: string;
   },
-  options?: { clientIp?: string }
+  options?: { clientIp?: string; nextPath?: string | null }
 ) {
   await prisma.verificationToken.deleteMany({
     where: { identifier: user.email },
@@ -22,7 +23,10 @@ export async function createVerificationTokenAndSendEmail(
     data: { identifier: user.email, token, expires },
   });
 
-  const verifyUrl = `${getPublicAppUrl()}/verify-email?token=${token}`;
+  const nextPath = safeInviteNextPath(options?.nextPath);
+  const verifyUrl = nextPath
+    ? `${getPublicAppUrl()}/verify-email?token=${token}&next=${encodeURIComponent(nextPath)}`
+    : `${getPublicAppUrl()}/verify-email?token=${token}`;
 
   await sendEmail({
     to: user.email,

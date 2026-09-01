@@ -6,7 +6,7 @@
   "identifier": "com.projectz.shop",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://127.0.0.1:3000",
+    "devUrl": "http://127.0.0.1:3000/login",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },
@@ -15,6 +15,7 @@
     "windows": [
       {
         "title": "BusinessOS · E-console",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 BusinessOSNative/Windows",
         "width": 1280,
         "height": 800,
         "minWidth": 1024,

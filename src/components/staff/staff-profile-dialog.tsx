@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { accessPresetForRole } from "@/lib/staff/access";
 import { Percent, Receipt, ShoppingBag, Ban } from "lucide-react";
 
 /** Suggested roles; `roleTitle` is still free text for anything else. */
@@ -165,7 +164,6 @@ export function StaffProfileDialog({
 
   function handleRoleKey(roleKey: string) {
     const preset = STAFF_ROLES.find((r) => r.key === roleKey);
-    const accessPreset = accessPresetForRole(roleKey);
     setValues((prev) => ({
       ...prev,
       roleKey,
@@ -175,7 +173,6 @@ export function StaffProfileDialog({
             ? prev.roleTitle
             : ""
           : preset.label,
-      ...accessPreset,
     }));
   }
 

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { apiFetch, ApiClientError, setActiveOrganizationId } from "@/lib/api/client";
+import { apiFetch, ApiClientError, setActiveOrganizationId, getStoredOrganizationId } from "@/lib/api/client";
 import type { BusinessType } from "@/lib/org/business-type";
 import type { ShopSector } from "@/lib/org/shop-sector";
 import type { BillingPlan } from "@prisma/client";
@@ -131,8 +131,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         fetch("/api/v1/organizations/list").then((r) => r.json()),
       ]);
 
+      const membershipIds = new Set(
+        (me.organizationMembers ?? []).map((m) => m.organizationId)
+      );
+      const storedId = getStoredOrganizationId();
+      const sessionId =
+        typeof orgList.data?.activeOrganizationId === "string"
+          ? orgList.data.activeOrganizationId
+          : null;
+
       const activeId =
-        orgList.data?.activeOrganizationId ??
+        (storedId && membershipIds.has(storedId) ? storedId : null) ??
+        (sessionId && membershipIds.has(sessionId) ? sessionId : null) ??
         me.organizationMembers?.[0]?.organizationId ??
         null;
 

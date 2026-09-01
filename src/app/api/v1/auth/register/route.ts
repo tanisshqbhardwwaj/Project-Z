@@ -12,6 +12,10 @@ const schema = z.object({
   password: z.string().min(8),
   name: z.string().min(2),
   phone: z.string().optional(),
+  inviteToken: z
+    .string()
+    .regex(/^[a-zA-Z0-9_-]{8,128}$/)
+    .optional(),
 });
 
 export async function POST(request: Request) {
@@ -42,12 +46,18 @@ export async function POST(request: Request) {
       },
     });
 
+    const inviteNext = data.inviteToken
+      ? `/invite/${data.inviteToken}`
+      : null;
+
     if (autoVerify) {
       return NextResponse.json({
         data: {
           id: user.id,
           email: user.email,
-          message: "Account created — email auto-verified for beta testing. You can log in now.",
+          message: inviteNext
+            ? "Account created — email auto-verified for beta testing. Log in to accept the invitation."
+            : "Account created — email auto-verified for beta testing. You can log in now.",
         },
       });
     }
@@ -58,7 +68,7 @@ export async function POST(request: Request) {
           email: user.email,
           name: user.name,
         },
-        { clientIp: getClientIp(request) }
+        { clientIp: getClientIp(request), nextPath: inviteNext }
       );
     } catch (e) {
       if (e instanceof RateLimitError) throw e;

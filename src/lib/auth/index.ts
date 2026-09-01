@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { hash, verify } from "@node-rs/argon2";
 import { prisma } from "@/lib/db/prisma";
 import { ensureUserSchema } from "@/lib/db/ensure-user-schema";
+import { readActiveOrgCookie, clearActiveOrgCookie } from "@/lib/org/active-org-cookie";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -57,11 +58,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        const membership = await prisma.organizationMember.findFirst({
-          where: { userId: user.id!, status: "ACTIVE" },
-          orderBy: { joinedAt: "asc" },
-        });
-        token.activeOrganizationId = membership?.organizationId ?? null;
+        const cookieId = await readActiveOrgCookie();
+        const cookieMember = cookieId
+          ? await prisma.organizationMember.findUnique({
+              where: {
+                organizationId_userId: {
+                  organizationId: cookieId,
+                  userId: user.id!,
+                },
+              },
+              select: { status: true },
+            })
+          : null;
+        if (cookieMember?.status === "ACTIVE") {
+          token.activeOrganizationId = cookieId;
+        } else {
+          const membership = await prisma.organizationMember.findFirst({
+            where: { userId: user.id!, status: "ACTIVE" },
+            orderBy: { joinedAt: "asc" },
+          });
+          token.activeOrganizationId = membership?.organizationId ?? null;
+        }
       }
       if (trigger === "update" && session?.activeOrganizationId) {
         token.activeOrganizationId = session.activeOrganizationId;
@@ -74,6 +91,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.activeOrganizationId = token.activeOrganizationId as string | null;
       }
       return session;
+    },
+  },
+  events: {
+    async signOut() {
+      await clearActiveOrgCookie();
     },
   },
 });

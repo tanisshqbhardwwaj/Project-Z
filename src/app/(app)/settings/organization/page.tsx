@@ -556,12 +556,21 @@ export default function OrganizationSettingsPage() {
 
       <Card className="rounded-2xl border-0 shadow-md">
         <CardContent className="space-y-3 pt-6">
-          <Link href="/settings/members">
-            <Button variant="outline" className="h-12 w-full justify-start rounded-xl">
-              <Users className="mr-2 h-4 w-4" />
-              Manage Members
-            </Button>
-          </Link>
+          {isShopVertical(businessType) ? (
+            <Link href="/staff">
+              <Button variant="outline" className="h-12 w-full justify-start rounded-xl">
+                <Users className="mr-2 h-4 w-4" />
+                Manage Staff
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/settings/members">
+              <Button variant="outline" className="h-12 w-full justify-start rounded-xl">
+                <Users className="mr-2 h-4 w-4" />
+                Manage Members
+              </Button>
+            </Link>
+          )}
           {isShopVertical(businessType) && (
             <Link href="/settings/branches">
               <Button variant="outline" className="h-12 w-full justify-start rounded-xl">

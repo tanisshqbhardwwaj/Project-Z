@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
-import type { OrgRole } from "@prisma/client";
+import type { BusinessType, OrgRole } from "@prisma/client";
 import { hasPermission, canManageOrg, canAccessProjectsNav, type Permission } from "@/lib/permissions/rbac";
 import { subscriptionAllowsProductUse } from "@/lib/billing/entitlements";
 import { formatZodError } from "@/lib/api/validation";
@@ -11,6 +11,7 @@ import { RateLimitError } from "@/lib/rate-limit";
 import { clientSafeInternalMessage } from "@/lib/api/internal-error";
 import { touchOrganizationActivity } from "@/lib/db/touch-org-activity";
 import { ensureOrgBillingSchema } from "@/lib/db/ensure-org-billing-schema";
+import { readActiveOrgCookie } from "@/lib/org/active-org-cookie";
 import {
   getCachedOrganization,
   invalidateCachedOrganization,
@@ -38,6 +39,7 @@ export interface AuthContext {
   userName: string;
   organizationId: string;
   role: OrgRole;
+  businessType: BusinessType;
 }
 
 export function requireOwner(ctx: AuthContext) {
@@ -55,8 +57,26 @@ export async function getAuthContext(
     throw new ApiError(401, "UNAUTHORIZED", "Authentication required");
   }
 
-  let organizationId =
-    organizationIdHeader ?? session.user.activeOrganizationId ?? null;
+  const headerId = organizationIdHeader || null;
+  const cookieId = await readActiveOrgCookie();
+  const sessionId = session.user.activeOrganizationId ?? null;
+
+  let organizationId = headerId;
+  if (!organizationId && cookieId) {
+    const cookieMember = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: cookieId,
+          userId: session.user.id,
+        },
+      },
+      select: { status: true },
+    });
+    if (cookieMember?.status === "ACTIVE") {
+      organizationId = cookieId;
+    }
+  }
+  if (!organizationId) organizationId = sessionId;
 
   if (!organizationId) {
     const fallbackMember = await prisma.organizationMember.findFirst({
@@ -132,6 +152,7 @@ export async function getAuthContext(
     userName: session.user.name ?? "",
     organizationId,
     role: member.role,
+    businessType: org.businessType,
   };
 }
 

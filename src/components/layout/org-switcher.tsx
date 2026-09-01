@@ -41,6 +41,7 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
   const { user, activeOrganizationId, setActiveOrg } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [listOrgs, setListOrgs] = useState<OrgItem[] | null>(null);
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
 
   const membershipOrgs: OrgItem[] = (user?.organizationMembers ?? []).map((m) => ({
     id: m.organization.id,
@@ -68,31 +69,38 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
   }, [activeOrganizationId]);
 
   async function switchOrg(org: OrgItem) {
-    await fetch("/api/v1/organizations/switch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId: org.id }),
-    });
-    await update({ activeOrganizationId: org.id });
-    setActiveOrganizationId(org.id);
-    setActiveBranchId(null);
-    setActiveOrg(
-      org.id,
-      org.name,
-      org.role,
-      org.businessType,
-      org.shopSector ?? null,
-      Boolean(org.enableStaff),
-      org.enabledModules ?? {},
-      org.timezone ?? "Asia/Kolkata",
-      org.linkedStaff?.id ?? null,
-      org.linkedStaff?.name ?? null,
-      org.orgSettings ?? null,
-      org.linkedStaff?.access ?? null
-    );
-    queryClient.invalidateQueries({ queryKey: ["org", org.id] });
-    setOpen(false);
-    router.refresh();
+    if (org.id === activeOrganizationId || switchingId) return;
+    setSwitchingId(org.id);
+    try {
+      const res = await fetch("/api/v1/organizations/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: org.id }),
+      });
+      if (!res.ok) return;
+      await update({ activeOrganizationId: org.id });
+      setActiveOrganizationId(org.id);
+      setActiveBranchId(null);
+      setActiveOrg(
+        org.id,
+        org.name,
+        org.role,
+        org.businessType,
+        org.shopSector ?? null,
+        Boolean(org.enableStaff),
+        org.enabledModules ?? {},
+        org.timezone ?? "Asia/Kolkata",
+        org.linkedStaff?.id ?? null,
+        org.linkedStaff?.name ?? null,
+        org.orgSettings ?? null,
+        org.linkedStaff?.access ?? null
+      );
+      queryClient.removeQueries({ queryKey: ["org"] });
+      setOpen(false);
+      router.replace("/dashboard");
+    } finally {
+      setSwitchingId(null);
+    }
   }
 
   const activeName =
@@ -128,9 +136,10 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
             key={org.id}
             type="button"
             className={cn(
-              "flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-accent",
+              "flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-accent disabled:opacity-60",
               org.id === activeOrganizationId && "bg-accent"
             )}
+            disabled={switchingId !== null}
             onClick={() => switchOrg(org)}
           >
             <span className="text-sm font-medium">{org.name}</span>

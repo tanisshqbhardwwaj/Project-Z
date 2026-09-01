@@ -63,10 +63,16 @@ export default function VerifyEmailForm() {
       </CardHeader>
       <CardContent className="space-y-6">
         {status === "loading" && <p>Verifying...</p>}
-        {status === "success" && (
+          {status === "success" && (
           <>
             <p className="text-green-600">Email verified successfully!</p>
-            <Link href="/login">
+            <Link
+              href={
+                searchParams.get("next")
+                  ? `/login?callbackUrl=${encodeURIComponent(searchParams.get("next")!)}`
+                  : "/login"
+              }
+            >
               <Button>{t("login")}</Button>
             </Link>
           </>
