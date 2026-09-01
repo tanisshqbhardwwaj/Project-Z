@@ -90,12 +90,18 @@ export default function OpsCustomerDetailPage() {
     org: OrgDetail;
     planDef: { name: string };
     addons: OrgAddonRow[];
+    multiStore: {
+      settings: { enabled: boolean; customerScope: "SHARED" | "ISOLATED" };
+      branches: Array<{ id: string; name: string; code: string; isDefault: boolean }>;
+    } | null;
   } | null>(null);
   const [plan, setPlan] = useState<string>("");
   const [accessExpiresAt, setAccessExpiresAt] = useState<string>("");
   const [extendDays, setExtendDays] = useState("30");
   const [moduleToggles, setModuleToggles] = useState<Partial<Record<ModuleKey, boolean>>>({});
-  const [grantAddonKey, setGrantAddonKey] = useState<string>("extra_staff");
+  const [grantAddonKey, setGrantAddonKey] = useState<string>("multi_store");
+  const [newBranchName, setNewBranchName] = useState("");
+  const [newBranchCode, setNewBranchCode] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -104,6 +110,10 @@ export default function OpsCustomerDetailPage() {
       org: OrgDetail;
       planDef: { name: string };
       addons: OrgAddonRow[];
+      multiStore: {
+        settings: { enabled: boolean; customerScope: "SHARED" | "ISOLATED" };
+        branches: Array<{ id: string; name: string; code: string; isDefault: boolean }>;
+      } | null;
     }>(`/api/v1/ops/organizations/${id}`);
     setData(res);
     setPlan(res.org.plan);
@@ -171,6 +181,8 @@ export default function OpsCustomerDetailPage() {
 
   const org = data.org;
   const addons = data.addons ?? [];
+  const multiStore = data.multiStore;
+  const hasMultiStoreAddon = addons.some((a) => a.addonKey === "multi_store");
   const used = Number(org.storageUsedBytes);
   const quota = Number(org.storageQuotaBytes);
   const owner = org.members.find((m) => m.role === "OWNER")?.user;
@@ -500,6 +512,120 @@ export default function OpsCustomerDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {(org.businessType === "SHOPKEEPER" || org.businessType === "SERVICE") && multiStore ? (
+              <Card className="rounded-2xl lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-base">Multi-store branches</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Grant the <strong>Multi-store branches</strong> add-on first, then enable
+                    locations and customer ledger mode here.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!hasMultiStoreAddon ? (
+                    <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      Add-on not granted yet. Use Plan add-ons above to grant{" "}
+                      <strong>Multi-store branches</strong>, then return here to configure.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <Label htmlFor="ops-multi-store">Enable multi-store</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Shows branch switcher when more than one branch exists.
+                          </p>
+                        </div>
+                        <Switch
+                          id="ops-multi-store"
+                          checked={multiStore.settings.enabled}
+                          disabled={saving}
+                          onCheckedChange={(enabled) => patch({ multiStore: { enabled } })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Customer ledger</Label>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {(
+                            [
+                              ["SHARED", "Shared customers", "One list across branches"],
+                              ["ISOLATED", "Isolated per branch", "Separate udhaar per branch"],
+                            ] as const
+                          ).map(([value, title, desc]) => (
+                            <button
+                              key={value}
+                              type="button"
+                              disabled={saving || !multiStore.settings.enabled}
+                              onClick={() =>
+                                patch({ multiStore: { customerScope: value } })
+                              }
+                              className={`rounded-xl border p-3 text-left text-sm transition-colors ${
+                                multiStore.settings.customerScope === value
+                                  ? "border-primary bg-primary/5"
+                                  : "hover:bg-muted/50"
+                              } ${!multiStore.settings.enabled ? "opacity-50" : ""}`}
+                            >
+                              <p className="font-medium">{title}</p>
+                              <p className="text-xs text-muted-foreground">{desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Branches</Label>
+                        <ul className="divide-y rounded-xl border text-sm">
+                          {multiStore.branches.map((b) => (
+                            <li key={b.id} className="flex justify-between px-3 py-2">
+                              <span>
+                                {b.name}
+                                {b.isDefault ? (
+                                  <span className="ml-2 text-xs text-muted-foreground">(default)</span>
+                                ) : null}
+                              </span>
+                              <span className="text-muted-foreground">{b.code}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Input
+                            value={newBranchName}
+                            onChange={(e) => setNewBranchName(e.target.value)}
+                            placeholder="Branch name"
+                            className="max-w-xs rounded-xl"
+                          />
+                          <Input
+                            value={newBranchCode}
+                            onChange={(e) => setNewBranchCode(e.target.value.toUpperCase())}
+                            placeholder="Code"
+                            className="w-24 rounded-xl"
+                            maxLength={6}
+                          />
+                          <Button
+                            className="rounded-xl"
+                            disabled={saving || !newBranchName.trim() || !multiStore.settings.enabled}
+                            onClick={async () => {
+                              await patch({
+                                createBranch: {
+                                  name: newBranchName.trim(),
+                                  code: newBranchCode.trim() || undefined,
+                                },
+                              });
+                              setNewBranchName("");
+                              setNewBranchCode("");
+                            }}
+                          >
+                            Add branch
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
         </TabsContent>
 

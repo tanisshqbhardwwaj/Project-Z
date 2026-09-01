@@ -10,6 +10,10 @@ import {
   updateOrgBillingFromOps,
 } from "@/services/billing/billing.service";
 import { grantOrgAddon, revokeOrgAddon } from "@/lib/billing/org-addon.service";
+import {
+  createShopBranch,
+  updateMultiStoreSettings,
+} from "@/services/shop/shop-branch.service";
 import { getOpsOrganizationDetail, updateOpsOrganizationModules } from "@/services/shared/ops.service";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -49,6 +53,18 @@ const patchSchema = z.object({
     })
     .optional(),
   revokeAddon: z.string().min(1).max(80).optional(),
+  multiStore: z
+    .object({
+      enabled: z.boolean().optional(),
+      customerScope: z.enum(["SHARED", "ISOLATED"]).optional(),
+    })
+    .optional(),
+  createBranch: z
+    .object({
+      name: z.string().min(1).max(80),
+      code: z.string().max(6).optional(),
+    })
+    .optional(),
 });
 
 export async function PATCH(request: Request, { params }: RouteParams) {
@@ -118,6 +134,19 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (body.revokeAddon) {
       await revokeOrgAddon(id, body.revokeAddon);
+    }
+
+    if (body.multiStore) {
+      await updateMultiStoreSettings(id, body.multiStore, { opsBypass: true });
+    }
+
+    if (body.createBranch) {
+      await createShopBranch({
+        organizationId: id,
+        name: body.createBranch.name,
+        code: body.createBranch.code,
+        opsBypass: true,
+      });
     }
 
     const hasBillingPatch =

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CreditCard } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
@@ -15,6 +14,10 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { DesktopOnlyNote } from "@/components/layout/desktop-only-note";
 import { PlanCards, StorageUsageBar, type PlanCardData } from "@/components/billing/plan-cards";
+import {
+  SettingsCardGrid,
+  SettingsPageHeader,
+} from "@/components/settings/settings-page-shell";
 import {
   Dialog,
   DialogContent,
@@ -132,118 +135,142 @@ export default function BillingSettingsPage() {
   const isCancelled = me.subscriptionStatus === "CANCELLED";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Billing & plans</h1>
-        <p className="text-sm text-muted-foreground">
-          {activeOrganizationName} · Prices exclude tax · Hardware not included
-        </p>
-        <div className="mt-2">
-          <DesktopOnlyNote feature="Billing and plans" />
-        </div>
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <SettingsPageHeader
+          title="Billing & plans"
+          description={`${activeOrganizationName} · Prices exclude tax · Hardware not included`}
+        />
+        <DesktopOnlyNote feature="Billing and plans" />
       </div>
 
       <FormFeedback error={error} warning={warning} />
 
-      {me.pendingRequest ? (
-        <Card className="border-amber-500/40 bg-amber-500/5">
-          <CardContent className="flex items-start gap-3 p-4 text-sm">
-            <CreditCard className="mt-0.5 h-5 w-5 text-amber-600" />
-            <div>
-              <p className="font-medium">Waiting for payment confirmation</p>
-              <p className="text-muted-foreground">
-                You requested {me.pendingRequest.toPlan}. Pay our team ({billingContact}), then we
-                activate your plan. Billing on the counter is not blocked while you wait.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      <SettingsCardGrid>
+        {me.pendingRequest ? (
+          <Card className="border-amber-500/40 bg-amber-500/5 lg:col-span-2">
+            <CardContent className="flex items-start gap-3 p-4 text-sm">
+              <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div>
+                <p className="font-medium">Waiting for payment confirmation</p>
+                <p className="text-muted-foreground">
+                  You requested {me.pendingRequest.toPlan}. Pay our team ({billingContact}), then we
+                  activate your plan. Billing on the counter is not blocked while you wait.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
-      {isCancelled ? (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardContent className="flex items-start gap-3 p-4 text-sm">
-            <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
-            <div>
-              <p className="font-medium">Subscription cancelled</p>
-              <p className="text-muted-foreground">
-                Cloud backup and app access for this shop are off. Contact us to reactivate.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+        {isCancelled ? (
+          <Card className="border-destructive/40 bg-destructive/5 lg:col-span-2">
+            <CardContent className="flex items-start gap-3 p-4 text-sm">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+              <div>
+                <p className="font-medium">Subscription cancelled</p>
+                <p className="text-muted-foreground">
+                  Cloud backup and app access for this shop are off. Contact us to reactivate.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
-      <Card className="rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-base">Current subscription</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-6 text-sm">
-            <div>
-              <p className="text-muted-foreground">Plan</p>
-              <p className="text-lg font-semibold">
-                {me.planName} · {me.monthlyLabel}/mo
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Status</p>
-              <p className="font-medium capitalize">{me.subscriptionStatus.replace(/_/g, " ").toLowerCase()}</p>
-            </div>
-          </div>
-          <StorageUsageBar
-            usedLabel={me.storageUsedLabel}
-            quotaLabel={me.storageQuotaLabel}
-            percent={pct}
-          />
-          {me.inventorySkuCap != null ? (
-            <StorageUsageBar
-              label="Inventory SKUs"
-              usedLabel={String(me.inventorySkuCount)}
-              quotaLabel={skuCapLabel}
-              percent={skuPct}
-              warningThreshold={80}
-              nearLimitMessage={`You are at ${skuPct}% of your plan SKU limit. Upgrade before adding more products, or remove unused items.`}
-              atLimitMessage="SKU limit reached — you cannot add new inventory items until you upgrade or remove unused SKUs. Existing items are kept."
-            />
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">Choose a plan</h2>
-        <PlanCards
-          plans={plans}
-          currentPlan={me.plan}
-          pendingPlan={me.pendingRequest?.toPlan ?? null}
-          onSelect={requestPlan}
-          selecting={selecting}
-          readOnly={isCancelled}
-        />
-      </div>
-
-      {!isCancelled ? (
-        <Card className="rounded-2xl border-destructive/30">
+        <Card className="rounded-2xl border-0 shadow-md">
           <CardHeader>
-            <CardTitle className="text-base text-destructive">Cancel software</CardTitle>
+            <CardTitle className="text-base">Current subscription</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              This turns off cloud backup, sync, and licensed app access for{" "}
-              <strong>{me.organizationName}</strong>. Your local files on the shop PC are not deleted.
-            </p>
-            <Button variant="destructive" className="rounded-xl" onClick={() => setCancelOpen(true)}>
-              Opt out / cancel all services
-            </Button>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-sm text-muted-foreground">Plan</p>
+                <p className="text-lg font-semibold">
+                  {me.planName} · {me.monthlyLabel}/mo
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <p className="font-medium capitalize">
+                  {me.subscriptionStatus.replace(/_/g, " ").toLowerCase()}
+                </p>
+              </div>
+            </div>
+            <StorageUsageBar
+              usedLabel={me.storageUsedLabel}
+              quotaLabel={me.storageQuotaLabel}
+              percent={pct}
+            />
           </CardContent>
         </Card>
-      ) : null}
 
-      <p className="text-center text-sm text-muted-foreground">
-        <Link href="/settings/organization" className="underline">
-          Back to organization settings
-        </Link>
-      </p>
+        <Card className="rounded-2xl border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="text-base">Plan limits</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {me.inventorySkuCap != null ? (
+              <StorageUsageBar
+                label="Inventory SKUs"
+                usedLabel={String(me.inventorySkuCount)}
+                quotaLabel={skuCapLabel}
+                percent={skuPct}
+                warningThreshold={80}
+                nearLimitMessage={`You are at ${skuPct}% of your plan SKU limit. Upgrade before adding more products, or remove unused items.`}
+                atLimitMessage="SKU limit reached — you cannot add new inventory items until you upgrade or remove unused SKUs. Existing items are kept."
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Unlimited inventory SKUs on your current plan.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Need multi-store, WhatsApp invoicing, or extra storage? Contact{" "}
+              <span className="font-medium text-foreground">{billingContact}</span> for add-on pricing.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-0 shadow-md lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Choose a plan</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Compare tiers and request an upgrade. We activate after payment is confirmed.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <PlanCards
+              plans={plans}
+              currentPlan={me.plan}
+              pendingPlan={me.pendingRequest?.toPlan ?? null}
+              onSelect={requestPlan}
+              selecting={selecting}
+              readOnly={isCancelled}
+            />
+          </CardContent>
+        </Card>
+
+        {!isCancelled ? (
+          <Card className="rounded-2xl border-destructive/30 shadow-md lg:col-span-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-destructive">Cancel software</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Turns off cloud backup, sync, and licensed app access for{" "}
+                <strong className="text-foreground">{me.organizationName}</strong>. Local files on the
+                shop PC are not deleted.
+              </p>
+              <Button
+                variant="destructive"
+                className="shrink-0 rounded-xl"
+                onClick={() => setCancelOpen(true)}
+              >
+                Opt out / cancel all services
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+      </SettingsCardGrid>
 
       <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <DialogContent>

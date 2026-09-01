@@ -15,10 +15,25 @@ import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireField } from "@/lib/api/validation";
 import { getBusinessTypeConfig, isShopVertical } from "@/lib/org/business-type";
 import { getShopSectorConfig } from "@/lib/org/shop-sector";
+import {
+  SettingsCardGrid,
+  settingsCardClass,
+} from "@/components/settings/settings-page-shell";
+import { cn } from "@/lib/utils";
 
 export default function SettingsProfilePage() {
-  const { user, activeOrganizationName, activeBusinessType, activeShopSector, enabledModules, role, status, initialized, isPlatformAdmin, updateUser } =
-    useAuthStore();
+  const {
+    user,
+    activeOrganizationName,
+    activeBusinessType,
+    activeShopSector,
+    enabledModules,
+    role,
+    status,
+    initialized,
+    isPlatformAdmin,
+    updateUser,
+  } = useAuthStore();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
@@ -125,17 +140,16 @@ export default function SettingsProfilePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold sm:text-3xl">Profile</h1>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="rounded-2xl border-0 shadow-md">
+    <div className="space-y-5">
+      <SettingsCardGrid>
+        <Card className={settingsCardClass}>
           <CardHeader>
             <CardTitle>Your details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormFeedback warning={warning} error={error} />
             {savedMessage ? (
-              <p className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+              <p className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
                 {savedMessage}
               </p>
             ) : null}
@@ -185,72 +199,19 @@ export default function SettingsProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-0 shadow-md">
+        <Card className={settingsCardClass}>
           <CardHeader>
-            <CardTitle>Organization</CardTitle>
+            <CardTitle>Change password</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p>
-              <strong>{activeOrganizationName ?? "—"}</strong>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {getBusinessTypeConfig(activeBusinessType).label}
-              {isShopVertical(activeBusinessType) && activeShopSector
-                ? ` · ${getShopSectorConfig(activeShopSector).label}`
-                : ""}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Link href="/settings/organization">
-                <Button variant="outline" className="rounded-xl">
-                  Manage Organization
-                </Button>
-              </Link>
-              <Link href="/settings/members">
-                <Button variant="outline" className="rounded-xl">
-                  Manage Members
-                </Button>
-              </Link>
-              {isOrgOwner ? (
-                <Link href="/settings/billing">
-                  <Button variant="outline" className="rounded-xl">
-                    Billing
-                  </Button>
-                </Link>
-              ) : null}
-              {isPlatformAdmin ? (
-                <Link href="/ops">
-                  <Button variant="outline" className="rounded-xl">
-                    Owner dashboard
-                  </Button>
-                </Link>
-              ) : null}
-              {enabledModules.staff && (
-                <Link href="/staff">
-                  <Button variant="outline" className="rounded-xl">
-                    Staff & payroll
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          <CardContent className="space-y-4">
+            <FormFeedback warning={passwordWarning} error={passwordError} />
+            {passwordMessage ? (
+              <p className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
+                {passwordMessage}
+              </p>
+            ) : null}
 
-      </div>
-
-      <Card className="rounded-2xl border-0 shadow-md">
-        <CardHeader>
-          <CardTitle>Change password</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <FormFeedback warning={passwordWarning} error={passwordError} />
-          {passwordMessage ? (
-            <p className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-              {passwordMessage}
-            </p>
-          ) : null}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
+            <div className="space-y-2">
               <Label htmlFor="current-password">Current password</Label>
               <Input
                 id="current-password"
@@ -283,31 +244,82 @@ export default function SettingsProfilePage() {
                 autoComplete="new-password"
               />
             </div>
-          </div>
 
-          <Button
-            className="h-12 rounded-xl"
-            onClick={changePassword}
-            disabled={changingPassword}
-          >
-            {changingPassword ? "Updating..." : "Update password"}
-          </Button>
-        </CardContent>
-      </Card>
+            <Button
+              className="h-12 w-full rounded-xl"
+              onClick={changePassword}
+              disabled={changingPassword}
+            >
+              {changingPassword ? "Updating..." : "Update password"}
+            </Button>
+          </CardContent>
+        </Card>
 
-      <Card className="rounded-2xl border-0 shadow-md">
-        <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-medium">Sign out</p>
-            <p className="text-sm text-muted-foreground">
-              Log out of BusinessOS on this device.
-            </p>
-          </div>
-          <Button variant="outline" className="rounded-xl" onClick={handleLogout}>
-            Logout
-          </Button>
-        </CardContent>
-      </Card>
+        <Card className={cn(settingsCardClass, "lg:col-span-2")}>
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="font-medium">{activeOrganizationName ?? "—"}</p>
+              <p className="text-sm text-muted-foreground">
+                {getBusinessTypeConfig(activeBusinessType).label}
+                {isShopVertical(activeBusinessType) && activeShopSector
+                  ? ` · ${getShopSectorConfig(activeShopSector).label}`
+                  : ""}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {isOrgOwner ? (
+                <Link href="/settings/organization">
+                  <Button variant="outline" className="rounded-xl">
+                    Organization
+                  </Button>
+                </Link>
+              ) : null}
+              {isOrgOwner ? (
+                <Link href="/settings/members">
+                  <Button variant="outline" className="rounded-xl">
+                    Members
+                  </Button>
+                </Link>
+              ) : null}
+              {isOrgOwner ? (
+                <Link href="/settings/billing">
+                  <Button variant="outline" className="rounded-xl">
+                    Billing
+                  </Button>
+                </Link>
+              ) : null}
+              {isPlatformAdmin ? (
+                <Link href="/ops">
+                  <Button variant="outline" className="rounded-xl">
+                    Ops dashboard
+                  </Button>
+                </Link>
+              ) : null}
+              {enabledModules.staff ? (
+                <Link href="/staff">
+                  <Button variant="outline" className="rounded-xl">
+                    Staff
+                  </Button>
+                </Link>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={cn(settingsCardClass, "lg:col-span-2")}>
+          <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">Sign out</p>
+              <p className="text-sm text-muted-foreground">
+                Log out of BusinessOS on this device.
+              </p>
+            </div>
+            <Button variant="outline" className="shrink-0 rounded-xl" onClick={handleLogout}>
+              Logout
+            </Button>
+          </CardContent>
+        </Card>
+      </SettingsCardGrid>
     </div>
   );
 }

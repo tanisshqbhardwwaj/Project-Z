@@ -81,6 +81,17 @@ function lineAmount(line: InvoiceLine) {
   return line.qty * line.priceRupees;
 }
 
+function formatTotalQty(qty: number) {
+  if (Math.abs(qty - Math.round(qty)) < 0.0005) {
+    return String(Math.round(qty));
+  }
+  return qty.toFixed(3).replace(/\.?0+$/, "");
+}
+
+function sumLineQty(lines: InvoiceLine[]) {
+  return lines.reduce((sum, line) => sum + line.qty, 0);
+}
+
 type ShopInvoicePrintProps = {
   invoice: ShopInvoiceData;
   template?: ResolvedInvoiceTemplate;
@@ -176,6 +187,11 @@ export function ShopInvoicePrint({
       })
     : null;
   const showRoundOff = t.useDecimalPlaces && roundOff < -0.004;
+  const totalQty = sumLineQty(invoice.items);
+  const replacementTotalQty =
+    invoice.replacementItems && invoice.replacementItems.length > 0
+      ? sumLineQty(invoice.replacementItems)
+      : 0;
 
   const discountLines =
     discount > 0 ? (
@@ -448,6 +464,15 @@ export function ShopInvoicePrint({
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-neutral-300">
+                <td className="py-1.5 pr-1 text-right font-semibold">Total qty</td>
+                <td className="py-1.5 text-right tabular-nums font-semibold">
+                  {formatTotalQty(replacementTotalQty)}
+                </td>
+                <td colSpan={2} />
+              </tr>
+            </tfoot>
           </table>
         </>
       ) : null}
@@ -455,6 +480,10 @@ export function ShopInvoicePrint({
       <footer className="invoice-totals mt-3 space-y-1 border-t-2 border-neutral-800 pt-2 text-[11px]">
         {isReturnDoc && invoice.returnMeta ? (
           <>
+            <div className="flex justify-between">
+              <span>Total qty</span>
+              <span className="tabular-nums">{formatTotalQty(totalQty)}</span>
+            </div>
             <div className="flex justify-between">
               <span>Returned value</span>
               <span className="tabular-nums">
@@ -506,6 +535,10 @@ export function ShopInvoicePrint({
           </>
         ) : (
           <>
+        <div className="flex justify-between">
+          <span>Total qty</span>
+          <span className="tabular-nums">{formatTotalQty(totalQty)}</span>
+        </div>
         {t.showSubtotal ? (
           <div className="flex justify-between">
             <span>Subtotal</span>

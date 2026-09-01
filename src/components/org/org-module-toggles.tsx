@@ -8,8 +8,11 @@ import {
   moduleLabel,
   type ModuleKey,
 } from "@/lib/org/modules";
-import { isModuleAllowedByPlan } from "@/lib/billing/entitlements";
-import { BILLING_PLANS } from "@/lib/billing/plans";
+import {
+  isModuleEntitled,
+  minimumPlanLabelForModule,
+} from "@/lib/billing/entitlements";
+import { ADDON_CATALOG } from "@/lib/billing/addon-catalog";
 import type { BillingPlan } from "@prisma/client";
 import type { ShopSector } from "@/lib/org/shop-sector";
 
@@ -17,16 +20,28 @@ type OrgModuleTogglesProps = {
   businessType: BusinessType;
   primaryShopSector?: ShopSector | null;
   plan: BillingPlan | null;
+  activeAddonKeys?: string[];
   moduleToggles: Partial<Record<ModuleKey, boolean>>;
   enableStaff: boolean;
   disabled?: boolean;
   onToggle: (key: ModuleKey, next: boolean) => void;
 };
 
+function addonLabelForModule(moduleKey: ModuleKey, activeAddonKeys: string[]): string | null {
+  for (const key of activeAddonKeys) {
+    const def = ADDON_CATALOG[key as keyof typeof ADDON_CATALOG];
+    if (def?.modules.includes(moduleKey)) {
+      return def.label;
+    }
+  }
+  return null;
+}
+
 export function OrgModuleToggles({
   businessType,
   primaryShopSector,
   plan,
+  activeAddonKeys = [],
   moduleToggles,
   enableStaff,
   disabled = false,
@@ -35,44 +50,52 @@ export function OrgModuleToggles({
   const modules = modulesForBusinessType(businessType, primaryShopSector ?? null);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {modules.map((mod) => {
         const on = Boolean(
           moduleToggles[mod.key] ??
             (mod.key === "staff" ? enableStaff : mod.defaultOn[businessType])
         );
-        const planAllowed = plan ? isModuleAllowedByPlan(plan, mod.key) : true;
-        const planName = plan ? BILLING_PLANS[plan].name : "your plan";
+        const entitled = plan ? isModuleEntitled(plan, mod.key, activeAddonKeys) : false;
+        const minPlanLabel = minimumPlanLabelForModule(mod.key);
+        const addonLabel = addonLabelForModule(mod.key, activeAddonKeys);
 
         return (
           <div
             key={mod.key}
-            className="flex items-start gap-3 rounded-xl border p-3 sm:items-center"
+            className="flex items-start gap-3 rounded-xl border p-2.5 sm:items-center"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-semibold">
                   {moduleLabel(mod.key, businessType)}
                 </p>
-                {!planAllowed ? (
+                {!entitled && minPlanLabel ? (
                   <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                    {planName} plan
+                    {minPlanLabel}+ plan
+                  </span>
+                ) : null}
+                {!entitled && addonLabel ? (
+                  <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                    Add-on
                   </span>
                 ) : null}
               </div>
               <p className="text-xs text-muted-foreground">{mod.description}</p>
-              {!planAllowed ? (
+              {!entitled ? (
                 <Link
                   href="/settings/billing"
                   className="mt-1 inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
                 >
-                  Upgrade to unlock
+                  {minPlanLabel
+                    ? `Upgrade to ${minPlanLabel} or above to unlock`
+                    : "Upgrade or add-on required"}
                 </Link>
               ) : null}
             </div>
             <Switch
               checked={on}
-              disabled={disabled || !planAllowed}
+              disabled={disabled || !entitled}
               onCheckedChange={(next) => onToggle(mod.key, next)}
             />
           </div>

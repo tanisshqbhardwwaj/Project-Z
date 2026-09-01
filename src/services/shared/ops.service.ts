@@ -4,6 +4,8 @@ import { getPlanDefinition } from "@/lib/billing/plans";
 import { inventorySkuCapForPlan } from "@/lib/billing/entitlements";
 import { inventorySkuUsagePercent } from "@/lib/billing/entitlement-engine";
 import { listOrgAddons } from "@/lib/billing/org-addon.service";
+import { getMultiStoreConfig } from "@/services/shop/shop-branch.service";
+import { isShopVertical } from "@/lib/org/business-type";
 import { getStorageUsageBreakdown } from "@/services/shared/storage-quota.service";
 import { mergeModuleSettings, parseOrgSettings } from "@/lib/org/require-module";
 import type { ModuleKey } from "@/lib/org/modules";
@@ -68,13 +70,16 @@ export async function getOpsOrganizationDetail(id: string) {
     throw new ApiError(404, "NOT_FOUND", "Organization not found");
   }
 
-  const [staffCount, inventorySkuCount, addons, storage] = await Promise.all([
+  const [staffCount, inventorySkuCount, addons, storage, multiStore] = await Promise.all([
     prisma.staffMember.count({
       where: { organizationId: id, status: "ACTIVE" },
     }),
     prisma.inventoryItem.count({ where: { organizationId: id } }),
     listOrgAddons(id),
     getStorageUsageBreakdown(id),
+    isShopVertical(org.businessType)
+      ? getMultiStoreConfig(id).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   const inventorySkuCap = inventorySkuCapForPlan(org.plan);
@@ -100,6 +105,7 @@ export async function getOpsOrganizationDetail(id: string) {
     addons,
     planDef: getPlanDefinition(org.plan),
     storage,
+    multiStore,
   };
 }
 

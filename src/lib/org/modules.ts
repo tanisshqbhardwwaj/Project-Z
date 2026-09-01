@@ -69,7 +69,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     label: {
       SHOPKEEPER: "Staff",
       SERVICE: "Staff",
-      CONTRACTOR: "Labour",
+      CONTRACTOR: "Staff",
       ARCHITECT: "Staff",
     },
     description: "People, daily attendance, and monthly payroll",

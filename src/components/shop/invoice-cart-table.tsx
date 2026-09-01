@@ -167,14 +167,10 @@ export const InvoiceCartTable = memo(function InvoiceCartTable({
   return (
     <div
       ref={scrollRef}
-      className={
-        virtualize
-          ? "max-h-[min(420px,50vh)] overflow-auto rounded-lg border"
-          : "overflow-x-auto rounded-lg border"
-      }
+      className="max-h-[min(360px,42vh)] overflow-auto rounded-lg border"
     >
       <table className="w-full min-w-[320px] text-sm">
-        <thead className={virtualize ? "sticky top-0 z-10 bg-background" : undefined}>
+        <thead className="sticky top-0 z-10 bg-background">
           <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <th className="px-3 py-2.5 font-medium">Item</th>
             {showLineStaff ? <th className="px-2 py-2.5 font-medium">Staff</th> : null}

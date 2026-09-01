@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/context";
 import { deriveStoreCode } from "@/lib/shop/invoices/bill-number";
+import { hasActiveOrgAddon } from "@/lib/billing/org-addon.service";
+import { MULTI_STORE_ADDON_KEY } from "@/lib/billing/addon-catalog";
 import {
   mergeMultiStoreSettings,
   readMultiStoreSettings,
@@ -81,7 +83,11 @@ export async function createShopBranch(input: {
   address?: string | null;
   phone?: string | null;
   isDefault?: boolean;
+  opsBypass?: boolean;
 }) {
+  if (!input.opsBypass) {
+    await requireMultiStoreAddon(input.organizationId);
+  }
   const trimmedName = input.name.trim();
 
   return prisma.$transaction(async (tx) => {
@@ -190,10 +196,25 @@ export async function updateShopBranch(
   });
 }
 
+async function requireMultiStoreAddon(organizationId: string) {
+  const allowed = await hasActiveOrgAddon(organizationId, MULTI_STORE_ADDON_KEY);
+  if (!allowed) {
+    throw new ApiError(
+      403,
+      "ADDON_REQUIRED",
+      "Multi-store is an add-on service. Contact BusinessOS support to enable it for your organization."
+    );
+  }
+}
+
 export async function updateMultiStoreSettings(
   organizationId: string,
-  patch: Partial<MultiStoreSettings>
+  patch: Partial<MultiStoreSettings>,
+  options?: { opsBypass?: boolean }
 ) {
+  if (!options?.opsBypass) {
+    await requireMultiStoreAddon(organizationId);
+  }
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: { settings: true },

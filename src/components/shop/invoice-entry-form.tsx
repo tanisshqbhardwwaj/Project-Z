@@ -48,7 +48,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { CameraScanButton } from "@/components/shop/camera-scan-button";
-import { Banknote, CreditCard, Loader2, Minus, PauseCircle, Plus, Printer, Receipt, ScanLine, ShoppingBag, Smartphone, Tag } from "lucide-react";
+import { Banknote, CreditCard, Loader2, Minus, PauseCircle, Plus, Printer, Receipt, ScanLine, ShoppingBag, Smartphone, Tag, XCircle } from "lucide-react";
 import Link from "next/link";
 import { OfferPickerDialog } from "@/components/shop/offer-picker-dialog";
 import {
@@ -249,7 +249,13 @@ export function InvoiceEntryForm({
     selectedOfferId: string | null;
     settled: boolean;
   } | null>(null);
-  const promptedCartKeyRef = useRef<string | null>(null);
+  const pendingCheckoutRef = useRef<{ printAfterSave: boolean } | null>(null);
+  const resumeCheckoutAfterOfferRef = useRef(false);
+  const collectedTerminalPaymentRef = useRef<{
+    outcome: TerminalCollectOutcome;
+    amountPaise: string;
+    method: string;
+  } | null>(null);
   const saleClientIdRef = useRef<string>(
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
@@ -306,15 +312,14 @@ export function InvoiceEntryForm({
     }
   }, [invoiceTemplate.defaultTaxRatePercent, taxRatePercent]);
 
-  useEffect(() => {
-    if (prevResetKeyRef.current === resetKey) return;
-    prevResetKeyRef.current = resetKey;
+  const resetCurrentBillState = useCallback(() => {
     if (orgId) clearInvoiceDraft(orgId);
     setCustomerName("");
     setCustomerPhone("");
     setCustomerGstin("");
     setSelectedCustomerId(null);
     setSalesBoyName("");
+    setSelectedStaffId("");
     setDiscountMode("rupees");
     setDiscountRupees("");
     setDiscountPercent("");
@@ -333,12 +338,42 @@ export function InvoiceEntryForm({
     setPaymentMethod("CASH");
     setPaidRupees("");
     setCashReceivedRupees("");
+    setSplitPayment(false);
+    setSplitCashRupees("");
+    setSplitUpiRupees("");
     setSelectedOfferId(null);
     setOfferSelectionSettled(false);
     setOfferPickerOpen(false);
     setPendingOfferId(null);
+    pendingCheckoutRef.current = null;
+    resumeCheckoutAfterOfferRef.current = false;
+    collectedTerminalPaymentRef.current = null;
+    saleClientIdRef.current =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `sale-${Date.now()}`;
     clear();
-  }, [resetKey, clear, orgId, invoiceTemplate.defaultTaxRatePercent]);
+  }, [orgId, invoiceTemplate.defaultTaxRatePercent, clear]);
+
+  useEffect(() => {
+    if (prevResetKeyRef.current === resetKey) return;
+    prevResetKeyRef.current = resetKey;
+    resetCurrentBillState();
+  }, [resetKey, resetCurrentBillState]);
+
+  useEffect(() => {
+    collectedTerminalPaymentRef.current = null;
+  }, [
+    cartOfferKey,
+    paymentMethod,
+    splitPayment,
+    discountRupees,
+    discountPercent,
+    taxRatePercent,
+    taxIncluded,
+    offerSelectionSettled,
+    selectedOfferId,
+  ]);
 
   useEffect(() => {
     draftRestoredRef.current = false;
@@ -520,7 +555,8 @@ export function InvoiceEntryForm({
     setOfferSelectionSettled(restored ? restored.settled : false);
     setOfferPickerOpen(false);
     setPendingOfferId(null);
-    promptedCartKeyRef.current = restored?.settled ? cartOfferKey : null;
+    pendingCheckoutRef.current = null;
+    resumeCheckoutAfterOfferRef.current = false;
   }, [cartOfferKey]);
 
   const inventoryQuery = useQuery({
@@ -638,16 +674,6 @@ export function InvoiceEntryForm({
         qc.invalidateQueries({ queryKey: queryKeys.modules.shop.heldBills(orgId) });
         qc.invalidateQueries({ queryKey: queryKeys.modules.shop.dashboard(orgId) });
       }
-      setCart([]);
-      setCustomerName("");
-      setCustomerPhone("");
-      setCustomerGstin("");
-      setSalesBoyName("");
-      setSelectedCustomerId(null);
-      setSelectedOfferId(null);
-      setOfferSelectionSettled(false);
-      setOfferPickerOpen(false);
-      setPendingOfferId(null);
     },
   });
 
@@ -758,23 +784,8 @@ export function InvoiceEntryForm({
     if (data.applicableOffers.length === 0) {
       setSelectedOfferId(null);
       setOfferSelectionSettled(true);
-      return;
     }
-
-    const best = data.applicableOffers[0]!;
-    const wouldWipeBill = best.discountRupees >= cartSubtotalRupees - 0.005;
-
-    if (data.applicableOffers.length === 1 && !wouldWipeBill) {
-      setSelectedOfferId(best.offerId);
-      setOfferSelectionSettled(true);
-      return;
-    }
-
-    if (promptedCartKeyRef.current === cartOfferKey) return;
-    promptedCartKeyRef.current = cartOfferKey;
-    setPendingOfferId(wouldWipeBill ? null : best.offerId);
-    setOfferPickerOpen(true);
-  }, [offerPreviewQuery.data, cart.length, offerSelectionSettled, cartSubtotalRupees, cartOfferKey]);
+  }, [offerPreviewQuery.data, cart.length, offerSelectionSettled]);
 
   const offerDiscountRupees = offerPreviewQuery.data?.offerDiscountRupees ?? 0;
   const appliedOfferName = offerPreviewQuery.data?.offerDetails?.[0]?.name ?? null;
@@ -857,6 +868,7 @@ export function InvoiceEntryForm({
           kot: parseKotPayload(sale.kotJson),
         }
       );
+      collectedTerminalPaymentRef.current = null;
       const kot = parseKotPayload(sale.kotJson);
       if (kot && printAfterSaveRef.current) {
         queueKotPrint(kot);
@@ -1164,10 +1176,38 @@ export function InvoiceEntryForm({
         cartJson: snapshot,
         pricingJson: pricingSnapshot,
       });
-      clear();
+      resetCurrentBillState();
+      toast({
+        title: "Bill on hold",
+        description: "Resume it from the hold list above when ready.",
+        variant: "success",
+      });
+      scanRef.current?.focus();
     } catch (err) {
       applyError(err, "Failed to hold bill");
     }
+  }
+
+  function cancelCurrentBill() {
+    const hasBillContent =
+      cart.length > 0 ||
+      Boolean(customerName.trim()) ||
+      Boolean(customerPhone.trim()) ||
+      Boolean(customerGstin.trim()) ||
+      Boolean(salesBoyName.trim());
+
+    if (
+      hasBillContent &&
+      !window.confirm("Cancel this bill? All items and details will be cleared.")
+    ) {
+      return;
+    }
+
+    resetCurrentBillState();
+    if (hasBillContent) {
+      toast({ title: "Bill cancelled", variant: "success" });
+    }
+    scanRef.current?.focus();
   }
 
   function formatRemainingMs(expiresAt: string) {
@@ -1209,7 +1249,24 @@ export function InvoiceEntryForm({
     setOfferPickerOpen(false);
   }
 
+  function openOfferPickerForCheckout(printAfterSave: boolean) {
+    const best = applicableOffers[0];
+    const wouldWipeBill =
+      (best?.discountRupees ?? 0) >= cartSubtotalRupees - 0.005;
+    pendingCheckoutRef.current = { printAfterSave };
+    setPendingOfferId(
+      offerSelectionSettled
+        ? selectedOfferId
+        : wouldWipeBill
+          ? null
+          : (selectedOfferId ?? best?.offerId ?? null)
+    );
+    setOfferPickerOpen(true);
+  }
+
   function openOfferPicker() {
+    pendingCheckoutRef.current = null;
+    resumeCheckoutAfterOfferRef.current = false;
     const best = applicableOffers[0]?.offerId ?? null;
     setPendingOfferId(selectedOfferId ?? best);
     setOfferPickerOpen(true);
@@ -1217,10 +1274,33 @@ export function InvoiceEntryForm({
 
   function confirmOfferPicker() {
     applyOfferChoice(pendingOfferId);
+    if (pendingCheckoutRef.current) {
+      resumeCheckoutAfterOfferRef.current = true;
+    }
   }
+
+  useEffect(() => {
+    if (!resumeCheckoutAfterOfferRef.current || !offerSelectionSettled) return;
+    resumeCheckoutAfterOfferRef.current = false;
+    const pending = pendingCheckoutRef.current;
+    pendingCheckoutRef.current = null;
+    if (!pending) return;
+    void completeSale(
+      { preventDefault: () => {} } as React.FormEvent,
+      pending.printAfterSave
+    );
+  }, [offerSelectionSettled]);
 
   function removeOffer() {
     applyOfferChoice(null);
+  }
+
+  function requiresTerminalPayment() {
+    return (
+      terminalReady &&
+      !splitPayment &&
+      (paymentMethod === "CARD" || paymentMethod === "UPI")
+    );
   }
 
   async function collectOnTerminal(): Promise<TerminalCollectOutcome | null> {
@@ -1254,9 +1334,19 @@ export function InvoiceEntryForm({
         "Udhaar (credit ledger) is off. Turn it on in Manage Organization → Features."
       );
     }
-    if (applicableOffers.length > 0 && !offerSelectionSettled) {
-      setOfferPickerOpen(true);
-      return showWarning("Choose an offer for this bill, or continue with no offer");
+    if (!offerSelectionSettled) {
+      if (
+        offerPreviewQuery.isLoading ||
+        (cart.length > 0 && offerPreviewQuery.isFetching && !offerPreviewQuery.data)
+      ) {
+        return showWarning("Checking offers…");
+      }
+      if (applicableOffers.length > 0) {
+        openOfferPickerForCheckout(printAfterSave);
+        return;
+      }
+      setSelectedOfferId(null);
+      setOfferSelectionSettled(true);
     }
     if (cartTotal <= 0) {
       if (offerWouldWipeBill) {
@@ -1297,15 +1387,27 @@ export function InvoiceEntryForm({
         }
       | undefined;
 
-    const shouldAutoTerminal =
-      terminalReady &&
-      terminalConfig.autoCollect &&
-      !splitPayment &&
-      (paymentMethod === "CARD" || paymentMethod === "UPI");
+    const shouldAutoTerminal = requiresTerminalPayment();
 
     if (shouldAutoTerminal) {
-      const outcome = await collectOnTerminal();
-      if (!outcome) return;
+      const amountPaise = BigInt(Math.round(cartTotal * 100));
+      const cached = collectedTerminalPaymentRef.current;
+      const cachedOk =
+        cached &&
+        cached.amountPaise === amountPaise.toString() &&
+        cached.method === paymentMethod;
+
+      let outcome: TerminalCollectOutcome | null = cachedOk ? cached.outcome : null;
+      if (!outcome) {
+        outcome = await collectOnTerminal();
+        if (!outcome) return;
+        collectedTerminalPaymentRef.current = {
+          outcome,
+          amountPaise: amountPaise.toString(),
+          method: paymentMethod,
+        };
+      }
+
       resolvedPaymentMethod = outcome.paymentMethod;
       terminalPayment = {
         provider: outcome.collect.provider,
@@ -1430,7 +1532,13 @@ export function InvoiceEntryForm({
 
       <OfferPickerDialog
         open={offerPickerOpen}
-        onOpenChange={setOfferPickerOpen}
+        onOpenChange={(open) => {
+          setOfferPickerOpen(open);
+          if (!open) {
+            pendingCheckoutRef.current = null;
+            resumeCheckoutAfterOfferRef.current = false;
+          }
+        }}
         offers={applicableOffers}
         pendingOfferId={pendingOfferId}
         onPendingChange={setPendingOfferId}
@@ -1737,7 +1845,7 @@ export function InvoiceEntryForm({
                   <ShoppingBag className="mr-2 h-4 w-4" />
                   Cart · {cart.length} · ₹{cartTotal.toFixed(2)}
                 </Button>
-                <div className="hidden max-h-[min(360px,42vh)] overflow-y-auto sm:block">
+                <div className="hidden sm:block">
                   <InvoiceCartTable
                     cart={cart}
                     cartLineAllocations={cartLineAllocations}
@@ -2150,24 +2258,11 @@ export function InvoiceEntryForm({
               onReceivedChange={setCashReceivedRupees}
             />
           ) : null}
-          {terminalReady &&
-          !splitPayment &&
-          (paymentMethod === "CARD" || paymentMethod === "UPI") &&
-          !terminalConfig.autoCollect ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 w-full rounded-xl"
-              disabled={terminalCollecting || cart.length === 0}
-              onClick={() => void collectOnTerminal()}
-            >
-              {terminalCollecting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CreditCard className="mr-2 h-4 w-4" />
-              )}
-              Collect ₹{cartTotal.toFixed(2)} on machine
-            </Button>
+          {requiresTerminalPayment() ? (
+            <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              Card machine connected — completing this bill sends ₹{cartTotal.toFixed(2)} to the
+              POS first. The receipt prints only after payment succeeds.
+            </p>
           ) : null}
           {udhaarEnabled && paymentMethod !== "CREDIT" && paymentMethod !== "CASH" && !splitPayment && (
             <div className="space-y-1.5">
@@ -2185,13 +2280,29 @@ export function InvoiceEntryForm({
           )}
         </div>
 
-        <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-20 grid grid-cols-1 gap-2 border-t bg-card p-4 sm:static sm:grid-cols-3 sm:p-5">
+        <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-20 grid grid-cols-2 gap-2 border-t bg-card p-4 sm:static sm:grid-cols-4 sm:p-5">
           <Button
             type="button"
             variant="outline"
-            className="h-12 w-full rounded-xl sm:h-11 sm:flex-1"
+            className="h-12 w-full rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive sm:h-11"
+            onClick={cancelCurrentBill}
+            disabled={
+              cart.length === 0 &&
+              !customerName.trim() &&
+              !customerPhone.trim() &&
+              !customerGstin.trim() &&
+              !salesBoyName.trim()
+            }
+          >
+            <XCircle className="mr-2 h-4 w-4" />
+            Cancel bill
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 w-full rounded-xl sm:h-11"
             onClick={holdCurrentBill}
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || holdBillMutation.isPending}
           >
             <PauseCircle className="mr-2 h-4 w-4" />
             Hold
@@ -2199,7 +2310,7 @@ export function InvoiceEntryForm({
           <Button
             type="button"
             variant="outline"
-            className="h-12 w-full rounded-xl sm:h-11 sm:flex-1"
+            className="h-12 w-full rounded-xl sm:h-11"
             onClick={(e) => void completeSale(e, false)}
             disabled={createMutation.isPending || terminalCollecting || cart.length === 0}
           >
@@ -2207,7 +2318,7 @@ export function InvoiceEntryForm({
           </Button>
           <Button
             type="submit"
-            className="h-12 w-full rounded-xl text-base sm:h-11 sm:flex-[2]"
+            className="col-span-2 h-12 w-full rounded-xl text-base sm:col-span-1 sm:h-11"
             disabled={createMutation.isPending || terminalCollecting || cart.length === 0}
           >
             <Printer className="mr-2 h-4 w-4 shrink-0" />

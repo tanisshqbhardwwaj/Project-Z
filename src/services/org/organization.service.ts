@@ -12,6 +12,8 @@ import { isServiceVerticalEnabled } from "@/lib/org/service-vertical";
 import type { ModuleKey } from "@/lib/org/modules";
 import { defaultEnabledModules } from "@/lib/org/modules";
 import { effectiveModulesForPlan } from "@/lib/billing/entitlements";
+import { listActiveOrgAddonKeys } from "@/lib/billing/org-addon.service";
+import { addonModuleGrants } from "@/lib/billing/addon-catalog";
 import type { BillingPlan } from "@prisma/client";
 import { setupFeeForNewOrg } from "@/services/billing/billing.service";
 import { seedSampleServicesForOrg } from "@/services/service/service-onboarding.service";
@@ -432,6 +434,19 @@ export async function updateOrganization(input: {
       if (input.settings.modules.staff !== undefined) {
         data.enableStaff = Boolean(input.settings.modules.staff);
       }
+      const addonKeys = await listActiveOrgAddonKeys(input.organizationId);
+      let modules = effectiveModulesForPlan(
+        before.plan,
+        (nextSettings.modules ?? {}) as Record<ModuleKey, boolean>
+      );
+      for (const addonKey of addonKeys) {
+        for (const mod of addonModuleGrants(addonKey)) {
+          if (input.settings.modules[mod] !== undefined) {
+            modules = { ...modules, [mod]: Boolean(input.settings.modules[mod]) };
+          }
+        }
+      }
+      nextSettings = { ...nextSettings, modules };
     }
     if (input.settings?.weeklyOffDays) {
       nextSettings.weeklyOffDays = input.settings.weeklyOffDays;

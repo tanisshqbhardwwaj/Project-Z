@@ -332,23 +332,22 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
       <CashierModeBanner />
       <header
       className={cn(
-        "sticky top-0 z-40 flex shrink-0 items-center justify-between gap-2 border-b bg-card/95 px-3 backdrop-blur-md md:gap-3 md:px-6",
+        "sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur-md md:gap-3 md:px-6",
         APP_SHELL_HEADER_HEIGHT
       )}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-        <AppLogo
-          href="/dashboard"
-          variant="compact"
-          brandMode="product"
-          className="shrink-0 md:hidden"
-          showCompanyTagline={false}
-        />
-        <div className="flex min-w-0 shrink-0 items-center gap-2 overflow-hidden">
-          <OrgSwitcher currentOrgName={orgName} />
-          <BranchSwitcher />
-        </div>
+      <AppLogo
+        href="/dashboard"
+        variant="compact"
+        brandMode="product"
+        className="shrink-0 md:hidden"
+        showCompanyTagline={false}
+      />
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+        <OrgSwitcher currentOrgName={orgName} />
+        <BranchSwitcher />
       </div>
+      <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
@@ -375,6 +374,7 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
       </Button>
       <SyncBadge />
       <AppearanceMenu />
+      </div>
     </header>
     </>
   );

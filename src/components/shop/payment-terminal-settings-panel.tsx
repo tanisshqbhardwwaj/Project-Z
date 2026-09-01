@@ -111,31 +111,24 @@ export function PaymentTerminalSettingsPanel({
 
             <div className="flex items-center justify-between rounded-xl border p-3">
               <div>
-                <p className="text-sm font-medium">Enable card machine</p>
+                <p className="text-sm font-medium">POS on Card / UPI</p>
                 <p className="text-xs text-muted-foreground">
-                  Push bill amount to the machine when collecting Card/UPI
+                  When enabled, Card and UPI bills wait for the machine before saving and printing
                 </p>
               </div>
               <Switch
                 checked={value.enabled}
                 disabled={disabled}
-                onCheckedChange={(enabled) => onChange({ ...value, enabled })}
+                onCheckedChange={(enabled) => onChange({ ...value, enabled, autoCollect: enabled })}
               />
             </div>
 
-            <div className="flex items-center justify-between rounded-xl border p-3">
-              <div>
-                <p className="text-sm font-medium">Auto-collect on complete</p>
-                <p className="text-xs text-muted-foreground">
-                  Wait for machine payment before saving the bill
-                </p>
-              </div>
-              <Switch
-                checked={value.autoCollect}
-                disabled={disabled || !value.enabled}
-                onCheckedChange={(autoCollect) => onChange({ ...value, autoCollect })}
-              />
-            </div>
+            {value.enabled ? (
+              <p className="text-xs text-muted-foreground">
+                Save or Save &amp; print sends the bill amount to the card machine first. The receipt
+                prints only after payment succeeds on the POS.
+              </p>
+            ) : null}
 
             <div className="space-y-2">
               <Label>Environment</Label>
