@@ -14,7 +14,46 @@ import { rupeesToPaise } from "@/lib/finance/money";
 import { requireModule } from "@/lib/org/require-module";
 import { dayKeyToUtcDate } from "@/lib/date/org-day";
 import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
+import { getEmailFrom, isResendTestSender } from "@/lib/email";
 import { normalizeCashierCode } from "@/lib/shop/bill-number";
+
+export type StaffLoginInviteResult = {
+  status: "sent" | "resent" | "linked" | "failed";
+  message: string;
+  inviteUrl?: string;
+};
+
+function staffInviteDeliveryMessage(input: {
+  emailDelivered: boolean;
+  emailError?: string;
+  inviteUrl: string;
+  resent?: boolean;
+}): StaffLoginInviteResult {
+  if (input.emailDelivered) {
+    return {
+      status: input.resent ? "resent" : "sent",
+      message: input.resent
+        ? "Login invitation email resent."
+        : "Login invitation email sent.",
+      inviteUrl: input.inviteUrl,
+    };
+  }
+
+  const resendHint = isResendTestSender(getEmailFrom())
+    ? " With the Resend test sender (onboarding@resend.dev), email only reaches your Resend account address until you verify your own domain."
+    : "";
+
+  return {
+    status: "failed",
+    message:
+      (input.emailError
+        ? `Staff saved, but the invitation email could not be sent: ${input.emailError}.`
+        : "Staff saved, but the invitation email could not be sent.") +
+      resendHint +
+      " Share the invite link manually if needed.",
+    inviteUrl: input.inviteUrl,
+  };
+}
 
 function resolveCashierCodeInput(raw?: string | null): string | null {
   const trimmed = raw?.trim();
@@ -250,9 +289,9 @@ async function ensureStaffLoginInvite(input: {
   staffId: string;
   email: string;
   invitedById: string;
-}) {
+}): Promise<StaffLoginInviteResult | null> {
   const email = input.email.trim().toLowerCase();
-  if (!email) return;
+  if (!email) return null;
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -276,7 +315,11 @@ async function ensureStaffLoginInvite(input: {
         userId: existingUser.id,
         actorUserId: input.invitedById,
       });
-      return;
+      return {
+        status: "linked",
+        message:
+          "This email already has a login — staff profile linked. No invitation email was sent.",
+      };
     }
   }
 
@@ -290,16 +333,16 @@ async function ensureStaffLoginInvite(input: {
     include: { organization: { select: { name: true } } },
   });
   if (pendingInvite) {
-    await resendPendingInviteEmail({
+    const delivery = await resendPendingInviteEmail({
       token: pendingInvite.token,
       organizationName: pendingInvite.organization.name,
       email,
       fromStaff: true,
     });
-    return;
+    return staffInviteDeliveryMessage({ ...delivery, resent: true });
   }
 
-  await inviteMember({
+  const delivery = await inviteMember({
     organizationId: input.organizationId,
     email,
     role: "CASHIER",
@@ -307,6 +350,8 @@ async function ensureStaffLoginInvite(input: {
     requireEmailDelivery: false,
     fromStaff: true,
   });
+
+  return staffInviteDeliveryMessage(delivery);
 }
 
 export async function createStaffMember(input: {
@@ -397,9 +442,10 @@ export async function createStaffMember(input: {
     after: staff,
   });
 
+  let loginInvite: StaffLoginInviteResult | null = null;
   if (staff.email) {
     try {
-      await ensureStaffLoginInvite({
+      loginInvite = await ensureStaffLoginInvite({
         organizationId: input.organizationId,
         staffId: staff.id,
         email: staff.email,
@@ -410,12 +456,20 @@ export async function createStaffMember(input: {
         staffId: staff.id,
         error: error instanceof Error ? error.message : String(error),
       });
+      loginInvite = {
+        status: "failed",
+        message:
+          error instanceof Error
+            ? `Staff saved, but login invite failed: ${error.message}`
+            : "Staff saved, but login invite failed.",
+      };
     }
   }
 
   return {
     ...staff,
     accessJson: staffAccessFromForm(input.access ?? {}),
+    loginInvite,
   };
 }
 
@@ -668,9 +722,10 @@ export async function updateStaffMember(input: {
     after: updated,
   });
 
+  let loginInvite: StaffLoginInviteResult | null = null;
   if (updated.email && !updated.userId) {
     try {
-      await ensureStaffLoginInvite({
+      loginInvite = await ensureStaffLoginInvite({
         organizationId: input.organizationId,
         staffId: updated.id,
         email: updated.email,
@@ -681,11 +736,18 @@ export async function updateStaffMember(input: {
         staffId: updated.id,
         error: error instanceof Error ? error.message : String(error),
       });
+      loginInvite = {
+        status: "failed",
+        message:
+          error instanceof Error
+            ? `Staff saved, but login invite failed: ${error.message}`
+            : "Staff saved, but login invite failed.",
+      };
     }
   }
 
   const accessJson =
     accessToWrite ?? (await readStaffAccessJson(updated.id));
 
-  return { ...updated, accessJson };
+  return { ...updated, accessJson, loginInvite };
 }

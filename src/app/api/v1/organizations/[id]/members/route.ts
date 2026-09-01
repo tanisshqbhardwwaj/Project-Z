@@ -43,7 +43,7 @@ export async function POST(
     if (!canCreateOrgTeamInvite(ctx.businessType)) {
       throw new ApiError(403, "SHOP_STAFF_ONLY", SHOP_STAFF_ONLY_INVITE_MESSAGE);
     }
-    const invite = await inviteMember({
+    const { invite } = await inviteMember({
       organizationId: ctx.organizationId,
       email: data.email,
       role: data.role as OrgRole,
