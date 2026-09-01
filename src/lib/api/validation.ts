@@ -5,7 +5,10 @@ import {
   validatePersonName,
   validatePhoneOptional,
   validateSecurePassword,
+  validateCustomerNameOptional,
+  validateGstinOptional,
   FIELD_LIMITS,
+  GSTIN_HINT,
 } from "@/lib/validation/fields";
 
 function isApiClientError(err: unknown): err is { code: string; message: string } {
@@ -217,7 +220,15 @@ export function requirePhoneOptional(value: string): string | null {
   return validatePhoneOptional(value);
 }
 
-export { FIELD_LIMITS, PASSWORD_HINT } from "@/lib/validation/fields";
+export function requireCustomerNameOptional(value: string): string | null {
+  return validateCustomerNameOptional(value);
+}
+
+export function requireGstinOptional(value: string): string | null {
+  return validateGstinOptional(value);
+}
+
+export { FIELD_LIMITS, PASSWORD_HINT, GSTIN_HINT } from "@/lib/validation/fields";
 export { PASSWORD_HINT as passwordHint } from "@/lib/validation/fields";
 
 export function parseAmountInput(

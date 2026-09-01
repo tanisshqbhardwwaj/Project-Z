@@ -195,6 +195,9 @@ export async function inviteMember(input: {
 }) {
   const { invite, url } = await createInviteLink(input);
 
+  let emailDelivered = false;
+  let emailError: string | undefined;
+
   try {
     await sendEmail({
       to: input.email,
@@ -204,17 +207,20 @@ export async function inviteMember(input: {
       html: inviteEmailHtml(invite.organization.name, url, {
         fromStaff: Boolean(input.fromStaff),
       }),
+      devLink: url,
       clientIp: input.clientIp,
     });
+    emailDelivered = true;
   } catch (error) {
+    emailError = error instanceof Error ? error.message : String(error);
     if (input.requireEmailDelivery !== false) throw error;
     logger.error("org.invite_email_failed", {
       organizationId: input.organizationId,
-      error: error instanceof Error ? error.message : String(error),
+      error: emailError,
     });
   }
 
-  return invite;
+  return { invite, inviteUrl: url, emailDelivered, emailError };
 }
 
 export async function resendPendingInviteEmail(input: {
@@ -225,6 +231,9 @@ export async function resendPendingInviteEmail(input: {
   clientIp?: string;
 }) {
   const url = `${getPublicAppUrl()}/invite/${input.token}`;
+  let emailDelivered = false;
+  let emailError: string | undefined;
+
   try {
     await sendEmail({
       to: input.email,
@@ -234,13 +243,18 @@ export async function resendPendingInviteEmail(input: {
       html: inviteEmailHtml(input.organizationName, url, {
         fromStaff: Boolean(input.fromStaff),
       }),
+      devLink: url,
       clientIp: input.clientIp,
     });
+    emailDelivered = true;
   } catch (error) {
+    emailError = error instanceof Error ? error.message : String(error);
     logger.error("org.invite_email_resend_failed", {
-      error: error instanceof Error ? error.message : String(error),
+      error: emailError,
     });
   }
+
+  return { inviteUrl: url, emailDelivered, emailError };
 }
 
 async function linkStaffForAcceptedInvite(input: {

@@ -14,6 +14,12 @@ export type StaffCommissionType =
   | "FIXED_PER_ITEM"
   | "FIXED_MONTHLY";
 
+export type StaffLoginInviteResult = {
+  status: "sent" | "resent" | "linked" | "failed";
+  message: string;
+  inviteUrl?: string;
+};
+
 export type StaffMember = {
   id: string;
   userId: string | null;
@@ -290,7 +296,10 @@ export function useCreateStaff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Record<string, unknown>) =>
-      apiFetch("/api/v1/staff", { method: "POST", body: JSON.stringify(body) }),
+      apiFetch<StaffMember & { loginInvite?: StaffLoginInviteResult | null }>(
+        "/api/v1/staff",
+        { method: "POST", body: JSON.stringify(body) }
+      ),
     onSuccess: () => {
       if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
     },
@@ -302,10 +311,13 @@ export function useUpdateStaff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) =>
-      apiFetch(`/api/v1/staff/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
+      apiFetch<StaffMember & { loginInvite?: StaffLoginInviteResult | null }>(
+        `/api/v1/staff/${id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        }
+      ),
     onSuccess: () => {
       if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
     },

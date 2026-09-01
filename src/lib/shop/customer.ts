@@ -37,13 +37,19 @@ export function customerSearchWhere(
 export function invoiceSearchWhere(
   organizationId: string,
   query: string,
-  customerId?: string
+  customerId?: string,
+  options?: { billNumberOnly?: boolean }
 ): Prisma.ShopSaleWhereInput {
   const where: Prisma.ShopSaleWhereInput = { organizationId };
   if (customerId) where.customerId = customerId;
 
   const q = query.trim();
   if (!q) return where;
+
+  if (options?.billNumberOnly) {
+    where.billNumber = { contains: q };
+    return where;
+  }
 
   const phoneDigits = q.replace(/\D/g, "");
   const or: Prisma.ShopSaleWhereInput[] = [

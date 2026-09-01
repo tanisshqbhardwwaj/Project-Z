@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   FIELD_LIMITS,
   registerSchema,
+  validateCustomerNameOptional,
   validateEmail,
+  validateGstinOptional,
   validateOrganizationName,
   validatePersonName,
   validatePhoneOptional,
@@ -67,6 +69,33 @@ describe("validateOrganizationName", () => {
     expect(validateOrganizationName("A")).toMatch(/at least/i);
     expect(validateOrganizationName("x".repeat(FIELD_LIMITS.ORG_NAME_MAX + 1))).toMatch(/at most/i);
     expect(validateOrganizationName("Acme Corp")).toBeNull();
+  });
+});
+
+describe("validateCustomerNameOptional", () => {
+  it("allows empty walk-in names", () => {
+    expect(validateCustomerNameOptional("")).toBeNull();
+  });
+
+  it("rejects names over the limit", () => {
+    expect(validateCustomerNameOptional("x".repeat(FIELD_LIMITS.CUSTOMER_NAME_MAX + 1))).toMatch(
+      /at most/
+    );
+  });
+});
+
+describe("validateGstinOptional", () => {
+  it("allows empty GSTIN", () => {
+    expect(validateGstinOptional("")).toBeNull();
+  });
+
+  it("accepts a valid GSTIN", () => {
+    expect(validateGstinOptional("27AABCU9603R1ZM")).toBeNull();
+  });
+
+  it("rejects invalid GSTIN format", () => {
+    expect(validateGstinOptional("123")).toMatch(/15 characters/);
+    expect(validateGstinOptional("27AABCU9603R1Z")).toMatch(/15 characters/);
   });
 });
 
