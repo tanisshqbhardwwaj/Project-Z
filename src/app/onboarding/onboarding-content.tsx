@@ -90,7 +90,7 @@ export default function OnboardingContent() {
   function validateStep(current: number): boolean {
     clear();
     if (current === 1) {
-      const msg = requireField(name, "organization name");
+      const msg = requireOrganizationName(name);
       if (msg) {
         showWarning(msg);
         return false;
