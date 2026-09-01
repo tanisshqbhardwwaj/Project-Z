@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ReturnExchangeWizard } from "@/components/shop/return-exchange-wizard";
+import { ModuleGate } from "@/components/org/module-gate";
 import { CameraScanButton } from "@/components/shop/camera-scan-button";
 import { ArrowRight, Repeat, RotateCcw, Search } from "lucide-react";
 
@@ -162,6 +163,7 @@ export default function ShopReturnsPage() {
   }
 
   return (
+    <ModuleGate moduleKey="shop_sales">
     <div className="mx-auto max-w-5xl space-y-5 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -411,5 +413,6 @@ export default function ShopReturnsPage() {
         </div>
       )}
     </div>
+    </ModuleGate>
   );
 }

@@ -11,6 +11,8 @@ import { isShopVertical } from "@/lib/org/business-type";
 import { isServiceVerticalEnabled } from "@/lib/org/service-vertical";
 import type { ModuleKey } from "@/lib/org/modules";
 import { defaultEnabledModules } from "@/lib/org/modules";
+import { effectiveModulesForPlan } from "@/lib/billing/entitlements";
+import type { BillingPlan } from "@prisma/client";
 import { setupFeeForNewOrg } from "@/services/billing/billing.service";
 import { seedSampleServicesForOrg } from "@/services/service/service-onboarding.service";
 import { ensureShopBranchSchema } from "@/lib/shop/schema/ensure-shop-branch-schema";
@@ -21,6 +23,14 @@ export async function createOrganization(input: {
   businessType?: BusinessType;
   shopSector?: ShopSector | null;
   enableStaff?: boolean;
+  shopBusinessTypes?: ShopSector[];
+  shopCustomBusinessType?: string | null;
+  timezone?: string;
+  defaultCompletionDays?: number;
+  settings?: {
+    modules?: Partial<Record<ModuleKey, boolean>>;
+    shop?: ShopOrgSettings;
+  };
 }) {
   let slug = slugify(input.name);
   const existing = await prisma.organization.findUnique({ where: { slug } });
@@ -33,17 +43,50 @@ export async function createOrganization(input: {
   const shopSector = isShopVertical(businessType)
     ? businessType === "SERVICE"
       ? "SERVICES"
-      : (input.shopSector ?? "GENERAL")
+      : (input.shopBusinessTypes?.[0] ?? input.shopSector ?? "GENERAL")
     : null;
   const enableStaff = isShopVertical(businessType)
     ? Boolean(input.enableStaff)
     : false;
 
-  const defaultModules = defaultEnabledModules(businessType, shopSector);
+  const plan: BillingPlan = isShopVertical(businessType) ? "BASIC" : "BUSINESS";
+  let defaultModules = defaultEnabledModules(businessType, shopSector);
   if (enableStaff) defaultModules.staff = true;
   if (shopSector === "RESTAURANT") {
     defaultModules.restaurant_tables = true;
     defaultModules.restaurant_kitchen = true;
+  }
+  defaultModules = effectiveModulesForPlan(
+    plan,
+    defaultModules as Record<ModuleKey, boolean>
+  );
+
+  let orgSettings = parseOrgSettings({ modules: defaultModules });
+  if (input.settings?.modules) {
+    orgSettings = mergeModuleSettings(orgSettings, input.settings.modules);
+    orgSettings = {
+      ...orgSettings,
+      modules: effectiveModulesForPlan(
+        plan,
+        (orgSettings.modules ?? {}) as Record<ModuleKey, boolean>
+      ),
+    };
+  }
+  if (input.shopBusinessTypes?.length) {
+    const list = input.shopBusinessTypes.filter(isShopSector);
+    orgSettings = mergeShopOrgSettings(orgSettings, {
+      businessTypes: list,
+      ...(input.shopCustomBusinessType
+        ? { customBusinessType: input.shopCustomBusinessType }
+        : {}),
+    });
+  } else if (input.shopCustomBusinessType) {
+    orgSettings = mergeShopOrgSettings(orgSettings, {
+      customBusinessType: input.shopCustomBusinessType,
+    });
+  }
+  if (input.settings?.shop) {
+    orgSettings = mergeShopOrgSettings(orgSettings, input.settings.shop);
   }
 
   const { setupFeePaise, earlyBird } = isShopVertical(businessType)
@@ -70,8 +113,10 @@ export async function createOrganization(input: {
         businessType,
         shopSector,
         enableStaff,
-        settings: { modules: defaultModules },
-        plan: isShopVertical(businessType) ? "BASIC" : "BUSINESS",
+        timezone: input.timezone ?? "Asia/Kolkata",
+        defaultCompletionDays: input.defaultCompletionDays ?? 30,
+        settings: orgSettings,
+        plan,
         subscriptionStatus: isShopVertical(businessType) ? "TRIAL" : "ACTIVE",
         storageQuotaBytes: isShopVertical(businessType)
           ? BigInt(2 * 1024 * 1024 * 1024)
@@ -96,7 +141,11 @@ export async function createOrganization(input: {
     return organization;
   });
 
-  await seedExpenseCategories(prisma, org.id);
+  await seedExpenseCategories(prisma, org.id, businessType, shopSector);
+
+  if (businessType === "SHOPKEEPER") {
+    await ensureShopBranchSchema(org.id);
+  }
 
   if (businessType === "SERVICE" && isServiceVerticalEnabled()) {
     await ensureShopBranchSchema(org.id);
@@ -276,6 +325,7 @@ export async function updateOrganization(input: {
   enableStaff?: boolean;
   timezone?: string;
   defaultCompletionDays?: number;
+  onboardingComplete?: boolean;
   settings?: {
     modules?: Partial<Record<ModuleKey, boolean>>;
     weeklyOffDays?: number[];
@@ -312,6 +362,7 @@ export async function updateOrganization(input: {
     timezone?: string;
     defaultCompletionDays?: number;
     settings?: object;
+    onboardingCompleteAt?: Date | null;
   } = {};
 
   if (input.name !== undefined) {
@@ -408,7 +459,16 @@ export async function updateOrganization(input: {
     data.defaultCompletionDays = input.defaultCompletionDays;
   }
 
-  if (Object.keys(data).length === 0 && !input.settings && !hasShopTypePatch) {
+  if (input.onboardingComplete !== undefined) {
+    data.onboardingCompleteAt = input.onboardingComplete ? new Date() : null;
+  }
+
+  if (
+    Object.keys(data).length === 0 &&
+    !input.settings &&
+    !hasShopTypePatch &&
+    input.onboardingComplete === undefined
+  ) {
     throw new Error("Nothing to update");
   }
 
@@ -419,13 +479,21 @@ export async function updateOrganization(input: {
 
   const typeChanged =
     input.businessType && input.businessType !== before.businessType;
+  if (typeChanged) {
+    data.onboardingCompleteAt = null;
+  }
   const sectorChanged =
     isShopVertical(updated.businessType) &&
     input.shopSector !== undefined &&
     input.shopSector !== before.shopSector;
 
   if (typeChanged || sectorChanged) {
-    await seedExpenseCategories(prisma, input.organizationId);
+    await seedExpenseCategories(
+      prisma,
+      input.organizationId,
+      updated.businessType,
+      updated.shopSector
+    );
   }
 
   await createAuditLog({

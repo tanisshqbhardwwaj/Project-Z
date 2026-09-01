@@ -19,6 +19,7 @@ import { formatINR } from "@/lib/finance/money";
 import { canManageOrg } from "@/lib/permissions/rbac";
 import { parseInventoryCategory } from "@/lib/shop/inventory/inventory-categories";
 import { describeOfferRule } from "@/lib/shop/offers/offer-engine";
+import { ModuleGate } from "@/components/org/module-gate";
 import type { OrgRole } from "@prisma/client";
 
 type OfferRow = {
@@ -233,6 +234,7 @@ export default function ShopOffersPage() {
   const offers = data ?? [];
 
   return (
+    <ModuleGate moduleKey="shop_sales">
     <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
@@ -533,5 +535,6 @@ export default function ShopOffersPage() {
         )}
       </div>
     </div>
+    </ModuleGate>
   );
 }

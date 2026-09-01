@@ -23,20 +23,12 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node scripts/generate-nsis-assets.mjs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-# Tauri frontendDist must be static web assets only (no node_modules).
-# The desktop app is a WebView shell that redirects to the hosted BusinessOS URL.
-$desktopDist = Join-Path (Get-Location) "desktop\dist"
-$shellTemplate = Join-Path (Get-Location) "desktop\shell\index.html"
-if (-not (Test-Path $shellTemplate)) {
-  Write-Host "Missing desktop/shell/index.html template." -ForegroundColor Red
-  exit 1
-}
-if (Test-Path $desktopDist) { Remove-Item $desktopDist -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $desktopDist | Out-Null
-Copy-Item -Path $shellTemplate -Destination (Join-Path $desktopDist "index.html") -Force
-
-Write-Host "Syncing production URL into desktop shell..." -ForegroundColor Yellow
+Write-Host "Building bundled static UI..." -ForegroundColor Yellow
 $env:NEXT_PUBLIC_APP_URL = "https://www.econsole.in"
+node scripts/native-static-build.mjs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "Syncing production URL into native configs..." -ForegroundColor Yellow
 node scripts/sync-native-app-url.mjs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

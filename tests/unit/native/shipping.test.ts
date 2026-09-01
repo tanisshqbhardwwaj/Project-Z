@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { capacitorNetworkFlags, APP_CONTENT_SECURITY_POLICY } from "@/lib/security/csp";
 import { parseShopDiskSnapshot } from "@/lib/local-db/snapshot";
+import { withNativeAppEntryUrl } from "@/lib/app/public-url";
+import { isNativeAppUserAgent, NATIVE_APP_UA_MARK } from "@/platform/common/native";
+import { resolveAppFetchUrl } from "@/lib/api/resolve-url";
 
 describe("Android shipping network flags", () => {
   it("requires https for a remote WebView URL", () => {
@@ -25,6 +28,30 @@ describe("Android shipping network flags", () => {
     expect(flags.cleartext).toBe(false);
     expect(flags.allowMixedContent).toBe(false);
     expect(flags.url).toBe("https://app.example.com");
+  });
+});
+
+describe("native app entry", () => {
+  it("points Android/Windows shells at login, not the landing page", () => {
+    expect(withNativeAppEntryUrl("https://www.econsole.in")).toBe(
+      "https://www.econsole.in/login"
+    );
+    expect(withNativeAppEntryUrl("https://www.econsole.in/")).toBe(
+      "https://www.econsole.in/login"
+    );
+  });
+
+  it("recognizes the native WebView user-agent mark", () => {
+    expect(isNativeAppUserAgent(`Mozilla/5.0 ${NATIVE_APP_UA_MARK}/Android`)).toBe(
+      true
+    );
+    expect(isNativeAppUserAgent("Mozilla/5.0 Chrome/120")).toBe(false);
+  });
+});
+
+describe("API URL resolver", () => {
+  it("keeps relative paths on web", () => {
+    expect(resolveAppFetchUrl("/api/v1/sync/pull")).toBe("/api/v1/sync/pull");
   });
 });
 

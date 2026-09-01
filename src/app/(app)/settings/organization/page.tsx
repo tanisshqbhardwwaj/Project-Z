@@ -32,7 +32,6 @@ import {
 } from "@/lib/org/shop-settings";
 import { cn } from "@/lib/utils";
 import { Users } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -40,9 +39,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { OrgModuleToggles } from "@/components/org/org-module-toggles";
+import { useActivePlan } from "@/hooks/use-active-plan";
 import {
-  modulesForBusinessType,
-  moduleLabel,
   type ModuleKey,
   type OrgSettingsJson,
 } from "@/lib/org/modules";
@@ -71,6 +70,7 @@ export default function OrganizationSettingsPage() {
   const [savedMessage, setSavedMessage] = useState("");
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
+  const [initialBusinessType, setInitialBusinessType] = useState<BusinessType>("CONTRACTOR");
   const [businessTypes, setBusinessTypes] = useState<ShopSector[]>(["GENERAL"]);
   const [customBusinessType, setCustomBusinessType] = useState("");
   const [enableStaff, setEnableStaff] = useState(false);
@@ -80,6 +80,7 @@ export default function OrganizationSettingsPage() {
   const [brandName, setBrandName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
+  const plan = useActivePlan();
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +93,7 @@ export default function OrganizationSettingsPage() {
         if (cancelled) return;
         setName(org.name);
         setBusinessType(org.businessType ?? "CONTRACTOR");
+        setInitialBusinessType(org.businessType ?? "CONTRACTOR");
         setBusinessTypes(
           resolveShopBusinessTypes(
             org.settings ?? {},
@@ -256,7 +258,7 @@ export default function OrganizationSettingsPage() {
   if (loading) return <PageLoader label="Loading organization..." />;
 
   return (
-    <div className="mx-auto max-w-lg space-y-5 pb-8">
+    <div className="space-y-5 pb-8">
       <div>
         <h1 className="text-2xl font-bold">Manage Organization</h1>
         <p className="text-sm text-muted-foreground">
@@ -291,6 +293,11 @@ export default function OrganizationSettingsPage() {
 
           <div className="space-y-2">
             <Label>Business type</Label>
+            {businessType !== initialBusinessType ? (
+              <p className="text-xs text-amber-600 dark:text-amber-500">
+                Changing business type resets your setup checklist. Save to apply.
+              </p>
+            ) : null}
             <div className="grid gap-2 sm:grid-cols-2">
               {selectableBusinessTypes(businessType).map((type) => {
                 const config = BUSINESS_TYPE_CONFIG[type];
@@ -479,35 +486,20 @@ export default function OrganizationSettingsPage() {
               <CardTitle className="text-lg">Features</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {modulesForBusinessType(businessType, businessTypes[0] ?? null).map((mod) => {
-                const on = Boolean(
-                  moduleToggles[mod.key] ??
-                    (mod.key === "staff" ? enableStaff : mod.defaultOn[businessType])
-                );
-                return (
-                  <div
-                    key={mod.key}
-                    className="flex items-start gap-3 rounded-xl border p-3 sm:items-center"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">
-                        {moduleLabel(mod.key, businessType)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{mod.description}</p>
-                    </div>
-                    <Switch
-                      checked={on}
-                      disabled={!isOwner}
-                      onCheckedChange={(next) =>
-                        setModuleToggles((prev) => ({
-                          ...prev,
-                          [mod.key]: next,
-                        }))
-                      }
-                    />
-                  </div>
-                );
-              })}
+              <OrgModuleToggles
+                businessType={businessType}
+                primaryShopSector={businessTypes[0] ?? null}
+                plan={plan}
+                moduleToggles={moduleToggles}
+                enableStaff={enableStaff}
+                disabled={!isOwner}
+                onToggle={(key, next) =>
+                  setModuleToggles((prev) => ({
+                    ...prev,
+                    [key]: next,
+                  }))
+                }
+              />
               <div className="space-y-2">
                 <Label>Unmarked working days count as</Label>
                 <select

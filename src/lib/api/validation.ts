@@ -1,4 +1,5 @@
 import { ZodError, type ZodIssue } from "zod";
+import { resolveUserError } from "@/lib/errors";
 
 function isApiClientError(err: unknown): err is { code: string; message: string } {
   return (
@@ -101,25 +102,7 @@ function formatZodIssues(issues: unknown): string | null {
 }
 
 export function humanizeErrorMessage(message: string, details?: unknown): string {
-  const fromDetails = formatZodIssues(details);
-  if (fromDetails) return fromDetails;
-
-  const trimmed = message.trim();
-  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      const fromJson = formatZodIssues(parsed);
-      if (fromJson) return fromJson;
-    } catch {
-      // fall through
-    }
-  }
-
-  if (trimmed.startsWith("Invalid input") || trimmed.includes("invalid_type")) {
-    return "Please check your input and try again.";
-  }
-
-  return message || "Something went wrong. Please try again.";
+  return resolveUserError({ message, details });
 }
 
 export type ApiErrorPayload = {

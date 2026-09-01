@@ -10,6 +10,6 @@ export const mk = {
   link: "text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white",
   card: "rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
   /** Full-width marketing shell: responsive side padding, no narrow 1280px cap. */
-  container: "mx-auto w-full px-6 sm:px-8 lg:px-12 xl:px-16 2xl:px-24",
+  container: "mx-auto w-full px-6 sm:px-8 lg:px-12 xl:px-16 2xl:max-w-[1400px] 2xl:px-24",
   sectionPad: "py-20 lg:py-28",
 } as const;

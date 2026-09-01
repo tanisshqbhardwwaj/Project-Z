@@ -11,6 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
+  if (process.env.NEXT_PUBLIC_NATIVE_SHELL === "1") {
+    redirect("/login");
+  }
+
   const session = await auth();
   if (session?.user?.id) {
     redirect("/dashboard");

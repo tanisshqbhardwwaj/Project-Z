@@ -196,6 +196,8 @@ export async function runSync(orgId: string) {
     useSyncStore.getState().setConnection("offline");
     return;
   }
+  const { requiresVerifiedSession } = await import("@/stores/auth-store");
+  if (requiresVerifiedSession()) return;
   const ui = useSyncStore.getState();
   ui.setConnection("syncing");
   try {

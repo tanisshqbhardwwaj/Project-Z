@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { handleApi, apiSuccess } from "@/lib/api/context";
+import { resolveAuthenticatedUserId } from "@/lib/auth/resolve-session";
 import { modulesPayloadForClient } from "@/lib/org/require-module";
 import { isPlatformAdminEmail } from "@/lib/billing/platform-admin";
 
@@ -20,8 +21,9 @@ const updateProfileSchema = z.object({
 
 export async function GET() {
   return handleApi(async () => {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const headerStore = await headers();
+    const userId = await resolveAuthenticatedUserId(headerStore.get("authorization"));
+    if (!userId) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
         { status: 401 }
@@ -29,7 +31,7 @@ export async function GET() {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: userId },
       select: {
         id: true,
         email: true,
@@ -104,8 +106,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   return handleApi(async () => {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const headerStore = await headers();
+    const userId = await resolveAuthenticatedUserId(headerStore.get("authorization"));
+    if (!userId) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
         { status: 401 }
@@ -116,7 +119,7 @@ export async function PATCH(request: Request) {
     const data = updateProfileSchema.parse(body);
 
     const user = await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: userId },
       data: {
         name: data.name,
         phone: data.phone,

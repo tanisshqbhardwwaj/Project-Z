@@ -9,11 +9,18 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
+const SYNC_ENGINE_DELAY_MS = 3_000;
+
 export function SyncEngineProvider({ children }: { children: React.ReactNode }) {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
+  const sessionVerified = useAuthStore((s) => s.sessionVerified);
   useEffect(() => {
-    startSyncEngine(orgId);
-  }, [orgId]);
+    if (!orgId || !sessionVerified) return;
+    const timer = window.setTimeout(() => {
+      startSyncEngine(orgId);
+    }, SYNC_ENGINE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [orgId, sessionVerified]);
   return <>{children}</>;
 }
 

@@ -1,10 +1,16 @@
-import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db/prisma";
 import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
+import { serializeBigInt } from "@/lib/db/prisma";
+import {
+  buildOrgSwitchContext,
+  resolveRedirectAfterSwitch,
+} from "@/services/org/org-switch.service";
 import { z } from "zod";
 
-const schema = z.object({ organizationId: z.string().uuid() });
+const schema = z.object({
+  organizationId: z.string().uuid(),
+  returnTo: z.string().optional(),
+});
 
 export async function POST(request: Request) {
   return handleApi(async () => {
@@ -14,21 +20,21 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { organizationId } = schema.parse(body);
+    const { organizationId, returnTo } = schema.parse(body);
 
-    const member = await prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId,
-          userId: session.user.id,
-        },
-      },
-    });
-
-    if (!member || member.status !== "ACTIVE") {
+    const organization = await buildOrgSwitchContext(session.user.id, organizationId);
+    if (!organization) {
       throw new ApiError(403, "FORBIDDEN", "Not a member of this organization");
     }
 
-    return apiSuccess({ activeOrganizationId: organizationId });
+    const redirectTo = resolveRedirectAfterSwitch(organization.businessType, returnTo);
+
+    return apiSuccess(
+      serializeBigInt({
+        activeOrganizationId: organizationId,
+        organization,
+        redirectTo,
+      })
+    );
   });
 }

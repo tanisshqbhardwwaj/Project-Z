@@ -33,6 +33,10 @@ export function isNativeShell(): boolean {
 
 export const NATIVE_APP_UA_MARK = "BusinessOSNative";
 
+export function isNativeAppUserAgent(ua: string | null | undefined): boolean {
+  return Boolean(ua?.includes(NATIVE_APP_UA_MARK));
+}
+
 export async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T | null> {
   if (!isTauriRuntime()) return null;
   const w = window as unknown as {

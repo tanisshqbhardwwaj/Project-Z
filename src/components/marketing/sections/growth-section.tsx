@@ -21,14 +21,19 @@ export function GrowthSection() {
       description="Practical tools that help you run better today and make smarter decisions tomorrow."
       className={mk.sectionBase}
     >
-      <ul className="mt-12 grid gap-4 sm:grid-cols-2">
+      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {GROWTH_BENEFITS.map((item) => (
-          <li key={item} className={cn("flex items-start gap-3 text-sm sm:text-base", mk.body)}>
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-            {item}
-          </li>
+          <div key={item} className={cn("rounded-2xl border p-5 shadow-sm", mk.card)}>
+            <div className={cn("flex items-start gap-3 text-sm sm:text-base", mk.body)}>
+              <Check
+                className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                aria-hidden
+              />
+              {item}
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
     </SectionShell>
   );
 }

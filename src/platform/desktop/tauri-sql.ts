@@ -7,6 +7,44 @@ import {
 import { isTauriRuntime, tauriInvoke } from "@/platform/common/native";
 
 const hydrations = new Map<string, Promise<void>>();
+const persistTimers = new Map<string, ReturnType<typeof globalThis.setTimeout>>();
+const PERSIST_DEBOUNCE_MS = 2_500;
+let lifecycleHooksInstalled = false;
+
+function installPersistLifecycleHooks() {
+  if (lifecycleHooksInstalled || typeof window === "undefined") return;
+  lifecycleHooksInstalled = true;
+  const flushAll = () => {
+    void flushAllPendingPersists();
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushAll();
+  });
+  window.addEventListener("beforeunload", flushAll);
+}
+
+async function flushAllPendingPersists() {
+  const orgIds = [...persistTimers.keys()];
+  for (const orgId of orgIds) {
+    const timer = persistTimers.get(orgId);
+    if (timer) window.clearTimeout(timer);
+    persistTimers.delete(orgId);
+    await persistEncrypted(orgId);
+  }
+}
+
+function schedulePersistEncrypted(orgId: string) {
+  installPersistLifecycleHooks();
+  const existing = persistTimers.get(orgId);
+  if (existing) window.clearTimeout(existing);
+  persistTimers.set(
+    orgId,
+    window.setTimeout(() => {
+      persistTimers.delete(orgId);
+      void persistEncrypted(orgId);
+    }, PERSIST_DEBOUNCE_MS) as unknown as ReturnType<typeof globalThis.setTimeout>
+  );
+}
 
 function utf8FromBase64(b64: string): string {
   const bin = atob(b64);
@@ -69,22 +107,22 @@ export async function createTauriSqlAdapter(): Promise<LocalDbAdapter> {
     async setMeta(meta) {
       await ensureHydrated(meta.orgId);
       await inner.setMeta(meta);
-      await persistEncrypted(meta.orgId);
+      schedulePersistEncrypted(meta.orgId);
     },
     async enqueue(row) {
       await ensureHydrated(row.orgId);
       await inner.enqueue(row);
-      await persistEncrypted(row.orgId);
+      schedulePersistEncrypted(row.orgId);
     },
     async putOne(store, row) {
       await ensureHydrated(row.orgId);
       await inner.putOne(store, row);
-      await persistEncrypted(row.orgId);
+      schedulePersistEncrypted(row.orgId);
     },
     async putAll(store, rows) {
       if (rows[0]) await ensureHydrated(rows[0].orgId);
       await inner.putAll(store, rows);
-      if (rows[0]) await persistEncrypted(rows[0].orgId);
+      if (rows[0]) schedulePersistEncrypted(rows[0].orgId);
     },
     async getAll(store, orgId) {
       await ensureHydrated(orgId);
@@ -113,7 +151,7 @@ export async function createTauriSqlAdapter(): Promise<LocalDbAdapter> {
       const orgId = typeof row?.orgId === "string" ? row.orgId : null;
       if (orgId) await ensureHydrated(orgId);
       await inner.markOutbox(id, status, lastError, attempts);
-      if (orgId) await persistEncrypted(orgId);
+      if (orgId) schedulePersistEncrypted(orgId);
     },
   };
 }

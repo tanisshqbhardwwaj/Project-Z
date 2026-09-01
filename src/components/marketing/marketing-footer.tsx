@@ -3,42 +3,69 @@ import { cn } from "@/lib/utils";
 import { AppLogo } from "@/components/brand/app-logo";
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand/constants";
 import { mk } from "@/components/marketing/marketing-theme";
+
+const FOOTER_COLUMNS = [
+  {
+    title: "Product",
+    links: [
+      { href: "/#billing", label: "Features" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/pricing/compare", label: "Compare plans" },
+      { href: "/#downloads", label: "Get the app" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
+      { href: "/#faq", label: "FAQ" },
+      { href: "/#projects", label: "Projects" },
+      { href: "/#billing", label: "Billing & invoices" },
+    ],
+  },
+  {
+    title: "Account",
+    links: [
+      { href: "/login", label: "Log in" },
+      { href: "/register", label: "Create account" },
+    ],
+  },
+] as const;
+
 export function MarketingFooter() {
   return (
     <footer className={cn("mt-auto border-t", mk.sectionBorder, mk.sectionBase)}>
-      <div className={cn(mk.container, "flex flex-col gap-10 py-14 sm:flex-row sm:items-start sm:justify-between")}>
-        <div className="max-w-md space-y-4">
+      <div className={cn(mk.container, "grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4")}>
+        <div className="space-y-4 sm:col-span-2 lg:col-span-1">
           <AppLogo href="/" brandMode="company" variant="compact" />
-          <p className={cn("text-sm leading-relaxed sm:text-base", mk.body)}>            Our product <span className={cn("font-semibold", mk.heading)}>{PRODUCT_NAME}</span> powers
-            billing, inventory, expenses, and projects. {PRODUCT_TAGLINE}
+          <p className={cn("text-sm leading-relaxed sm:text-base", mk.body)}>
+            Our product{" "}
+            <span className={cn("font-semibold", mk.heading)}>{PRODUCT_NAME}</span> powers billing,
+            inventory, expenses, and projects. {PRODUCT_TAGLINE}
           </p>
         </div>
-        <div className={cn("flex flex-wrap gap-x-8 gap-y-3 text-sm", mk.body)}>
-          <Link href="/#billing" className={mk.link}>
-            Features
-          </Link>
-          <Link href="/pricing" className={mk.link}>
-            Pricing
-          </Link>
-          <Link href="/pricing/compare" className={mk.link}>
-            Compare plans
-          </Link>
-          <Link href="/#faq" className={mk.link}>
-            FAQ
-          </Link>
-          <Link href="/#downloads" className={mk.link}>
-            Get the app
-          </Link>
-          <Link href="/login" className={mk.link}>
-            Log In
-          </Link>
-          <Link href="/register" className={cn("font-medium", mk.heading, "hover:underline")}>
-            Create account
-          </Link>
-        </div>
+        {FOOTER_COLUMNS.map((column) => (
+          <div key={column.title} className="space-y-3">
+            <p className={cn("text-sm font-semibold", mk.heading)}>{column.title}</p>
+            <ul className="space-y-2">
+              {column.links.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className={cn("text-sm", mk.link)}>
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
       <div className={cn("border-t", mk.sectionBorder, mk.sectionAlt)}>
-        <div className={cn(mk.container, "flex flex-col gap-2 py-6 text-xs sm:flex-row sm:justify-between", mk.muted)}>
+        <div
+          className={cn(
+            mk.container,
+            "flex flex-col gap-2 py-6 text-xs sm:flex-row sm:justify-between",
+            mk.muted
+          )}
+        >
           <span>© {new Date().getFullYear()} E-console. All rights reserved.</span>
           <span>GST-ready · Offline Android · Web & Windows</span>
         </div>

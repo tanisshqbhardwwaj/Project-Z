@@ -15,9 +15,19 @@ const securityHeaders = [
   },
 ];
 
+const isNativeStatic = process.env.NATIVE_STATIC === "1";
+
 const nextConfig: NextConfig = {
-  // Standalone is for Docker only — Vercel needs default output for serverless NFT tracing.
-  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
+  ...(isNativeStatic
+    ? {
+        output: "export" as const,
+        distDir: "native-out",
+        images: { unoptimized: true },
+        trailingSlash: true,
+      }
+    : process.env.VERCEL
+      ? {}
+      : { output: "standalone" as const }),
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "tesseract.js", "inngest", "heic-convert", "sql.js"],
   turbopack: {
     resolveAlias: {

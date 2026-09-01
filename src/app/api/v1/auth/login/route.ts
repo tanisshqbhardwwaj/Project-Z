@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { signIn } from "@/lib/auth";
+import {
+  isNativeClientRequest,
+  issueNativeTokenPair,
+} from "@/lib/auth/native-tokens-server";
 import { handleApi } from "@/lib/api/context";
 import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { prisma } from "@/lib/db/prisma";
 import { z } from "zod";
 
 const schema = z.object({
@@ -21,6 +26,22 @@ export async function POST(request: Request) {
         password: data.password,
         redirect: false,
       });
+
+      if (isNativeClientRequest(request)) {
+        const user = await prisma.user.findUnique({
+          where: { email: data.email.toLowerCase().trim() },
+          select: { id: true },
+        });
+        if (!user) {
+          return NextResponse.json(
+            { error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password" } },
+            { status: 401 }
+          );
+        }
+        const tokens = await issueNativeTokenPair(user.id);
+        return NextResponse.json({ data: { success: true, native: tokens } });
+      }
+
       return NextResponse.json({ data: { success: true } });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Invalid credentials";

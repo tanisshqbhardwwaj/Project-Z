@@ -12,6 +12,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { firstValidationIssue, requireEmail, requireField } from "@/lib/api/validation";
+import { appFetch } from "@/lib/api/client";
+import { isNativeShell } from "@/platform/common/native";
+import { saveNativeTokens } from "@/platform/common/native-tokens";
+import { useAuthStore } from "@/stores/auth-store";
 
 export default function LoginForm() {
   const t = useTranslations("auth");
@@ -38,9 +42,8 @@ export default function LoginForm() {
 
     setLoading(true);
 
-    const res = await fetch("/api/v1/auth/login", {
+    const res = await appFetch("/api/v1/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
@@ -51,6 +54,12 @@ export default function LoginForm() {
       applyResponseError(data, "Login failed");
       return;
     }
+
+    if (isNativeShell() && data?.data?.native) {
+      await saveNativeTokens(data.data.native);
+    }
+
+    await useAuthStore.getState().bootstrap();
 
     router.push(searchParams.get("callbackUrl") ?? "/dashboard");
     router.refresh();

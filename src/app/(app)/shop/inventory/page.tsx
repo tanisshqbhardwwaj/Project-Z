@@ -36,6 +36,7 @@ import {
 import { catalogCategoryLabel, catalogSubCategoryLabel } from "@/lib/shop/inventory/category-catalog";
 import { getShopSectorConfig, inventoryFieldsForSectors, variantsExpectedForSectors, variantAxisLabel, defaultVariantAxisForSectors } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
+import { ModuleGate } from "@/components/org/module-gate";
 import { DesktopOnlyNote } from "@/components/layout/desktop-only-note";
 import {
   Dialog,
@@ -297,20 +298,6 @@ export default function ShopInventoryPage() {
         }
       : null;
 
-  if (!moduleEnabled) {
-    return (
-      <div className="mx-auto max-w-lg space-y-4 py-10 text-center">
-        <h1 className="text-2xl font-bold">{title} is optional</h1>
-        <p className="text-sm text-muted-foreground">
-          Turn on {title.toLowerCase()} in Manage Organization → Features.
-        </p>
-        <Link href="/settings/organization">
-          <Button className="rounded-xl">Manage Organization</Button>
-        </Link>
-      </div>
-    );
-  }
-
   async function adjustQty(variantId: string, nextQty: number) {
     clear();
     try {
@@ -424,6 +411,7 @@ export default function ShopInventoryPage() {
     categories.find((c) => c.key === editCategory)?.subcategories ?? [];
 
   return (
+    <ModuleGate moduleKey="shop_inventory">
     <div className="mx-auto max-w-7xl space-y-5 pb-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -1084,5 +1072,6 @@ export default function ShopInventoryPage() {
         businessTypes={businessTypes}
       />
     </div>
+    </ModuleGate>
   );
 }

@@ -17,7 +17,22 @@ const schema = z.object({
   name: z.string().min(2).max(100),
   businessType: z.enum(BUSINESS_TYPES).default("CONTRACTOR"),
   shopSector: z.enum(SHOP_SECTORS).optional().nullable(),
+  shopBusinessTypes: z.array(z.enum(SHOP_SECTORS)).min(1).max(14).optional(),
+  shopCustomBusinessType: z.string().max(120).optional().nullable(),
   enableStaff: z.boolean().optional(),
+  timezone: z.string().optional(),
+  defaultCompletionDays: z.number().int().min(1).max(3650).optional(),
+  settings: z
+    .object({
+      modules: z.record(z.string(), z.boolean()).optional(),
+      shop: z
+        .object({
+          brandName: z.string().max(80).optional(),
+          logoUrl: z.string().max(500_000).optional().nullable(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 const updateSchema = z.object({
@@ -30,6 +45,7 @@ const updateSchema = z.object({
   enableStaff: z.boolean().optional(),
   timezone: z.string().optional(),
   defaultCompletionDays: z.number().int().min(1).max(3650).optional(),
+  onboardingComplete: z.boolean().optional(),
   settings: z
     .object({
       modules: z.record(z.string(), z.boolean()).optional(),
@@ -113,9 +129,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, businessType, shopSector, enableStaff } = schema.parse(body);
+    const parsed = schema.parse(body);
+    const {
+      name,
+      businessType,
+      shopSector,
+      shopBusinessTypes,
+      shopCustomBusinessType,
+      enableStaff,
+      timezone,
+      defaultCompletionDays,
+      settings,
+    } = parsed;
 
-    if (businessType === "SHOPKEEPER" && !shopSector) {
+    if (businessType === "SHOPKEEPER" && !shopSector && !shopBusinessTypes?.length) {
       return NextResponse.json(
         {
           error: {
@@ -147,7 +174,12 @@ export async function POST(request: Request) {
       userId: session.user.id,
       businessType,
       shopSector,
+      shopBusinessTypes,
+      shopCustomBusinessType,
       enableStaff,
+      timezone,
+      defaultCompletionDays,
+      settings,
     });
     return NextResponse.json({ data: serializeBigInt(org) }, { status: 201 });
   });

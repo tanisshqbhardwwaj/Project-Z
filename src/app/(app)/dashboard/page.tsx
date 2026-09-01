@@ -17,6 +17,7 @@ import { Plus, FolderKanban, Receipt } from "lucide-react";
 import { useBusinessType } from "@/hooks/use-business-type";
 import { isShopVertical } from "@/lib/org/business-type";
 import { isServiceVerticalEnabled } from "@/lib/org/service-vertical";
+import { SetupChecklist } from "@/components/org/setup-checklist";
 import { ShopkeeperDashboard } from "@/components/shop/shopkeeper-dashboard";
 import { ServiceBusinessDashboard } from "@/components/service/service-business-dashboard";
 
@@ -79,6 +80,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <SetupChecklist />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold sm:text-3xl">Dashboard</h1>
         <Link href="/work-orders/new">

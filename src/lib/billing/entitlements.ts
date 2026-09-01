@@ -44,3 +44,12 @@ export function inventorySkuCapForPlan(
 ): number | null {
   return (catalog[plan] ?? BILLING_PLANS[plan]).inventorySkuCap;
 }
+
+export function isModuleAllowedByPlan(
+  plan: BillingPlan,
+  moduleKey: ModuleKey,
+  catalog: Record<BillingPlan, PlanDefinition> = BILLING_PLANS
+): boolean {
+  const def = catalog[plan] ?? BILLING_PLANS[plan];
+  return def.modules.includes(moduleKey);
+}

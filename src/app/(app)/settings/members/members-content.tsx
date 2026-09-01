@@ -90,7 +90,7 @@ export default function MembersContent() {
   if (loading) return <PageLoader label="Loading members..." />;
 
   return (
-    <div className="mx-auto max-w-lg space-y-5 pb-8">
+    <div className="space-y-5 pb-8">
       <h1 className="text-2xl font-bold">Organization Team</h1>
       <p className="text-sm text-muted-foreground">{biz.teamHint}</p>
 
