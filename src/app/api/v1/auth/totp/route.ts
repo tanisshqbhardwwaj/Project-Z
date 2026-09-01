@@ -26,7 +26,7 @@ export async function GET() {
       select: { totpEnabledAt: true, totpSecretEnc: true },
     });
 
-    return apiSuccess({ enabled: isTotpEnabled(user) });
+    return apiSuccess({ enabled: user ? isTotpEnabled(user) : false });
   });
 }
 

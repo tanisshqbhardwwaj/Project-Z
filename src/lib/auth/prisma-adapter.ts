@@ -16,8 +16,9 @@ function toAdapterUser(user: {
   } as AdapterUser;
 }
 
-function oauthUserToDb(data: Record<string, unknown>) {
-  const { emailVerified, image: _image, ...rest } = data;
+function oauthUserToDb(data: unknown) {
+  const record = data as Record<string, unknown>;
+  const { emailVerified, image: _image, ...rest } = record;
   const email = typeof rest.email === "string" ? rest.email : "";
   const name =
     typeof rest.name === "string" && rest.name.trim()
@@ -38,14 +39,14 @@ export function projectPrismaAdapter(): Adapter {
     ...base,
     createUser: async (data) => {
       const user = await prisma.user.create({
-        data: oauthUserToDb(data as Record<string, unknown>) as never,
+        data: oauthUserToDb(data) as never,
       });
       return toAdapterUser(user);
     },
     updateUser: async ({ id, ...data }) => {
       const user = await prisma.user.update({
         where: { id },
-        data: oauthUserToDb(data as Record<string, unknown>) as never,
+        data: oauthUserToDb(data) as never,
       });
       return toAdapterUser(user);
     },
