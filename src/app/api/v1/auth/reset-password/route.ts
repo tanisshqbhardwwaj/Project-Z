@@ -3,12 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth";
 import { handleApi } from "@/lib/api/context";
 import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { z } from "zod";
-
-const schema = z.object({
-  token: z.string(),
-  password: z.string().min(8),
-});
+import { resetPasswordSchema } from "@/lib/validation/fields";
 
 export async function POST(request: Request) {
   return handleApi(async () => {
@@ -19,7 +14,7 @@ export async function POST(request: Request) {
       RATE_LIMITS.auth.windowMs
     );
     const body = await request.json();
-    const { token, password } = schema.parse(body);
+    const { token, password } = resetPasswordSchema.parse(body);
 
     const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
     if (!resetToken || resetToken.expires < new Date()) {

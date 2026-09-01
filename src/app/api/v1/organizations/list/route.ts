@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { handleApi, apiSuccess } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
+import { readActiveOrgCookie } from "@/lib/org/active-org-cookie";
 import { modulesPayloadForClient } from "@/lib/org/require-module";
 import { parseStaffAccess } from "@/lib/staff/access";
 import { readStaffAccessJsonMap } from "@/lib/staff/access-storage";
@@ -52,6 +53,11 @@ export async function GET() {
       staffLinks.map((s) => s.id)
     );
 
+    const cookieOrgId = await readActiveOrgCookie();
+    const cookieIsMember = memberships.some(
+      (m) => m.organizationId === cookieOrgId
+    );
+
     return apiSuccess({
       organizations: serializeBigInt(
         memberships.map((m) => {
@@ -87,7 +93,10 @@ export async function GET() {
           };
         })
       ),
-      activeOrganizationId: session.user.activeOrganizationId ?? memberships[0]?.organizationId,
+      activeOrganizationId:
+        (cookieIsMember ? cookieOrgId : null) ??
+        session.user.activeOrganizationId ??
+        memberships[0]?.organizationId,
       canCreateMore: memberships.length < MAX_ORGANIZATIONS,
     });
   });

@@ -8,6 +8,7 @@ import {
   requireShopBilling,
   requireShopReturns,
 } from "@/lib/staff/shop-access";
+import { shopStaffAccessApplies } from "@/lib/staff/shop-staff-gate";
 
 export {
   CASHIER_SYNC_KINDS,
@@ -24,7 +25,7 @@ export async function assertSyncPushKindAllowed(
     throw new ApiError(400, "UNKNOWN_KIND", `Unknown sync kind: ${kind}`);
   }
 
-  if (ctx.role === "CASHIER") {
+  if (shopStaffAccessApplies(ctx)) {
     if (kind === "sale.create") {
       await requireShopBilling(ctx);
       return;
@@ -36,7 +37,7 @@ export async function assertSyncPushKindAllowed(
     throw new ApiError(
       403,
       "FORBIDDEN",
-      "Cashiers can only sync sales and returns"
+      "Staff can only sync sales and returns they are allowed to create"
     );
   }
 

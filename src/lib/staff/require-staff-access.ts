@@ -7,6 +7,7 @@ import {
   type StaffAccessKey,
 } from "@/lib/staff/access";
 import { readStaffAccessJson } from "@/lib/staff/access-storage";
+import { shopStaffAccessApplies } from "@/lib/staff/shop-staff-gate";
 
 export async function getLinkedStaffRecord(
   organizationId: string,
@@ -21,13 +22,13 @@ export async function getLinkedStaffRecord(
   return { id: staff.id, accessJson, email: staff.email };
 }
 
-/** Cashiers need an explicit staff toggle; owners and other roles use RBAC only. */
+/** Shop non-owners and cashiers need an explicit staff toggle; contractor partners use RBAC. */
 export async function requireStaffAccess(
   ctx: AuthContext,
   capability: StaffAccessKey
 ) {
   if (canManageOrg(ctx.role)) return;
-  if (ctx.role !== "CASHIER") return;
+  if (!shopStaffAccessApplies(ctx)) return;
 
   const staff = await getLinkedStaffRecord(ctx.organizationId, ctx.userId);
   if (!staff) {

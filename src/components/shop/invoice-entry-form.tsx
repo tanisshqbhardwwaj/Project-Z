@@ -90,6 +90,15 @@ import { parseKotPayload, type KotPayload } from "@/lib/shop/invoices/kot";
 import { variantSubtitle } from "@/lib/shop/inventory/variant-display";
 import { useKotPrint } from "@/components/shop/kot-print";
 import { InvoiceCartTable } from "@/components/shop/invoice-cart-table";
+import {
+  FIELD_LIMITS,
+  GSTIN_HINT,
+  firstValidationIssue,
+  requireCustomerNameOptional,
+  requireGstinOptional,
+  requirePhoneOptional,
+} from "@/lib/api/validation";
+import { normalizeGstin } from "@/lib/validation/fields";
 
 function FormSection({
   title,
@@ -108,6 +117,18 @@ function FormSection({
       {children}
     </section>
   );
+}
+
+function validateInvoiceCustomerFields(input: {
+  customerName: string;
+  customerPhone: string;
+  customerGstin: string;
+}): string | null {
+  return firstValidationIssue([
+    requireCustomerNameOptional(input.customerName),
+    requirePhoneOptional(input.customerPhone),
+    requireGstinOptional(input.customerGstin),
+  ]);
 }
 
 const PAYMENT_OPTIONS: Array<{
@@ -227,9 +248,9 @@ export function InvoiceEntryForm({
   );
   const showCatalogTabs =
     inventoryEnabled &&
-    (hasMenuBilling(shopBusinessTypes) || hasServiceCatalog(shopBusinessTypes));
-  const showLineStaff =
-    staffEnabled && hasServiceCatalog(shopBusinessTypes);
+    hasMenuBilling(shopBusinessTypes) &&
+    !hasServiceCatalog(shopBusinessTypes);
+  const usesServiceCatalog = hasServiceCatalog(shopBusinessTypes);
   const catalogSectionLabel = catalogLabelForSectors(shopBusinessTypes);
   const inventoryModuleLabel = moduleLabel(
     "shop_inventory",
@@ -1049,21 +1070,6 @@ export function InvoiceEntryForm({
     };
   }
 
-  function setLineStaff(lineId: string, staffId: string) {
-    const staff = (staffQuery.data ?? []).find((s) => s.id === staffId);
-    setCart((prev) =>
-      prev.map((l) =>
-        l.id === lineId
-          ? {
-              ...l,
-              staffId: staffId || undefined,
-              staffName: staff?.name,
-            }
-          : l
-      )
-    );
-  }
-
   function addInventoryToCart(item: InventoryItem, qtyNum: number) {
     const label = variantOptionText(item);
     if (!checkStock(item.id, qtyNum, label)) return;
@@ -1156,6 +1162,15 @@ export function InvoiceEntryForm({
 
   async function holdCurrentBill() {
     if (cart.length === 0) return showWarning("Nothing on the bill to hold");
+    const customerIssue = validateInvoiceCustomerFields({
+      customerName,
+      customerPhone,
+      customerGstin,
+    });
+    if (customerIssue) return showWarning(customerIssue);
+    const normalizedGstin = customerGstin.trim()
+      ? normalizeGstin(customerGstin)
+      : "";
     const snapshot = [...cart];
     const pricingSnapshot = {
       discountMode,
@@ -1171,7 +1186,7 @@ export function InvoiceEntryForm({
         customerId: selectedCustomerId,
         customerName: customerName.trim() || null,
         customerPhone: customerPhone.trim() || null,
-        customerGstin: customerGstin.trim() || null,
+        customerGstin: normalizedGstin || null,
         salesBoyName: salesBoyName.trim() || null,
         cartJson: snapshot,
         pricingJson: pricingSnapshot,
@@ -1377,6 +1392,16 @@ export function InvoiceEntryForm({
       }
     }
 
+    const customerIssue = validateInvoiceCustomerFields({
+      customerName,
+      customerPhone,
+      customerGstin,
+    });
+    if (customerIssue) return showWarning(customerIssue);
+    const normalizedGstin = customerGstin.trim()
+      ? normalizeGstin(customerGstin)
+      : "";
+
     let resolvedPaymentMethod = splitPayment ? "UPI" : paymentMethod;
     let terminalPayment:
       | {
@@ -1423,7 +1448,7 @@ export function InvoiceEntryForm({
         customerId: selectedCustomerId,
         customerName: customerName.trim() || null,
         customerPhone: customerPhone.trim() || null,
-        customerGstin: customerGstin.trim() || null,
+        customerGstin: normalizedGstin || null,
         staffId: selectedStaffId || null,
         salesBoyName: salesBoyName.trim() || null,
         issueInvoice: true,
@@ -1459,7 +1484,6 @@ export function InvoiceEntryForm({
           ...(line.color ? { color: line.color } : {}),
           ...(line.variantLabel ? { variantLabel: line.variantLabel } : {}),
           ...(line.unit ? { unit: line.unit } : {}),
-          ...(line.staffId ? { staffId: line.staffId } : {}),
           ...(line.itemKind ? { itemKind: line.itemKind } : {}),
         })),
       });
@@ -1646,7 +1670,9 @@ export function InvoiceEntryForm({
               </div>
               {staffEnabled ? (
                 <p className="text-xs text-muted-foreground">
-                  Picking from the list links this bill to their sales commission.
+                  {usesServiceCatalog
+                    ? "One staff member per bill — used for service commission (not per line item)."
+                    : "Pick from the list to link this bill to their sales commission."}
                 </p>
               ) : null}
             </div>
@@ -1850,13 +1876,13 @@ export function InvoiceEntryForm({
                     cart={cart}
                     cartLineAllocations={cartLineAllocations}
                     invoiceTemplate={invoiceTemplate}
-                    showLineStaff={showLineStaff}
-                    staffOptions={staffQuery.data ?? []}
+                    showLineStaff={false}
+                    staffOptions={[]}
                     onQtyDelta={updateCartLineQty}
                     onRemove={(lineId) =>
                       setCart((prev) => prev.filter((l) => l.id !== lineId))
                     }
-                    onStaffChange={setLineStaff}
+                    onStaffChange={() => {}}
                   />
                 </div>
                 <Sheet open={cartSheetOpen} onOpenChange={setCartSheetOpen}>

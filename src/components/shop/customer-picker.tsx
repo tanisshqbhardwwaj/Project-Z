@@ -9,10 +9,13 @@ import { buildCursorListUrl } from "@/lib/api/list-url";
 import type { CursorPage } from "@/lib/api/cursor-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldHint } from "@/components/ui/field-hint";
 import { formatCustomerLabel } from "@/lib/shop/customers/customer";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { UserRound } from "lucide-react";
+import { FIELD_LIMITS, GSTIN_HINT } from "@/lib/api/validation";
+import { normalizeGstin } from "@/lib/validation/fields";
 
 export type ShopCustomerOption = {
   id: string;
@@ -140,7 +143,11 @@ export function CustomerPicker({
             className={cn("rounded-lg", compact ? "h-9 text-sm" : "h-11 rounded-xl")}
             placeholder="Search name or walk-in"
             autoComplete="off"
+            maxLength={FIELD_LIMITS.CUSTOMER_NAME_MAX}
           />
+          {!compact ? (
+            <FieldHint>Up to {FIELD_LIMITS.CUSTOMER_NAME_MAX} characters · leave blank for walk-in</FieldHint>
+          ) : null}
         </div>
         <div className={cn("space-y-1", !compact && "space-y-2")}>
           <Label className={compact ? "text-xs" : undefined}>Phone</Label>
@@ -154,9 +161,14 @@ export function CustomerPicker({
             }}
             onFocus={() => setOpen(true)}
             className={cn("rounded-lg", compact ? "h-9 text-sm" : "h-11 rounded-xl")}
-            placeholder="Mobile"
+            placeholder="10-digit mobile"
             autoComplete="off"
+            inputMode="tel"
+            maxLength={FIELD_LIMITS.PHONE_MAX}
           />
+          {!compact ? (
+            <FieldHint>10-digit Indian mobile · optional</FieldHint>
+          ) : null}
         </div>
 
         {compact ? (
@@ -164,9 +176,12 @@ export function CustomerPicker({
             <Label className="text-xs">GSTIN</Label>
             <Input
               value={customerGstin}
-              onChange={(e) => onCustomerGstinChange(e.target.value)}
-              className="h-9 rounded-lg text-sm"
+              onChange={(e) =>
+                onCustomerGstinChange(normalizeGstin(e.target.value).slice(0, FIELD_LIMITS.GSTIN_LENGTH))
+              }
+              className="h-9 rounded-lg font-mono text-sm uppercase"
               placeholder="Optional"
+              maxLength={FIELD_LIMITS.GSTIN_LENGTH}
             />
           </div>
         ) : null}
@@ -206,10 +221,15 @@ export function CustomerPicker({
           <Label>GSTIN</Label>
           <Input
             value={customerGstin}
-            onChange={(e) => onCustomerGstinChange(e.target.value)}
+            onChange={(e) =>
+              onCustomerGstinChange(normalizeGstin(e.target.value).slice(0, FIELD_LIMITS.GSTIN_LENGTH))
+            }
             className="h-11 rounded-xl font-mono uppercase"
             placeholder="Customer GSTIN (optional)"
+            maxLength={FIELD_LIMITS.GSTIN_LENGTH}
+            autoComplete="off"
           />
+          <FieldHint>{GSTIN_HINT}</FieldHint>
         </div>
       ) : null}
     </div>

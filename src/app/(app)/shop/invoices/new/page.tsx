@@ -26,6 +26,7 @@ import {
   useShopInvoicePrint,
   type CashTender,
 } from "@/hooks/use-shop-invoice-print";
+import { useShopStaffUi } from "@/hooks/use-shop-staff-ui";
 
 type SavedSale = {
   id: string;
@@ -40,6 +41,7 @@ export default function NewInvoicePage() {
     useAuthStore();
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
   const title = moduleLabel("shop_sales", activeBusinessType ?? "SHOPKEEPER");
+  const { canEditInvoiceSettings } = useShopStaffUi();
 
   const [draft, setDraft] = useState<ShopInvoiceData>(() =>
     buildDraftInvoice({
@@ -170,12 +172,14 @@ export default function NewInvoicePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/shop/invoices/settings">
-              <Button variant="outline" className="rounded-xl">
-                <Settings className="mr-2 h-4 w-4" />
-                Invoice settings
-              </Button>
-            </Link>
+            {canEditInvoiceSettings ? (
+              <Link href="/shop/invoices/settings">
+                <Button variant="outline" className="rounded-xl">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Invoice settings
+                </Button>
+              </Link>
+            ) : null}
             <Link href="/shop/invoices">
               <Button variant="outline" className="rounded-xl">
                 Recent invoices

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { DEFAULT_CONTACT_EMAIL } from "@/lib/brand/constants";
 import { getPublicMarketingConfig } from "@/lib/marketing/public-config";
 
 const KEYS = [
@@ -36,19 +37,29 @@ describe("getPublicMarketingConfig", () => {
     expect(config.windowsDownloadName).toBe("BusinessOS-Setup.exe");
   });
 
+  it("defaults to admin@econsole.in when contact env vars are empty", () => {
+    const config = getPublicMarketingConfig();
+    expect(config.email).toBe(DEFAULT_CONTACT_EMAIL);
+    expect(config.emailUrl).toBe(`mailto:${DEFAULT_CONTACT_EMAIL}`);
+    expect(config.phoneUrl).toBeNull();
+    expect(config.whatsappUrl).toBeNull();
+  });
+
   it("ignores incomplete contact values", () => {
     process.env.BILLING_CONTACT = "Contact support";
     process.env.NEXT_PUBLIC_WHATSAPP = "123";
     process.env.NEXT_PUBLIC_BILLING_EMAIL = "not-an-email";
     const config = getPublicMarketingConfig();
     expect(config.whatsappUrl).toBeNull();
-    expect(config.emailUrl).toBeNull();
+    expect(config.email).toBe(DEFAULT_CONTACT_EMAIL);
+    expect(config.emailUrl).toBe(`mailto:${DEFAULT_CONTACT_EMAIL}`);
   });
 
-  it("uses a phone number from BILLING_CONTACT when dedicated env vars are empty", () => {
-    process.env.BILLING_CONTACT = "Call/WhatsApp 8929232078 or UPI merchant@bank";
+  it("uses email from BILLING_CONTACT when it contains an address", () => {
+    process.env.BILLING_CONTACT = "Reach us at billing@econsole.in for plans";
     const config = getPublicMarketingConfig();
-    expect(config.whatsappUrl).toBe("https://wa.me/918929232078");
-    expect(config.phoneUrl).toBe("tel:+918929232078");
+    expect(config.email).toBe("billing@econsole.in");
+    expect(config.emailUrl).toBe("mailto:billing@econsole.in");
+    expect(config.phoneUrl).toBeNull();
   });
 });

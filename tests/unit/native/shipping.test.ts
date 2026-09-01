@@ -39,6 +39,9 @@ describe("native app entry", () => {
     expect(withNativeAppEntryUrl("https://www.econsole.in/")).toBe(
       "https://www.econsole.in/login"
     );
+    expect(withNativeAppEntryUrl("https://www.econsole.in/login")).toBe(
+      "https://www.econsole.in/login"
+    );
   });
 
   it("recognizes the native WebView user-agent mark", () => {

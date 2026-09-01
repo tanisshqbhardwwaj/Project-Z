@@ -10,15 +10,24 @@ import { createShopSale, listShopSales } from "@/services/shop/shop.service";
 import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
 import { customerBranchIdForCreate } from "@/lib/shop/branch/multi-store";
 import {
+  shopCustomerGstinSchema,
+  shopCustomerNameSchema,
+  phoneOptionalSchema,
+} from "@/lib/validation/fields";
+import {
   ownSalesStaffScope,
   requireShopBilling,
 } from "@/lib/staff/shop-access";
+import {
+  redactSaleCustomerFields,
+  shouldRedactSaleCustomerDetails,
+} from "@/lib/staff/sale-privacy";
 
 const createSaleSchema = z.object({
   customerId: z.string().uuid().optional().nullable(),
-  customerName: z.string().optional().nullable(),
-  customerPhone: z.string().optional().nullable(),
-  customerGstin: z.string().optional().nullable(),
+  customerName: shopCustomerNameSchema,
+  customerPhone: phoneOptionalSchema,
+  customerGstin: shopCustomerGstinSchema,
   /** Links the bill to a staff record so sales commission can be computed. */
   staffId: z.string().uuid().optional().nullable(),
   salesBoyName: z.string().optional().nullable(),
@@ -95,16 +104,23 @@ export async function GET(request: Request) {
     const staffScope = await ownSalesStaffScope(ctx);
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") ?? undefined;
-    const customerId = searchParams.get("customerId") ?? undefined;
+    const redactCustomers = shouldRedactSaleCustomerDetails(ctx);
+    const customerId = redactCustomers
+      ? undefined
+      : searchParams.get("customerId") ?? undefined;
     const sales = await listShopSales(ctx.organizationId, {
-      q,
+      q: q ?? "",
       customerId,
+      billNumberOnly: redactCustomers,
       branchId: shopCtx.branchId,
       staffId: staffScope,
       cursor: searchParams.get("cursor") ?? undefined,
       limit: Number(searchParams.get("limit") ?? 25),
     });
-    return apiSuccess(serializeBigInt(sales));
+    const items = redactCustomers
+      ? sales.items.map((row) => redactSaleCustomerFields(row))
+      : sales.items;
+    return apiSuccess(serializeBigInt({ ...sales, items }));
   });
 }
 

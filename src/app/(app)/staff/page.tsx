@@ -57,6 +57,7 @@ import {
   type AttendanceRow,
   type PayrollRow,
   type StaffMember,
+  type StaffLoginInviteResult,
   type StaffAdvanceRow,
   type AttendanceRegularityRow,
 } from "@/hooks/queries/use-staff";
@@ -439,6 +440,15 @@ export default function StaffHubPage() {
     setProfileOpen(true);
   }
 
+  function showLoginInviteFeedback(loginInvite?: StaffLoginInviteResult | null) {
+    if (!loginInvite) return;
+    const message =
+      loginInvite.status === "failed" && loginInvite.inviteUrl
+        ? `${loginInvite.message} Invite link: ${loginInvite.inviteUrl}`
+        : loginInvite.message;
+    showWarning(message);
+  }
+
   async function saveStaffProfile(values: StaffProfileValues) {
     clear();
     const payload = {
@@ -484,11 +494,12 @@ export default function StaffHubPage() {
 
     try {
       if (profileTarget) {
-        await updateStaffMutation.mutateAsync({
+        const updated = await updateStaffMutation.mutateAsync({
           id: profileTarget.id,
           ...payload,
           status: values.status,
         });
+        showLoginInviteFeedback(updated.loginInvite);
         if (values.attendancePin.trim().length >= 4) {
           await setAttendancePinMutation.mutateAsync({
             staffId: profileTarget.id,
@@ -496,7 +507,8 @@ export default function StaffHubPage() {
           });
         }
       } else {
-        await createStaffMutation.mutateAsync(payload);
+        const created = await createStaffMutation.mutateAsync(payload);
+        showLoginInviteFeedback(created.loginInvite);
       }
       setProfileOpen(false);
       setProfileTarget(null);

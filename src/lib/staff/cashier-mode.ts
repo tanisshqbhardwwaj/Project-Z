@@ -14,8 +14,11 @@ import {
   BarChart3,
   MapPin,
 } from "lucide-react";
+import { hasPermission } from "@/lib/permissions/rbac";
 import type { StaffAccess } from "@/lib/staff/access";
 import { defaultStaffAccess } from "@/lib/staff/access";
+import { shopStaffAccessApplies } from "@/lib/staff/shop-staff-gate";
+import { staffHomePath } from "@/lib/org/org-invites";
 
 export type CashierNavItem = {
   href: string;
@@ -25,23 +28,71 @@ export type CashierNavItem = {
   description?: string;
 };
 
-/** Simplified shell for counter staff. */
-export function isCashierExperience(input: {
-  role: OrgRole | null;
-  isShopkeeper: boolean;
-}): boolean {
-  return input.role === "CASHIER" && input.isShopkeeper;
+/** Owner preview shows a typical cashier setup (all counter toggles on). */
+export function previewCashierAccess(): StaffAccess {
+  return {
+    canBill: true,
+    canProcessReturns: true,
+    canViewOwnSales: true,
+    canViewOwnAttendance: true,
+    canManageInventory: false,
+    canViewAllAttendance: false,
+    canViewAllSales: false,
+    canViewOwnDeliveries: false,
+    canUpdateDeliveryStatus: false,
+  };
 }
 
 export function resolveCashierAccess(input: {
   role: OrgRole | null;
   linkedStaffAccess: StaffAccess;
+  previewMode: boolean;
   isShopkeeper: boolean;
+  businessType?: string | null;
 }): StaffAccess | null {
-  if (input.role === "CASHIER" && input.isShopkeeper) {
+  if (
+    shopStaffAccessApplies({
+      role: input.role,
+      businessType: input.businessType ?? (input.isShopkeeper ? "SHOPKEEPER" : null),
+    })
+  ) {
     return input.linkedStaffAccess;
   }
+  if (
+    input.previewMode &&
+    input.isShopkeeper &&
+    input.role &&
+    hasPermission(input.role, "shop.sales")
+  ) {
+    return previewCashierAccess();
+  }
   return null;
+}
+
+/** Simplified shell for counter/staff (or owner preview). Shop non-owners always use it. */
+export function isCashierExperience(input: {
+  role: OrgRole | null;
+  previewMode: boolean;
+  isShopkeeper: boolean;
+  businessType?: string | null;
+}): boolean {
+  if (
+    shopStaffAccessApplies({
+      role: input.role,
+      businessType: input.businessType ?? (input.isShopkeeper ? "SHOPKEEPER" : null),
+    })
+  ) {
+    return true;
+  }
+  if (
+    input.previewMode &&
+    input.isShopkeeper &&
+    input.role &&
+    hasPermission(input.role, "shop.sales")
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function cashierNavItems(access: StaffAccess): CashierNavItem[] {
@@ -154,11 +205,7 @@ export function cashierNavItems(access: StaffAccess): CashierNavItem[] {
 }
 
 export function cashierHomePath(access: StaffAccess): string {
-  if (access.canBill) return "/shop/invoices/new";
-  if (access.canViewOwnSales) return "/shop/invoices";
-  if (access.canProcessReturns) return "/shop/returns";
-  if (access.canViewOwnAttendance) return "/staff/me";
-  return "/cashier";
+  return staffHomePath(access);
 }
 
 const ALWAYS_ALLOWED = ["/cashier", "/settings/profile", "/settings/storage"];

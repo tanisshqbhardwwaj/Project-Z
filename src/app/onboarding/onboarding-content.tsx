@@ -14,8 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageLoader } from "@/components/ui/page-loader";
 import { FormFeedback } from "@/components/ui/form-feedback";
+import { FieldHint } from "@/components/ui/field-hint";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { requireField } from "@/lib/api/validation";
+import { FIELD_LIMITS, requireOrganizationName } from "@/lib/api/validation";
 import {
   BUSINESS_TYPE_CONFIG,
   isShopVertical,

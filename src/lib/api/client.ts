@@ -1,6 +1,7 @@
-import { resolveUserError } from "@/lib/errors";
+﻿import { resolveUserError } from "@/lib/errors";
 import { resolveAppFetchUrl, nativeFetchInit } from "@/lib/api/resolve-url";
 import { getNativeAccessToken } from "@/platform/common/native-tokens";
+import { ACTIVE_ORG_STORAGE_KEY } from "@/lib/org/constants";
 
 type ApiResponse<T> = { data: T; meta?: Record<string, unknown> };
 type ApiErrorBody = { error: { code: string; message: string; details?: unknown } };
@@ -15,10 +16,23 @@ export type ActiveBranchId = string | typeof BRANCH_ALL;
 
 export function setActiveOrganizationId(orgId: string | null) {
   activeOrganizationId = orgId;
+  if (typeof window !== "undefined") {
+    if (orgId) localStorage.setItem(ACTIVE_ORG_STORAGE_KEY, orgId);
+    else localStorage.removeItem(ACTIVE_ORG_STORAGE_KEY);
+  }
 }
 
 export function getActiveOrganizationId() {
-  return activeOrganizationId;
+  if (activeOrganizationId) return activeOrganizationId;
+  if (typeof window !== "undefined") {
+    return localStorage.getItem(ACTIVE_ORG_STORAGE_KEY);
+  }
+  return null;
+}
+
+export function getStoredOrganizationId(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(ACTIVE_ORG_STORAGE_KEY);
 }
 
 export function setActiveBranchId(branchId: ActiveBranchId | null) {
@@ -82,7 +96,7 @@ export async function apiFetch<T>(
         }
       }
     } catch {
-      /* local db unavailable — use network */
+      /* local db unavailable â€” use network */
     }
   }
 
@@ -93,8 +107,9 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  if (activeOrganizationId) {
-    headers.set("X-Organization-Id", activeOrganizationId);
+  const orgId = getActiveOrganizationId();
+  if (orgId) {
+    headers.set("X-Organization-Id", orgId);
   }
 
   const branchId = getActiveBranchId();
@@ -129,8 +144,9 @@ export async function apiFetchRaw<T = unknown>(
 ): Promise<T> {
   const init = nativeFetchInit(options);
   const headers = new Headers(init.headers);
-  if (activeOrganizationId) {
-    headers.set("X-Organization-Id", activeOrganizationId);
+  const orgId = getActiveOrganizationId();
+  if (orgId) {
+    headers.set("X-Organization-Id", orgId);
   }
   const branchId = getActiveBranchId();
   if (branchId) {

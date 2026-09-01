@@ -1,15 +1,20 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Building2, ChevronDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { useAuthStore } from "@/stores/auth-store";
-import { appFetch } from "@/lib/api/client";
+import {
+  appFetch,
+  setActiveOrganizationId,
+  setActiveBranchId,
+} from "@/lib/api/client";
 import { clearOrgClientState } from "@/lib/org/clear-org-client-state";
 import type { BusinessType } from "@/lib/org/business-type";
 import { getBusinessTypeConfig } from "@/lib/org/business-type";
@@ -37,18 +42,19 @@ type OrgItem = {
 type SwitchResponse = {
   data?: {
     activeOrganizationId: string;
-    redirectTo: string;
+    redirectTo?: string;
   };
 };
 
 export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const { update } = useSession();
-  const { user, activeOrganizationId, sessionVerified, status } = useAuthStore();
+  const { user, activeOrganizationId, sessionVerified, status, setActiveOrg } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [listOrgs, setListOrgs] = useState<OrgItem[] | null>(null);
-  const [switching, setSwitching] = useState(false);
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
 
   const membershipOrgs: OrgItem[] = (user?.organizationMembers ?? []).map((m) => ({
     id: m.organization.id,
@@ -64,6 +70,7 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
 
   const orgs = listOrgs ?? membershipOrgs;
   const canCreateMore = orgs.length < MAX_ORGANIZATIONS;
+  const switching = switchingId !== null;
 
   useEffect(() => {
     appFetch("/api/v1/organizations/list")
@@ -76,23 +83,41 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
   }, [activeOrganizationId]);
 
   async function switchOrg(org: OrgItem) {
-    if (org.id === activeOrganizationId || switching) return;
+    if (org.id === activeOrganizationId || switchingId) return;
     if (status !== "authenticated" || !sessionVerified) return;
-    setSwitching(true);
+    setSwitchingId(org.id);
     setOpen(false);
     try {
       const res = await appFetch("/api/v1/organizations/switch", {
         method: "POST",
         body: JSON.stringify({ organizationId: org.id, returnTo: pathname }),
       });
+      if (!res.ok) return;
       const payload = (await res.json()) as SwitchResponse;
       const redirectTo = payload.data?.redirectTo ?? "/dashboard";
 
       await update({ activeOrganizationId: org.id });
+      setActiveOrganizationId(org.id);
+      setActiveBranchId(null);
       clearOrgClientState();
-      window.location.assign(redirectTo);
-    } catch {
-      setSwitching(false);
+      setActiveOrg(
+        org.id,
+        org.name,
+        org.role,
+        org.businessType,
+        org.shopSector ?? null,
+        Boolean(org.enableStaff),
+        org.enabledModules ?? {},
+        org.timezone ?? "Asia/Kolkata",
+        org.linkedStaff?.id ?? null,
+        org.linkedStaff?.name ?? null,
+        org.orgSettings ?? null,
+        org.linkedStaff?.access ?? null
+      );
+      queryClient.removeQueries({ queryKey: ["org"] });
+      router.replace(redirectTo);
+    } finally {
+      setSwitchingId(null);
     }
   }
 
@@ -137,7 +162,7 @@ export function OrgSwitcher({ currentOrgName }: { currentOrgName?: string }) {
               type="button"
               disabled={switching}
               className={cn(
-                "flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-accent",
+                "flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-accent disabled:opacity-60",
                 org.id === activeOrganizationId && "bg-accent"
               )}
               onClick={() => switchOrg(org)}

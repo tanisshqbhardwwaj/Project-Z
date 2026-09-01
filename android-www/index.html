@@ -27,7 +27,7 @@
     <p>Opening BusinessOS…</p>
     <script>
       var PRODUCTION_URL = "https://www.econsole.in";
-      location.replace(PRODUCTION_URL);
+      location.replace(PRODUCTION_URL.replace(/\/$/, "") + "/login");
     </script>
   </body>
 </html>

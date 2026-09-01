@@ -14,6 +14,16 @@ export async function ensureUserSchema() {
           `ALTER TABLE "User" ADD COLUMN "lastLoginAt" DATETIME`
         );
       }
+      if (!cols.some((c) => c.name === "totpSecretEnc")) {
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE "User" ADD COLUMN "totpSecretEnc" TEXT`
+        );
+      }
+      if (!cols.some((c) => c.name === "totpEnabledAt")) {
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE "User" ADD COLUMN "totpEnabledAt" DATETIME`
+        );
+      }
     })().catch((err) => {
       schemaReady = null;
       throw err;

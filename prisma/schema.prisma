@@ -417,6 +417,8 @@ model User {
   emailVerifiedAt DateTime?
   locale          Locale    @default(en)
   lastLoginAt     DateTime?
+  totpSecretEnc   String?
+  totpEnabledAt   DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

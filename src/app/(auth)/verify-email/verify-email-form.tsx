@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormFeedback } from "@/components/ui/form-feedback";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
+import { FIELD_LIMITS, requireEmail } from "@/lib/api/validation";
 
 export default function VerifyEmailForm() {
   const t = useTranslations("auth");
@@ -16,6 +19,7 @@ export default function VerifyEmailForm() {
   const [resendEmail, setResendEmail] = useState("");
   const [resendMessage, setResendMessage] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
+  const { warning, clear, showWarning } = useFormFeedback();
 
   const token = searchParams.get("token");
 
@@ -37,8 +41,16 @@ export default function VerifyEmailForm() {
 
   async function resendVerification(e: React.FormEvent) {
     e.preventDefault();
-    setResendLoading(true);
+    clear();
     setResendMessage("");
+
+    const validationMessage = requireEmail(resendEmail);
+    if (validationMessage) {
+      showWarning(validationMessage);
+      return;
+    }
+
+    setResendLoading(true);
 
     const res = await fetch("/api/v1/auth/resend-verification", {
       method: "POST",
@@ -63,10 +75,16 @@ export default function VerifyEmailForm() {
       </CardHeader>
       <CardContent className="space-y-6">
         {status === "loading" && <p>Verifying...</p>}
-        {status === "success" && (
+          {status === "success" && (
           <>
             <p className="text-green-600">Email verified successfully!</p>
-            <Link href="/login">
+            <Link
+              href={
+                searchParams.get("next")
+                  ? `/login?callbackUrl=${encodeURIComponent(searchParams.get("next")!)}`
+                  : "/login"
+              }
+            >
               <Button>{t("login")}</Button>
             </Link>
           </>
@@ -81,6 +99,7 @@ export default function VerifyEmailForm() {
         <div className="border-t pt-4">
           <p className="mb-3 text-sm font-medium">Didn&apos;t receive the email?</p>
           <form onSubmit={resendVerification} className="space-y-3">
+            <FormFeedback warning={warning} />
             <div className="space-y-2">
               <Label htmlFor="resend-email">{t("email")}</Label>
               <Input
@@ -88,6 +107,8 @@ export default function VerifyEmailForm() {
                 type="email"
                 value={resendEmail}
                 onChange={(e) => setResendEmail(e.target.value)}
+                maxLength={FIELD_LIMITS.EMAIL_MAX}
+                autoComplete="email"
                 placeholder="you@example.com"
                 required
               />

@@ -6,6 +6,10 @@ import {
 import { serializeBigInt } from "@/lib/db/prisma";
 import { getShopSale } from "@/services/shop/shop.service";
 import { assertSaleReadAccess } from "@/lib/staff/shop-access";
+import {
+  redactSaleCustomerFields,
+  shouldRedactSaleCustomerDetails,
+} from "@/lib/staff/sale-privacy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -16,6 +20,9 @@ export async function GET(request: Request, context: RouteContext) {
     const { id } = await context.params;
     const sale = await getShopSale(ctx.organizationId, id);
     await assertSaleReadAccess(ctx, sale.staffId);
-    return apiSuccess(serializeBigInt(sale));
+    const payload = shouldRedactSaleCustomerDetails(ctx)
+      ? redactSaleCustomerFields(sale)
+      : sale;
+    return apiSuccess(serializeBigInt(payload));
   });
 }

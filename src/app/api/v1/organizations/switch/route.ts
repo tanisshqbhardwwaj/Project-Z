@@ -1,10 +1,11 @@
-import { auth } from "@/lib/auth";
+﻿import { auth } from "@/lib/auth";
 import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import {
   buildOrgSwitchContext,
   resolveRedirectAfterSwitch,
 } from "@/services/org/org-switch.service";
+import { writeActiveOrgCookie } from "@/lib/org/active-org-cookie";
 import { z } from "zod";
 
 const schema = z.object({
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
     if (!organization) {
       throw new ApiError(403, "FORBIDDEN", "Not a member of this organization");
     }
+
+    await writeActiveOrgCookie(organizationId);
 
     const redirectTo = resolveRedirectAfterSwitch(organization.businessType, returnTo);
 

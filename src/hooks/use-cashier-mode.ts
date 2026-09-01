@@ -1,7 +1,8 @@
 "use client";
 
-import { useAuthStore } from "@/stores/auth-store";
+import { useCallback, useSyncExternalStore } from "react";
 import type { OrgRole } from "@prisma/client";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   isCashierExperience,
   resolveCashierAccess,
@@ -11,7 +12,13 @@ import {
   emptyCashierAccess,
 } from "@/lib/staff/cashier-mode";
 import type { StaffAccess } from "@/lib/staff/access";
+import {
+  readCashierPreviewEnabled,
+  subscribeCashierPreview,
+  writeCashierPreviewEnabled,
+} from "@/lib/staff/cashier-preview-storage";
 import { isShopVertical } from "@/lib/org/business-type";
+import { shopStaffAccessApplies } from "@/lib/staff/shop-staff-gate";
 
 export function useCashierMode() {
   const role = useAuthStore((s) => s.role) as OrgRole | null;
@@ -20,26 +27,50 @@ export function useCashierMode() {
   const linkedStaffName = useAuthStore((s) => s.linkedStaffName);
   const isShopVerticalOrg = isShopVertical(activeBusinessType);
 
-  const active = isCashierExperience({ role, isShopkeeper: isShopVerticalOrg });
+  const previewMode = useSyncExternalStore(
+    subscribeCashierPreview,
+    readCashierPreviewEnabled,
+    () => false
+  );
+
+  const setPreviewMode = useCallback((enabled: boolean) => {
+    writeCashierPreviewEnabled(enabled);
+  }, []);
+
+  const active =
+    isCashierExperience({
+      role,
+      previewMode,
+      isShopkeeper: isShopVerticalOrg,
+      businessType: activeBusinessType,
+    });
 
   const access: StaffAccess =
     resolveCashierAccess({
       role,
       linkedStaffAccess,
+      previewMode,
       isShopkeeper: isShopVerticalOrg,
+      businessType: activeBusinessType,
     }) ?? emptyCashierAccess();
 
   const navItems: CashierNavItem[] = active ? cashierNavItems(access) : [];
   const homePath = active ? cashierHomePath(access) : "/dashboard";
 
-  const isRealCashier = role === "CASHIER" && isShopVerticalOrg;
+  const isRealCashier =
+    shopStaffAccessApplies({ role, businessType: activeBusinessType }) &&
+    !previewMode;
+  const isOwnerPreview = active && !isRealCashier && previewMode;
 
   return {
     active,
     access,
     navItems,
     homePath,
+    previewMode,
+    setPreviewMode,
     isRealCashier,
+    isOwnerPreview,
     staffName: linkedStaffName,
   };
 }

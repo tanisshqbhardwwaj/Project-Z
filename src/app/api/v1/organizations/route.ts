@@ -12,9 +12,10 @@ import { createOrganization, updateOrganization } from "@/services/org/organizat
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { BUSINESS_TYPES } from "@/lib/org/business-type";
 import { SHOP_SECTORS } from "@/lib/org/shop-sector";
+import { organizationNameSchema } from "@/lib/validation/fields";
 
 const schema = z.object({
-  name: z.string().min(2).max(100),
+  name: organizationNameSchema,
   businessType: z.enum(BUSINESS_TYPES).default("CONTRACTOR"),
   shopSector: z.enum(SHOP_SECTORS).optional().nullable(),
   shopBusinessTypes: z.array(z.enum(SHOP_SECTORS)).min(1).max(14).optional(),
@@ -36,7 +37,7 @@ const schema = z.object({
 });
 
 const updateSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
+  name: organizationNameSchema.optional(),
   businessType: z.enum(BUSINESS_TYPES).optional(),
   shopSector: z.enum(SHOP_SECTORS).optional().nullable(),
   /** Multi-select of business types; the first becomes the primary sector. */

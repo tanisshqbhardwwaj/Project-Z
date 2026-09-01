@@ -122,7 +122,22 @@ export function passwordResetEmailHtml(name: string, url: string) {
   `;
 }
 
-export function inviteEmailHtml(orgName: string, url: string) {
+export function inviteEmailHtml(
+  orgName: string,
+  url: string,
+  options?: { fromStaff?: boolean }
+) {
+  if (options?.fromStaff) {
+    return `
+    <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
+      <h2>Staff invitation</h2>
+      <p>You've been added as staff at <strong>${orgName}</strong> on ${PRODUCT_NAME}.</p>
+      <p>Open the link, create an account or log in with this email, then accept to join.</p>
+      <p><a href="${url}" style="display:inline-block;padding:12px 24px;background:#1e3a5f;color:#fff;text-decoration:none;border-radius:8px;">Accept invitation</a></p>
+      <p style="color:#94a3b8;font-size:12px;margin-top:24px;">${PRODUCT_BY_COMPANY}</p>
+    </div>
+  `;
+  }
   return `
     <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
       <h2>Organization team invite</h2>

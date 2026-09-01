@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { requireEmail } from "@/lib/api/validation";
+import { FIELD_LIMITS } from "@/lib/validation/fields";
 
 export default function ForgotPasswordPage() {
   const t = useTranslations("auth");
@@ -50,7 +51,14 @@ export default function ForgotPasswordPage() {
           {message && <p className="text-sm text-green-600">{message}</p>}
           <div className="space-y-2">
             <Label>{t("email")}</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              maxLength={FIELD_LIMITS.EMAIL_MAX}
+              autoComplete="email"
+              required
+            />
           </div>
           <Button type="submit" className="w-full">{t("resetPassword")}</Button>
           <Link href="/login" className="block text-center text-sm text-primary">Back to login</Link>

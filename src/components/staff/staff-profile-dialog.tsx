@@ -7,6 +7,13 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import {
+  FIELD_LIMITS,
+  firstValidationIssue,
+  requireEmail,
+  requirePersonName,
+  requirePhoneOptional,
+} from "@/lib/api/validation";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -14,7 +21,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { accessPresetForRole } from "@/lib/staff/access";
 import { Percent, Receipt, ShoppingBag, Ban } from "lucide-react";
 
 /** Suggested roles; `roleTitle` is still free text for anything else. */
@@ -165,7 +171,6 @@ export function StaffProfileDialog({
 
   function handleRoleKey(roleKey: string) {
     const preset = STAFF_ROLES.find((r) => r.key === roleKey);
-    const accessPreset = accessPresetForRole(roleKey);
     setValues((prev) => ({
       ...prev,
       roleKey,
@@ -175,18 +180,23 @@ export function StaffProfileDialog({
             ? prev.roleTitle
             : ""
           : preset.label,
-      ...accessPreset,
     }));
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setWarning(null);
-    if (values.name.trim().length < 2) {
-      return setWarning("Enter the staff member's name");
-    }
-    if (!values.roleTitle.trim()) {
-      return setWarning("Enter a role");
+    const validationMessage = firstValidationIssue([
+      requirePersonName(values.name, "name"),
+      requirePhoneOptional(values.phone),
+      values.email.trim() ? requireEmail(values.email) : null,
+      !values.roleTitle.trim() ? "Enter a role" : null,
+      values.roleTitle.trim().length > FIELD_LIMITS.ROLE_TITLE_MAX
+        ? `Role title must be at most ${FIELD_LIMITS.ROLE_TITLE_MAX} characters`
+        : null,
+    ]);
+    if (validationMessage) {
+      return setWarning(validationMessage);
     }
     if (values.commissionType === "PERCENT") {
       const percent = Number(values.commissionPercent);
@@ -229,6 +239,7 @@ export function StaffProfileDialog({
                 <Input
                   value={values.name}
                   onChange={(e) => set("name", e.target.value)}
+                  maxLength={FIELD_LIMITS.PERSON_NAME_MAX}
                   className="h-11 rounded-xl"
                   required
                   autoFocus
@@ -239,6 +250,8 @@ export function StaffProfileDialog({
                 <Input
                   value={values.phone}
                   onChange={(e) => set("phone", e.target.value)}
+                  maxLength={FIELD_LIMITS.PHONE_MAX}
+                  inputMode="tel"
                   className="h-11 rounded-xl"
                   placeholder="Optional"
                 />
@@ -249,6 +262,7 @@ export function StaffProfileDialog({
                   type="email"
                   value={values.email}
                   onChange={(e) => set("email", e.target.value)}
+                  maxLength={FIELD_LIMITS.EMAIL_MAX}
                   className="h-11 rounded-xl"
                   placeholder="Optional"
                 />
@@ -288,6 +302,7 @@ export function StaffProfileDialog({
                 <Input
                   value={values.roleTitle}
                   onChange={(e) => set("roleTitle", e.target.value)}
+                  maxLength={FIELD_LIMITS.ROLE_TITLE_MAX}
                   className="h-11 rounded-xl"
                   placeholder="e.g. Floor Supervisor"
                   required

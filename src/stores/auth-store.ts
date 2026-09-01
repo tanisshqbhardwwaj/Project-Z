@@ -1,7 +1,11 @@
-import { create } from "zustand";
-
-import { apiFetch, ApiClientError, appFetch, setActiveOrganizationId } from "@/lib/api/client";
-
+﻿import { create } from "zustand";
+import {
+  apiFetch,
+  ApiClientError,
+  appFetch,
+  setActiveOrganizationId,
+  getStoredOrganizationId,
+} from "@/lib/api/client";
 import type { BusinessType } from "@/lib/org/business-type";
 
 import type { ShopSector } from "@/lib/org/shop-sector";
@@ -330,53 +334,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       ]);
 
       const orgList = orgListRes as {
-
         data?: {
-
           activeOrganizationId?: string;
-
           organizations?: Array<{
-
             id: string;
-
             name?: string;
-
             role?: string;
-
             linkedStaff?: {
-
               id?: string;
-
               name?: string;
-
               access?: StaffAccess;
-
             };
-
             businessType?: BusinessType;
-
             shopSector?: ShopSector | null;
-
             enableStaff?: boolean;
-
             enabledModules?: EnabledModulesMap;
-
             orgSettings?: OrgSettingsJson;
-
             timezone?: string;
-
           }>;
-
         };
-
       };
 
-
+      const membershipIds = new Set(
+        (me.organizationMembers ?? []).map((m) => m.organizationId)
+      );
+      const storedId = getStoredOrganizationId();
+      const sessionId =
+        typeof orgList.data?.activeOrganizationId === "string"
+          ? orgList.data.activeOrganizationId
+          : null;
 
       const activeId =
-
-        orgList.data?.activeOrganizationId ??
-
+        (storedId && membershipIds.has(storedId) ? storedId : null) ??
+        (sessionId && membershipIds.has(sessionId) ? sessionId : null) ??
         me.organizationMembers?.[0]?.organizationId ??
 
         null;

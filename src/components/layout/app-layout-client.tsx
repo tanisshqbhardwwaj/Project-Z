@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ import { useAuthStore } from "@/stores/auth-store";
 export function AppLayoutClient({ children }: { children: React.ReactNode }) {
   const { activeOrganizationName, loading } = useRequireAuth();
   const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
+  const activeOrganizationId = useAuthStore((s) => s.activeOrganizationId);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -49,7 +50,9 @@ export function AppLayoutClient({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
           <SyncEngineProvider>
             <OfflineBanner />
-            <CashierRouteGuard>{children}</CashierRouteGuard>
+            <CashierRouteGuard>
+              <div key={activeOrganizationId ?? "none"}>{children}</div>
+            </CashierRouteGuard>
           </SyncEngineProvider>
         </main>
       </div>
