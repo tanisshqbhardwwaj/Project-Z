@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth";
 import { createVerificationTokenAndSendEmail } from "@/lib/email/verification";
-import { isTestEmailAllowlisted } from "@/lib/email/test-allowlist";
 import { handleApi } from "@/lib/api/context";
 import { enforceRateLimit, getClientIp, RATE_LIMITS, RateLimitError } from "@/lib/rate-limit";
 
@@ -31,26 +30,14 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await hashPassword(data.password);
-    const autoVerify = await isTestEmailAllowlisted(data.email);
     const user = await prisma.user.create({
       data: {
         email: data.email.toLowerCase(),
         passwordHash,
         name: data.name,
         phone: data.phone,
-        ...(autoVerify ? { emailVerifiedAt: new Date() } : {}),
       },
     });
-
-    if (autoVerify) {
-      return NextResponse.json({
-        data: {
-          id: user.id,
-          email: user.email,
-          message: "Account created — email auto-verified for beta testing. You can log in now.",
-        },
-      });
-    }
 
     try {
       await createVerificationTokenAndSendEmail(

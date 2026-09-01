@@ -14,7 +14,6 @@ import {
   BarChart3,
   MapPin,
 } from "lucide-react";
-import { hasPermission } from "@/lib/permissions/rbac";
 import type { StaffAccess } from "@/lib/staff/access";
 import { defaultStaffAccess } from "@/lib/staff/access";
 
@@ -26,57 +25,23 @@ export type CashierNavItem = {
   description?: string;
 };
 
-/** Owner preview shows a typical cashier setup (all counter toggles on). */
-export function previewCashierAccess(): StaffAccess {
-  return {
-    canBill: true,
-    canProcessReturns: true,
-    canViewOwnSales: true,
-    canViewOwnAttendance: true,
-    canManageInventory: false,
-    canViewAllAttendance: false,
-    canViewAllSales: false,
-    canViewOwnDeliveries: false,
-    canUpdateDeliveryStatus: false,
-  };
+/** Simplified shell for counter staff. */
+export function isCashierExperience(input: {
+  role: OrgRole | null;
+  isShopkeeper: boolean;
+}): boolean {
+  return input.role === "CASHIER" && input.isShopkeeper;
 }
 
 export function resolveCashierAccess(input: {
   role: OrgRole | null;
   linkedStaffAccess: StaffAccess;
-  previewMode: boolean;
   isShopkeeper: boolean;
 }): StaffAccess | null {
-  if (input.role === "CASHIER") {
+  if (input.role === "CASHIER" && input.isShopkeeper) {
     return input.linkedStaffAccess;
   }
-  if (
-    input.previewMode &&
-    input.isShopkeeper &&
-    input.role &&
-    hasPermission(input.role, "shop.sales")
-  ) {
-    return previewCashierAccess();
-  }
   return null;
-}
-
-/** Simplified shell for counter staff (or owner preview). */
-export function isCashierExperience(input: {
-  role: OrgRole | null;
-  previewMode: boolean;
-  isShopkeeper: boolean;
-}): boolean {
-  if (input.role === "CASHIER" && input.isShopkeeper) return true;
-  if (
-    input.previewMode &&
-    input.isShopkeeper &&
-    input.role &&
-    hasPermission(input.role, "shop.sales")
-  ) {
-    return true;
-  }
-  return false;
 }
 
 export function cashierNavItems(access: StaffAccess): CashierNavItem[] {

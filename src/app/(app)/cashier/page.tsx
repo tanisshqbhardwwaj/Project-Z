@@ -12,8 +12,7 @@ import { OfflineBanner } from "@/components/sync/offline-banner";
 
 export default function CashierHomePage() {
   const userName = useAuthStore((s) => s.user?.name);
-  const { access, navItems, homePath, isOwnerPreview, isRealCashier, staffName } =
-    useCashierMode();
+  const { access, navItems, homePath, isRealCashier, staffName } = useCashierMode();
 
   const summary = cashierModeSummary(access);
   const hasAnyAccess =
@@ -34,11 +33,6 @@ export default function CashierHomePage() {
         </h1>
         {isRealCashier && staffName ? (
           <p className="text-sm text-muted-foreground">Staff profile: {staffName}</p>
-        ) : null}
-        {isOwnerPreview ? (
-          <p className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-            Preview mode — you still have owner access. Turn off in Profile → Cashier preview.
-          </p>
         ) : null}
       </div>
 
