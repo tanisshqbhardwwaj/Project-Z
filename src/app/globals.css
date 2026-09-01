@@ -524,3 +524,10 @@ th .money,
     page-break-inside: avoid;
   }
 }
+
+/* Edge / WebView2 (Windows app) draws a native reveal control on password
+   fields. Hide it when we already render our own eye button. */
+.has-password-toggle input::-ms-reveal,
+.has-password-toggle input::-ms-clear {
+  display: none;
+}

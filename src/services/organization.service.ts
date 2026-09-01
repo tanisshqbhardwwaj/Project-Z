@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { slugify, generateToken } from "@/lib/utils";
 import { seedExpenseCategories } from "../../prisma/categories";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
+import { logger } from "@/lib/logger";
 import { createAuditLog } from "./audit.service";
 import type { BusinessType, OrgRole, ShopSector } from "@prisma/client";
 import { mergeModuleSettings, parseOrgSettings } from "@/lib/org/require-module";
@@ -14,6 +15,22 @@ import { defaultEnabledModules } from "@/lib/org/modules";
 import { setupFeeForNewOrg } from "@/services/billing.service";
 import { seedSampleServicesForOrg } from "@/services/service/service-onboarding.service";
 import { ensureShopBranchSchema } from "@/lib/shop/ensure-shop-branch-schema";
+import { ApiError } from "@/lib/api/context";
+import { getPublicAppUrl } from "@/lib/app/public-url";
+import { writeActiveOrgCookie } from "@/lib/org/active-org-cookie";
+import {
+  canCreateOrgTeamInvite,
+  SHOP_STAFF_ONLY_INVITE_MESSAGE,
+} from "@/lib/staff/shop-staff-gate";
+import {
+  classifyInviteToken,
+  emailsForStaffLink,
+  inviteEmailMatchesUser,
+  INVITE_STATUS_MESSAGES,
+} from "@/lib/org/org-invites";
+import { parseStaffAccess } from "@/lib/staff/access";
+import { readStaffAccessJson } from "@/lib/staff/access-storage";
+import { inviteLandingPath } from "@/lib/org/org-invites";
 
 export async function createOrganization(input: {
   name: string;
@@ -129,7 +146,26 @@ export async function createInviteLink(input: {
   email?: string;
   role: OrgRole;
   invitedById: string;
+  fromStaff?: boolean;
 }) {
+  const organization = await prisma.organization.findUnique({
+    where: { id: input.organizationId },
+    select: { id: true, name: true, businessType: true },
+  });
+  if (!organization) {
+    throw new ApiError(404, "NOT_FOUND", "Organization not found");
+  }
+  if (!canCreateOrgTeamInvite(organization.businessType, Boolean(input.fromStaff))) {
+    throw new ApiError(403, "SHOP_STAFF_ONLY", SHOP_STAFF_ONLY_INVITE_MESSAGE);
+  }
+  if (input.role === "CASHIER" && !input.fromStaff) {
+    throw new ApiError(
+      400,
+      "INVALID_ROLE",
+      "Add cashiers and shop staff from Staff, not Organization Team."
+    );
+  }
+
   const token = generateToken(48);
   const invite = await prisma.organizationInvite.create({
     data: {
@@ -143,7 +179,7 @@ export async function createInviteLink(input: {
     include: { organization: true },
   });
 
-  const url = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
+  const url = `${getPublicAppUrl()}/invite/${token}`;
   return { invite, url };
 }
 
@@ -153,17 +189,107 @@ export async function inviteMember(input: {
   role: OrgRole;
   invitedById: string;
   clientIp?: string;
+  /** When false, a send failure still returns the invite (staff save must not roll back). */
+  requireEmailDelivery?: boolean;
+  fromStaff?: boolean;
 }) {
   const { invite, url } = await createInviteLink(input);
 
-  await sendEmail({
-    to: input.email,
-    subject: `Invitation to join ${invite.organization.name}`,
-    html: inviteEmailHtml(invite.organization.name, url),
-    clientIp: input.clientIp,
-  });
+  try {
+    await sendEmail({
+      to: input.email,
+      subject: input.fromStaff
+        ? `Staff invitation to join ${invite.organization.name}`
+        : `Invitation to join ${invite.organization.name}`,
+      html: inviteEmailHtml(invite.organization.name, url, {
+        fromStaff: Boolean(input.fromStaff),
+      }),
+      clientIp: input.clientIp,
+    });
+  } catch (error) {
+    if (input.requireEmailDelivery !== false) throw error;
+    logger.error("org.invite_email_failed", {
+      organizationId: input.organizationId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   return invite;
+}
+
+export async function resendPendingInviteEmail(input: {
+  token: string;
+  organizationName: string;
+  email: string;
+  fromStaff?: boolean;
+  clientIp?: string;
+}) {
+  const url = `${getPublicAppUrl()}/invite/${input.token}`;
+  try {
+    await sendEmail({
+      to: input.email,
+      subject: input.fromStaff
+        ? `Staff invitation to join ${input.organizationName}`
+        : `Invitation to join ${input.organizationName}`,
+      html: inviteEmailHtml(input.organizationName, url, {
+        fromStaff: Boolean(input.fromStaff),
+      }),
+      clientIp: input.clientIp,
+    });
+  } catch (error) {
+    logger.error("org.invite_email_resend_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function linkStaffForAcceptedInvite(input: {
+  organizationId: string;
+  inviteEmail: string;
+  userId: string;
+  userEmail: string | null | undefined;
+}) {
+  const emails = emailsForStaffLink(input.inviteEmail, input.userEmail);
+  if (emails.length === 0) return null;
+
+  const staffByEmail = await prisma.staffMember.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      email: { in: emails },
+      status: "ACTIVE",
+      OR: [{ userId: null }, { userId: input.userId }],
+    },
+  });
+  if (!staffByEmail) return staffByEmail;
+  if (staffByEmail.userId !== input.userId) {
+    await prisma.staffMember.update({
+      where: { id: staffByEmail.id },
+      data: { userId: input.userId },
+    });
+  }
+  return staffByEmail;
+}
+
+async function landingPathForMember(input: {
+  organizationId: string;
+  userId: string;
+  role: OrgRole;
+  businessType: string;
+}) {
+  const staff = await prisma.staffMember.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      userId: input.userId,
+      status: "ACTIVE",
+    },
+    select: { id: true },
+  });
+  const staffAccess = staff ? await readStaffAccessJson(staff.id) : parseStaffAccess(null);
+  return inviteLandingPath({
+    role: input.role,
+    businessType: input.businessType,
+    staffAccess,
+  });
 }
 
 export async function acceptInvite(token: string, userId: string) {
@@ -172,55 +298,105 @@ export async function acceptInvite(token: string, userId: string) {
     include: { organization: true },
   });
 
-  if (!invite || invite.acceptedAt || invite.expiresAt < new Date()) {
-    throw new Error("Invalid or expired invitation");
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true },
+  });
+  if (!user) {
+    throw new ApiError(401, "UNAUTHORIZED", "Please log in to accept this invitation");
+  }
+
+  const status = classifyInviteToken(invite);
+  if (status !== "ok") {
+    if (status === "already_accepted" && invite) {
+      const existing = await prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: invite.organizationId,
+            userId,
+          },
+        },
+      });
+      if (existing?.status === "ACTIVE") {
+        await linkStaffForAcceptedInvite({
+          organizationId: invite.organizationId,
+          inviteEmail: invite.email,
+          userId,
+          userEmail: user.email,
+        });
+        await writeActiveOrgCookie(invite.organizationId);
+        const landingPath = await landingPathForMember({
+          organizationId: invite.organizationId,
+          userId,
+          role: existing.role,
+          businessType: invite.organization.businessType,
+        });
+        return {
+          member: existing,
+          organization: invite.organization,
+          landingPath,
+          alreadyMember: true,
+        };
+      }
+    }
+    const info = INVITE_STATUS_MESSAGES[status];
+    throw new ApiError(info.status, info.code, info.message);
+  }
+
+  if (!inviteEmailMatchesUser(invite!.email, user.email)) {
+    throw new ApiError(
+      403,
+      "INVITE_EMAIL_MISMATCH",
+      `This invitation is for ${invite!.email}. You're signed in as ${user.email}. Log out and sign in with the invited email.`
+    );
   }
 
   const member = await prisma.$transaction(async (tx) => {
     await tx.organizationInvite.update({
-      where: { id: invite.id },
+      where: { id: invite!.id },
       data: { acceptedAt: new Date() },
     });
 
     return tx.organizationMember.upsert({
       where: {
         organizationId_userId: {
-          organizationId: invite.organizationId,
+          organizationId: invite!.organizationId,
           userId,
         },
       },
       create: {
-        organizationId: invite.organizationId,
+        organizationId: invite!.organizationId,
         userId,
-        role: invite.role,
+        role: invite!.role,
         status: "ACTIVE",
-        invitedAt: invite.createdAt,
+        invitedAt: invite!.createdAt,
         joinedAt: new Date(),
       },
       update: {
-        role: invite.role,
+        role: invite!.role,
         status: "ACTIVE",
         joinedAt: new Date(),
       },
     });
   });
 
-  const staffByEmail = await prisma.staffMember.findFirst({
-    where: {
-      organizationId: invite.organizationId,
-      email: invite.email.toLowerCase(),
-      userId: null,
-      status: "ACTIVE",
-    },
+  await linkStaffForAcceptedInvite({
+    organizationId: invite!.organizationId,
+    inviteEmail: invite!.email,
+    userId,
+    userEmail: user.email,
   });
-  if (staffByEmail) {
-    await prisma.staffMember.update({
-      where: { id: staffByEmail.id },
-      data: { userId },
-    });
-  }
 
-  return { member, organization: invite.organization };
+  await writeActiveOrgCookie(invite!.organizationId);
+
+  const landingPath = await landingPathForMember({
+    organizationId: invite!.organizationId,
+    userId,
+    role: member.role,
+    businessType: invite!.organization.businessType,
+  });
+
+  return { member, organization: invite!.organization, landingPath };
 }
 
 export async function getOrganizationMembers(organizationId: string) {

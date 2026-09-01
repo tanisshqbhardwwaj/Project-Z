@@ -77,3 +77,4 @@ keystore.properties
 docs/architecture/project-z-architecture.pdf
 scripts/generate-architecture-pdf.mjs
 docs/architecture/project-z-architecture.html
+GOOGLE_LOGIN_SETUP.md

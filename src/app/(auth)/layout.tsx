@@ -1,5 +1,5 @@
-import { AppLogo } from "@/components/brand/app-logo";
 import { AppearanceMenu } from "@/components/theme/appearance-menu";
+import { AuthLayoutBrand } from "@/components/brand/auth-layout-brand";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <AppearanceMenu />
       </div>
       <div className="mb-8 w-full max-w-md">
-        <AppLogo href="/" variant="full" brandMode="dual" className="mx-auto w-full" />
+        <AuthLayoutBrand />
       </div>
       <div className="w-full max-w-md">{children}</div>
     </div>

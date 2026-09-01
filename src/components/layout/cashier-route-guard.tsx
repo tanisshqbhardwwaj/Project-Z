@@ -18,7 +18,7 @@ export function CashierRouteGuard({ children }: { children: React.ReactNode }) {
       return;
     }
     if (!isCashierRouteAllowed(pathname, access)) {
-      router.replace("/cashier");
+      router.replace(homePath);
     }
   }, [active, access, homePath, pathname, router]);
 

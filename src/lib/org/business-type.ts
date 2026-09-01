@@ -161,7 +161,7 @@ export const BUSINESS_TYPE_CONFIG: Record<BusinessType, BusinessTypeConfig> = {
     partnerLabel: "Co-owner",
     partnerPluralLabel: "Co-owners",
     teamHint:
-      "Org-level access. To add co-owners to a specific order, use the Partners button on that order.",
+      "Add people from Staff. Each person only sees what you enable on their profile — attendance, billing, or both.",
     onboardingBlurb: "Track orders, purchases, expenses, and co-owner shares",
     showDocumentUpload: true,
     showManualCreate: true,
@@ -186,7 +186,7 @@ export const BUSINESS_TYPE_CONFIG: Record<BusinessType, BusinessTypeConfig> = {
     partnerLabel: "Co-owner",
     partnerPluralLabel: "Co-owners",
     teamHint:
-      "Org-level access. To add co-owners, use the Partners button on organization settings.",
+      "Add people from Staff. Each person only sees what you enable on their profile — attendance, billing, or both.",
     onboardingBlurb: "Bill services, track staff, expenses, and customer credit",
     showDocumentUpload: false,
     showManualCreate: false,

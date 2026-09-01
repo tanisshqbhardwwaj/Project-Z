@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   ANDROID_APK_DOWNLOAD_NAME,
   ANDROID_APK_PATH,
+  DEFAULT_CONTACT_EMAIL,
   WINDOWS_SETUP_DOWNLOAD_NAME,
   WINDOWS_SETUP_PATH,
 } from "@/lib/brand/constants";
@@ -34,10 +35,16 @@ function toMailto(raw: string | null): string | null {
   return `mailto:${raw}`;
 }
 
-function inferPhoneFromText(text: string | null): string | null {
+function inferEmailFromText(text: string | null): string | null {
   if (!text) return null;
-  const match = text.match(/(?:\+?91[\s-]?)?[6-9]\d{9}/);
+  const match = text.match(/[\w.+-]+@[\w.-]+\.\w+/);
   return match ? match[0] : null;
+}
+
+function resolveContactEmail(fallback: string): string {
+  const fromEnv = trimOrNull(process.env.NEXT_PUBLIC_BILLING_EMAIL);
+  if (fromEnv && fromEnv.includes("@")) return fromEnv;
+  return inferEmailFromText(fallback) ?? DEFAULT_CONTACT_EMAIL;
 }
 
 /** Shipped via git in public/downloads/ — use CDN path (existsSync fails in Vercel serverless). */
@@ -80,10 +87,9 @@ export type PublicMarketingConfig = {
 
 export function getPublicMarketingConfig(): PublicMarketingConfig {
   const fallback = billingContact();
-  const inferredPhone = inferPhoneFromText(fallback);
-  const whatsapp = trimOrNull(process.env.NEXT_PUBLIC_WHATSAPP) ?? inferredPhone;
-  const phone = trimOrNull(process.env.NEXT_PUBLIC_PHONE) ?? inferredPhone;
-  const email = trimOrNull(process.env.NEXT_PUBLIC_BILLING_EMAIL);
+  const whatsapp = trimOrNull(process.env.NEXT_PUBLIC_WHATSAPP);
+  const phone = trimOrNull(process.env.NEXT_PUBLIC_PHONE);
+  const email = resolveContactEmail(fallback);
 
   return {
     whatsappDisplay: whatsapp,

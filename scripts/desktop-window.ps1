@@ -4,7 +4,7 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..
 
-$url = "http://127.0.0.1:3000/dashboard"
+$url = "http://127.0.0.1:3000/login"
 $health = "http://127.0.0.1:3000/api/v1/health"
 
 try {

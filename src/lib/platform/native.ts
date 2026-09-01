@@ -14,6 +14,17 @@ export function isCapacitorNative(): boolean {
   return Boolean(cap?.isNativePlatform?.());
 }
 
+/** Appended to WebView user-agents so middleware can skip marketing pages. */
+export const NATIVE_APP_UA_MARK = "BusinessOSNative";
+
+export function isNativeAppUserAgent(ua: string | null | undefined): boolean {
+  return Boolean(ua?.includes(NATIVE_APP_UA_MARK));
+}
+
+export function isNativeShell(): boolean {
+  return isTauriRuntime() || isCapacitorNative();
+}
+
 export function capacitorPlatform(): string | null {
   const cap = (
     globalThis as unknown as {

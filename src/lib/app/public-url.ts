@@ -18,6 +18,21 @@ export function getCapacitorServerUrl(): string {
   return trimUrl(process.env.CAPACITOR_SERVER_URL) || getPublicAppUrl();
 }
 
+/** Native Android/Windows shells open sign-in, not the public landing page. */
+export function withNativeAppEntryUrl(originOrUrl: string): string {
+  const trimmed = originOrUrl.trim();
+  if (!trimmed) return "/login";
+  try {
+    const url = new URL(trimmed);
+    url.pathname = "/login";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return `${trimUrl(trimmed)}/login`;
+  }
+}
+
 /** Hostname for Android intent filters (no scheme/path). */
 export function getPublicAppHost(): string | null {
   const url = getCapacitorServerUrl() || getPublicAppUrl();

@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  emailFieldSchema,
+  personNameSchema,
+  phoneOptionalSchema,
+} from "@/lib/validation/fields";
 
 export const dayKeySchema = z
   .string()
@@ -53,9 +58,9 @@ export const staffCommissionTypeSchema = z.enum([
 
 export const createStaffSchema = z
   .object({
-    name: z.string().min(2).max(100),
-    phone: z.string().max(20).optional().nullable(),
-    email: z.string().email().max(160).optional().nullable().or(z.literal("")),
+    name: personNameSchema,
+    phone: phoneOptionalSchema,
+    email: emailFieldSchema.optional().nullable().or(z.literal("")),
     roleKey: z.enum(STAFF_ROLE_KEYS).optional().nullable(),
     roleTitle: z.string().min(1).max(80),
     cashierCode: z
@@ -113,9 +118,9 @@ export const createStaffSchema = z
   });
 
 export const updateStaffSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
-  phone: z.string().max(20).optional().nullable(),
-  email: z.string().email().max(160).optional().nullable().or(z.literal("")),
+  name: personNameSchema.optional(),
+  phone: phoneOptionalSchema,
+  email: emailFieldSchema.optional().nullable().or(z.literal("")),
   roleKey: z.enum(STAFF_ROLE_KEYS).optional().nullable(),
   roleTitle: z.string().min(1).max(80).optional(),
   cashierCode: z

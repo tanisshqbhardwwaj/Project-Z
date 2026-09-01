@@ -1,4 +1,12 @@
 import { ZodError, type ZodIssue } from "zod";
+import {
+  validateEmail,
+  validateOrganizationName,
+  validatePersonName,
+  validatePhoneOptional,
+  validateSecurePassword,
+  FIELD_LIMITS,
+} from "@/lib/validation/fields";
 
 function isApiClientError(err: unknown): err is { code: string; message: string } {
   return (
@@ -179,24 +187,38 @@ export function applyApiResponseError(
   }
 }
 
-export function requireField(value: string, label: string): string | null {
-  if (!value.trim()) return `Please fill in ${label.toLowerCase()}`;
-  return null;
-}
-
 export function requireSelect(value: string, label: string): string | null {
   if (!value) return `Please select ${label.toLowerCase()}`;
   return null;
 }
 
-export function requireEmail(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return "Please enter your email address";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-    return "Please enter a valid email address";
-  }
+export function requireField(value: string, label: string): string | null {
+  if (!value.trim()) return `Please fill in ${label.toLowerCase()}`;
   return null;
 }
+
+export function requireEmail(value: string): string | null {
+  return validateEmail(value);
+}
+
+export function requireSecurePassword(value: string): string | null {
+  return validateSecurePassword(value);
+}
+
+export function requirePersonName(value: string, label = "name"): string | null {
+  return validatePersonName(value, label.charAt(0).toUpperCase() + label.slice(1));
+}
+
+export function requireOrganizationName(value: string): string | null {
+  return validateOrganizationName(value);
+}
+
+export function requirePhoneOptional(value: string): string | null {
+  return validatePhoneOptional(value);
+}
+
+export { FIELD_LIMITS, PASSWORD_HINT } from "@/lib/validation/fields";
+export { PASSWORD_HINT as passwordHint } from "@/lib/validation/fields";
 
 export function parseAmountInput(
   value: string,

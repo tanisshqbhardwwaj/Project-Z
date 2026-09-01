@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MessageCircle, Mail, Link2 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -12,15 +13,20 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { useFetch } from "@/hooks/use-fetch";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { requireEmail } from "@/lib/api/validation";
+import { requireEmail, FIELD_LIMITS } from "@/lib/api/validation";
 import { useBusinessType } from "@/hooks/use-business-type";
+import { isShopVertical } from "@/lib/org/business-type";
 import { ORG_ROLE_LABELS } from "@/lib/permissions/rbac";
 import type { OrgRole } from "@prisma/client";
 
-const INVITE_ROLES: OrgRole[] = ["PARTNER", "ACCOUNTANT", "VIEWER", "CASHIER"];
+const INVITE_ROLES: OrgRole[] = ["PARTNER", "ACCOUNTANT", "VIEWER"];
 
 export default function MembersContent() {
+  const router = useRouter();
   const biz = useBusinessType();
+  const activeBusinessType = useAuthStore((s) => s.activeBusinessType);
+  const initialized = useAuthStore((s) => s.initialized);
+  const shopPeople = isShopVertical(activeBusinessType);
   const { activeOrganizationId } = useAuthStore();
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<OrgRole>("PARTNER");
@@ -28,8 +34,14 @@ export default function MembersContent() {
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const [inviteLink, setInviteLink] = useState("");
 
+  useEffect(() => {
+    if (initialized && shopPeople) {
+      router.replace("/staff");
+    }
+  }, [initialized, shopPeople, router]);
+
   const { data: members, loading, refetch } = useFetch(
-    activeOrganizationId ? `org:${activeOrganizationId}:members` : null,
+    activeOrganizationId && !shopPeople ? `org:${activeOrganizationId}:members` : null,
     () =>
       apiFetch<
         Array<{
@@ -44,7 +56,7 @@ export default function MembersContent() {
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeOrganizationId) return;
+    if (!activeOrganizationId || shopPeople) return;
     clear();
     setSuccessMessage("");
     const validationMessage = requireEmail(email);
@@ -66,7 +78,7 @@ export default function MembersContent() {
   }
 
   async function getLink() {
-    if (!activeOrganizationId) return;
+    if (!activeOrganizationId || shopPeople) return;
     clear();
     setSuccessMessage("");
     try {
@@ -85,6 +97,10 @@ export default function MembersContent() {
     if (!inviteLink) return;
     const text = encodeURIComponent(`Join my organization on BusinessOS: ${inviteLink}`);
     window.open(`https://wa.me/?text=${text}`, "_blank");
+  }
+
+  if (!initialized || shopPeople) {
+    return <PageLoader label="Opening staff..." />;
   }
 
   if (loading) return <PageLoader label="Loading members..." />;
@@ -110,26 +126,26 @@ export default function MembersContent() {
                 {INVITE_ROLES.map((r) => (
                   <option key={r} value={r}>
                     {ORG_ROLE_LABELS[r]}
-                    {r === "CASHIER" ? " — counter sales only" : ""}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
-            <div className="flex gap-2">
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="partner@email.com"
-                className="h-12 rounded-xl"
-                required
-              />
-              <Button type="submit" className="h-12 shrink-0 rounded-xl px-4">
-                <Mail className="h-4 w-4" />
-              </Button>
-            </div>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  maxLength={FIELD_LIMITS.EMAIL_MAX}
+                  placeholder="partner@email.com"
+                  className="h-12 rounded-xl"
+                  required
+                />
+                <Button type="submit" className="h-12 shrink-0 rounded-xl px-4">
+                  <Mail className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </form>
           <div className="flex flex-wrap gap-2">
