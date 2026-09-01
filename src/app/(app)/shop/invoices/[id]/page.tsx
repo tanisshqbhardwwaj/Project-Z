@@ -16,10 +16,11 @@ import {
 } from "@/components/shop/shop-invoice-print";
 import { InvoicePreviewRoot } from "@/components/shop/invoice-preview-root";
 import { formatINR } from "@/lib/finance/money";
-import { saleToShopInvoice, type NormalizedSaleRecord } from "@/lib/shop/sale-invoice-mapper";
+import { saleToShopInvoice, saleLineItems, type NormalizedSaleRecord } from "@/lib/shop/sale-invoice-mapper";
 import { InvoiceReturnPanel } from "@/components/shop/invoice-return-panel";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
+import { useShopStaffUi } from "@/hooks/use-shop-staff-ui";
 import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import {
   buildInvoiceWhatsAppMessage,
@@ -50,6 +51,12 @@ export default function ShopInvoicePage() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
   const activeOrganizationName = useAuthStore((s) => s.activeOrganizationName);
   const userName = useAuthStore((s) => s.user?.name);
+  const {
+    isStaffLimitedView,
+    canPrintFullInvoice,
+    canViewCustomerDetails,
+    canProcessReturns,
+  } = useShopStaffUi();
   const template = useShopInvoiceTemplate();
   const layout = resolvePaperLayout(template.paperSize, template.printMarginMm);
   const [duplicateCopy, setDuplicateCopy] = useState(false);
@@ -103,6 +110,77 @@ export default function ShopInvoicePage() {
   }
 
   const sale = data;
+  const lineItems = saleLineItems(sale);
+
+  if (isStaffLimitedView) {
+    return (
+      <div className="mx-auto max-w-lg space-y-4 p-4 pb-8">
+        <Link
+          href="/shop/invoices"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          My bills
+        </Link>
+
+        <div className="space-y-1">
+          <h1 className="font-mono text-lg font-bold">{sale.billNumber ?? "Bill"}</h1>
+          <p className="text-sm font-semibold tabular-nums">
+            Total {formatINR(sale.totalPaise ?? "0")}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {new Date(sale.createdAt ?? "").toLocaleString("en-IN", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <h2 className="mb-3 text-sm font-semibold">Items on this bill</h2>
+          {lineItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No line items recorded.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {lineItems.map((item, index) => (
+                <li key={`${item.name}-${index}`} className="leading-snug">
+                  <span className="font-medium">{item.name}</span>
+                  {item.qty > 1 ? (
+                    <span className="text-muted-foreground"> — qty {item.qty}</span>
+                  ) : null}
+                  {item.variantLabel ? (
+                    <span className="text-muted-foreground"> ({item.variantLabel})</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {canProcessReturns ? (
+          <>
+            <Button
+              size="sm"
+              className="rounded-xl"
+              onClick={() => setReturnOpen(true)}
+            >
+              <RotateCcw className="mr-1 h-3.5 w-3.5" />
+              Return
+            </Button>
+            <InvoiceReturnPanel
+              saleId={sale.id}
+              billNumber={sale.billNumber ?? null}
+              customerName={null}
+              hideActions
+              returnOpen={returnOpen}
+              onReturnOpenChange={setReturnOpen}
+            />
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   const invoice = saleToShopInvoice(sale, {
     orgName: activeOrganizationName,
     cashierName: userName,
@@ -191,13 +269,18 @@ export default function ShopInvoicePage() {
               dateStyle: "medium",
               timeStyle: "short",
             })}
-            {" · "}
-            {sale.customerName?.trim() || "Walk-in"}
+            {canViewCustomerDetails ? (
+              <>
+                {" · "}
+                {sale.customerName?.trim() || "Walk-in"}
+              </>
+            ) : null}
             {" · "}
             {String(sale.paymentMethod).replace(/_/g, " ")}
           </p>
         </div>
 
+        {canPrintFullInvoice ? (
         <div className="grid grid-cols-3 gap-2">
           <Button
             size="sm"
@@ -255,7 +338,10 @@ export default function ShopInvoicePage() {
             </Button>
           </Link>
         </div>
+        ) : null}
 
+        {canProcessReturns ? (
+        <>
         <InvoiceReturnPanel
           saleId={sale.id}
           billNumber={sale.billNumber ?? null}
@@ -264,6 +350,8 @@ export default function ShopInvoicePage() {
           returnOpen={returnOpen}
           onReturnOpenChange={setReturnOpen}
         />
+        </>
+        ) : null}
 
         {sale.paymentStatus && sale.paymentStatus !== "PAID" ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/30">
@@ -272,6 +360,7 @@ export default function ShopInvoicePage() {
         ) : null}
       </div>
 
+      {canPrintFullInvoice ? (
       <div className="shop-invoice-print-mount mx-auto flex max-w-lg justify-center px-3 pb-8 sm:px-4">
         <div className="flex justify-center rounded-lg bg-muted/40 py-3">
           <InvoicePreviewRoot
@@ -289,6 +378,7 @@ export default function ShopInvoicePage() {
           </InvoicePreviewRoot>
         </div>
       </div>
+      ) : null}
     </>
   );
 }

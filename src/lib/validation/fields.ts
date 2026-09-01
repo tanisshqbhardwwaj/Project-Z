@@ -14,7 +14,16 @@ export const FIELD_LIMITS = {
   ORG_NAME_MAX: 100,
   ROLE_TITLE_MAX: 80,
   CUSTOM_BUSINESS_TYPE_MAX: 120,
+  CUSTOMER_NAME_MAX: 100,
+  GSTIN_LENGTH: 15,
 } as const;
+
+/** Indian GSTIN — 15 chars: 2-digit state + PAN + entity + Z + checksum. */
+export const GSTIN_PATTERN =
+  /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+export const GSTIN_HINT =
+  "15 characters, e.g. 27AABCU9603R1ZM (2-digit state + PAN + entity code)";
 
 export const PASSWORD_HINT =
   "8–128 characters with at least one uppercase letter, one lowercase letter, and one number";
@@ -113,6 +122,32 @@ export function validateOrganizationName(value: string): string | null {
   return null;
 }
 
+/** Walk-in bills may omit the name; validate only when provided. */
+export function validateCustomerNameOptional(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > FIELD_LIMITS.CUSTOMER_NAME_MAX) {
+    return `Customer name must be at most ${FIELD_LIMITS.CUSTOMER_NAME_MAX} characters`;
+  }
+  return null;
+}
+
+export function normalizeGstin(value: string): string {
+  return value.trim().toUpperCase().replace(/\s/g, "");
+}
+
+export function validateGstinOptional(value: string): string | null {
+  const normalized = normalizeGstin(value);
+  if (!normalized) return null;
+  if (normalized.length !== FIELD_LIMITS.GSTIN_LENGTH) {
+    return `GSTIN must be exactly ${FIELD_LIMITS.GSTIN_LENGTH} characters`;
+  }
+  if (!GSTIN_PATTERN.test(normalized)) {
+    return `Enter a valid GSTIN (${GSTIN_HINT})`;
+  }
+  return null;
+}
+
 function passwordRefine(value: string, ctx: z.RefinementCtx) {
   const message = validateSecurePassword(value);
   if (message) {
@@ -159,6 +194,34 @@ export const organizationNameSchema = z
   .trim()
   .min(FIELD_LIMITS.ORG_NAME_MIN, `Organization name must be at least ${FIELD_LIMITS.ORG_NAME_MIN} characters`)
   .max(FIELD_LIMITS.ORG_NAME_MAX, `Organization name must be at most ${FIELD_LIMITS.ORG_NAME_MAX} characters`);
+
+export const shopCustomerNameSchema = z
+  .string()
+  .trim()
+  .max(
+    FIELD_LIMITS.CUSTOMER_NAME_MAX,
+    `Customer name must be at most ${FIELD_LIMITS.CUSTOMER_NAME_MAX} characters`
+  )
+  .optional()
+  .nullable()
+  .transform((value) => (value ? value : null));
+
+export const shopCustomerGstinSchema = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .transform((value) => {
+    if (!value) return null;
+    return normalizeGstin(value);
+  })
+  .superRefine((value, ctx) => {
+    if (value == null) return;
+    const message = validateGstinOptional(value);
+    if (message) {
+      ctx.addIssue({ code: "custom", message });
+    }
+  });
 
 export const registerSchema = z.object({
   email: emailFieldSchema,

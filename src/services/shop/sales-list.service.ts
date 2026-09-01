@@ -20,6 +20,7 @@ export async function listShopSales(
   opts?: {
     q?: string;
     customerId?: string;
+    billNumberOnly?: boolean;
     branchId?: BranchScope;
     limit?: number;
     staffId?: string;
@@ -32,7 +33,8 @@ export async function listShopSales(
   const where = invoiceSearchWhere(
     organizationId,
     opts?.q ?? "",
-    opts?.customerId
+    opts?.customerId,
+    { billNumberOnly: opts?.billNumberOnly }
   );
   if (opts?.branchId && !isBranchAll(opts.branchId)) {
     where.branchId = opts.branchId;

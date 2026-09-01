@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Printer, Receipt, Search, Settings, Users } from "lucide-react";
+import { Eye, Plus, Receipt, Search, Settings, Users } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { moduleLabel } from "@/lib/org/modules";
@@ -19,6 +19,7 @@ import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
 import { formatINR } from "@/lib/finance/money";
 import { formatCustomerLabel } from "@/lib/shop/customer";
 import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
+import { useShopStaffUi } from "@/hooks/use-shop-staff-ui";
 
 type ShopSale = {
   id: string;
@@ -33,6 +34,13 @@ type ShopSale = {
 
 export default function InvoicesPage() {
   const { activeBusinessType, activeOrganizationId, enabledModules } = useAuthStore();
+  const {
+    isStaffLimitedView,
+    canViewCustomers,
+    canEditInvoiceSettings,
+    canCreateInvoice,
+    canViewCustomerDetails,
+  } = useShopStaffUi();
   const orgId = activeOrganizationId;
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
   const title = moduleLabel("shop_sales", activeBusinessType ?? "SHOPKEEPER");
@@ -42,9 +50,10 @@ export default function InvoicesPage() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    if (isStaffLimitedView) return;
     const fromUrl = searchParams.get("customerId");
     if (fromUrl) setCustomerIdFilter(fromUrl);
-  }, [searchParams]);
+  }, [searchParams, isStaffLimitedView]);
 
   const {
     items: invoices,
@@ -61,7 +70,7 @@ export default function InvoicesPage() {
     buildUrl: (cursor, debouncedSearch) =>
       buildCursorListUrl("/api/v1/shop/sales", {
         q: debouncedSearch.trim() || undefined,
-        customerId: customerIdFilter ?? undefined,
+        customerId: isStaffLimitedView ? undefined : customerIdFilter ?? undefined,
         limit: 25,
       }, cursor),
     enabled: !!orgId && salesEnabled,
@@ -88,28 +97,38 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={title}
-        description="Search by customer name, phone, or bill number"
+        title={isStaffLimitedView ? "My bills" : title}
+        description={
+          isStaffLimitedView
+            ? "Search by bill number — customer details are hidden"
+            : "Search by customer name, phone, or bill number"
+        }
         actions={
           <>
-            <Link href="/shop/customers">
-              <Button variant="outline" size="lg" className="rounded-xl">
-                <Users className="mr-2 h-5 w-5" />
-                Customers
-              </Button>
-            </Link>
-            <Link href="/shop/invoices/settings">
-              <Button variant="outline" size="lg" className="rounded-xl">
-                <Settings className="mr-2 h-5 w-5" />
-                Invoice settings
-              </Button>
-            </Link>
-            <Link href="/shop/invoices/new">
-              <Button size="lg" className="rounded-xl">
-                <Plus className="mr-2 h-5 w-5" />
-                New invoice
-              </Button>
-            </Link>
+            {canViewCustomers ? (
+              <Link href="/shop/customers">
+                <Button variant="outline" size="lg" className="rounded-xl">
+                  <Users className="mr-2 h-5 w-5" />
+                  Customers
+                </Button>
+              </Link>
+            ) : null}
+            {canEditInvoiceSettings ? (
+              <Link href="/shop/invoices/settings">
+                <Button variant="outline" size="lg" className="rounded-xl">
+                  <Settings className="mr-2 h-5 w-5" />
+                  Invoice settings
+                </Button>
+              </Link>
+            ) : null}
+            {canCreateInvoice ? (
+              <Link href="/shop/invoices/new">
+                <Button size="lg" className="rounded-xl">
+                  <Plus className="mr-2 h-5 w-5" />
+                  New invoice
+                </Button>
+              </Link>
+            ) : null}
           </>
         }
       />
@@ -120,15 +139,19 @@ export default function InvoicesPage() {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setCustomerIdFilter(null);
+            if (!isStaffLimitedView) setCustomerIdFilter(null);
           }}
           className="h-11 rounded-xl pl-10"
-          placeholder="Search customer name, phone, or bill #"
+          placeholder={
+            isStaffLimitedView
+              ? "Search bill number"
+              : "Search customer name, phone, or bill #"
+          }
           aria-busy={isSearchPending}
         />
       </div>
 
-      {customerIdFilter ? (
+      {!isStaffLimitedView && customerIdFilter ? (
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Filtered by customer</span>
           <Button
@@ -146,7 +169,7 @@ export default function InvoicesPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
-            Recent invoices
+            {isStaffLimitedView ? "Your recent bills" : "Recent invoices"}
             <ListFetchIndicator active={isSearchPending} className="ml-1" />
             {search.trim() ? (
               <span className="text-sm font-normal text-muted-foreground">
@@ -164,11 +187,15 @@ export default function InvoicesPage() {
               }
               description={
                 search.trim()
-                  ? "Try a different bill number or customer name."
-                  : "Create your first invoice to start tracking sales."
+                  ? isStaffLimitedView
+                    ? "Try a different bill number."
+                    : "Try a different bill number or customer name."
+                  : isStaffLimitedView
+                    ? "Bills you create will appear here."
+                    : "Create your first invoice to start tracking sales."
               }
             >
-              {!search.trim() ? (
+              {canCreateInvoice && !search.trim() ? (
                 <Link href="/shop/invoices/new">
                   <Button className="rounded-xl">New invoice</Button>
                 </Link>
@@ -181,9 +208,15 @@ export default function InvoicesPage() {
                   <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 font-medium">Bill #</th>
-                      <th className="px-4 py-3 font-medium">Date</th>
-                      <th className="px-4 py-3 font-medium">Customer</th>
-                      <th className="px-4 py-3 font-medium">Payment</th>
+                      {!isStaffLimitedView ? (
+                        <th className="px-4 py-3 font-medium">Date</th>
+                      ) : null}
+                      {canViewCustomerDetails ? (
+                        <th className="px-4 py-3 font-medium">Customer</th>
+                      ) : null}
+                      {!isStaffLimitedView ? (
+                        <th className="px-4 py-3 font-medium">Payment</th>
+                      ) : null}
                       <th className="px-4 py-3 font-medium text-right">Total</th>
                       <th className="px-4 py-3 font-medium text-right">Actions</th>
                     </tr>
@@ -194,44 +227,50 @@ export default function InvoicesPage() {
                         <td className="px-4 py-3 font-mono text-xs">
                           {inv.billNumber ?? "—"}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
-                          {new Date(inv.createdAt).toLocaleString("en-IN")}
-                        </td>
-                        <td className="px-4 py-3">
-                          {inv.customerName ? (
-                            inv.customerId ? (
-                              <button
-                                type="button"
-                                className="text-left hover:underline"
-                                onClick={() => {
-                                  setCustomerIdFilter(inv.customerId);
-                                  setSearch("");
-                                }}
-                              >
-                                {formatCustomerLabel({
+                        {!isStaffLimitedView ? (
+                          <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                            {new Date(inv.createdAt).toLocaleString("en-IN")}
+                          </td>
+                        ) : null}
+                        {canViewCustomerDetails ? (
+                          <td className="px-4 py-3">
+                            {inv.customerName ? (
+                              inv.customerId ? (
+                                <button
+                                  type="button"
+                                  className="text-left hover:underline"
+                                  onClick={() => {
+                                    setCustomerIdFilter(inv.customerId);
+                                    setSearch("");
+                                  }}
+                                >
+                                  {formatCustomerLabel({
+                                    name: inv.customerName,
+                                    phone: inv.customerPhone,
+                                  })}
+                                </button>
+                              ) : (
+                                formatCustomerLabel({
                                   name: inv.customerName,
                                   phone: inv.customerPhone,
-                                })}
-                              </button>
+                                })
+                              )
                             ) : (
-                              formatCustomerLabel({
-                                name: inv.customerName,
-                                phone: inv.customerPhone,
-                              })
-                            )
-                          ) : (
-                            "Walk-in"
-                          )}
-                        </td>
-                        <td className="px-4 py-3">{inv.paymentMethod}</td>
+                              "Walk-in"
+                            )}
+                          </td>
+                        ) : null}
+                        {!isStaffLimitedView ? (
+                          <td className="px-4 py-3">{inv.paymentMethod}</td>
+                        ) : null}
                         <td className="px-4 py-3 text-right font-semibold tabular-nums">
                           {formatINR(inv.totalPaise)}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Link href={`/shop/invoices/${inv.id}`}>
                             <Button variant="outline" size="sm" className="rounded-xl">
-                              <Printer className="mr-1 h-3.5 w-3.5" />
-                              View / Print
+                              <Eye className="mr-1 h-3.5 w-3.5" />
+                              {isStaffLimitedView ? "View items" : "View / Print"}
                             </Button>
                           </Link>
                         </td>

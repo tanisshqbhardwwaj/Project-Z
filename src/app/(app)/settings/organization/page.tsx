@@ -27,6 +27,7 @@ import {
   isShopSector,
   type ShopSector,
 } from "@/lib/org/shop-sector";
+import { hasServiceCatalog } from "@/lib/shop/sector-mode";
 import {
   resolveCustomBusinessTypeLabel,
   resolveShopBusinessTypes,
@@ -392,11 +393,23 @@ export default function OrganizationSettingsPage() {
               ) : null}
 
               <p className="pt-1 text-xs text-muted-foreground">
-                Need a category we don&apos;t list? Add your own from{" "}
-                <Link href="/shop/inventory" className="text-primary hover:underline">
-                  Inventory → Category
-                </Link>
-                .
+                {hasServiceCatalog(businessTypes) ? (
+                  <>
+                    Service categories come from your business type above. Add or edit them in{" "}
+                    <Link href="/service/catalog" className="text-primary hover:underline">
+                      Service catalog → Category
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  <>
+                    Need a category we don&apos;t list? Add your own from{" "}
+                    <Link href="/shop/inventory" className="text-primary hover:underline">
+                      Inventory → Category
+                    </Link>
+                    .
+                  </>
+                )}
               </p>
             </div>
           )}
