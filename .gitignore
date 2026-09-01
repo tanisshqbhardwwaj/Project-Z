@@ -74,6 +74,3 @@ next-env.d.ts
 keystore.properties
 *.keystore
 *.jks
-docs/architecture/project-z-architecture.pdf
-scripts/generate-architecture-pdf.mjs
-docs/architecture/project-z-architecture.html

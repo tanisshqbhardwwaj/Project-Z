@@ -1,0 +1,15 @@
+{
+  "files.exclude": {
+    ".gitignore": true,
+    ".env": true,
+    ".env.local": true,
+    ".env.development": true,
+    ".env.production": true,
+    "next-env.d.ts": true,
+    "*.tsbuildinfo": true,
+    "tsconfig.tsbuildinfo": true,
+    "package-lock.json": true,
+    ".dockerignore": true,
+    ".nvmrc": true
+  }
+}
