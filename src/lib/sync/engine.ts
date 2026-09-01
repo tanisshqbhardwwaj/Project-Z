@@ -1,7 +1,7 @@
 import { runSync } from "@/lib/sync/client";
 import { getLocalDb } from "@/lib/local-db";
 import { useSyncStore } from "@/lib/sync/store";
-import { isCapacitorNative } from "@/lib/platform/native";
+import { isCapacitorNative } from "@/platform/common/native";
 
 let started = false;
 let currentOrgId: string | null = null;

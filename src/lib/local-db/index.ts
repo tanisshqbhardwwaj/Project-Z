@@ -1,7 +1,7 @@
 import type { LocalDbAdapter } from "./adapter";
 import { createLazyAdapter } from "./lazy-adapter";
 import { createIndexedDbAdapter } from "./indexed-adapter";
-import { isCapacitorAndroid, isCapacitorNative, isTauriRuntime } from "@/lib/platform/native";
+import { isCapacitorAndroid, isCapacitorNative, isTauriRuntime } from "@/platform/common/native";
 
 let adapter: LocalDbAdapter | null = null;
 
@@ -14,12 +14,12 @@ export function getLocalDb(): LocalDbAdapter {
     try {
       if (isCapacitorNative()) {
         const { createCapacitorSqliteAdapter } = await import(
-          "@/lib/sync/adapters/capacitor-sqlite"
+          "@/platform/android/capacitor-sqlite"
         );
         return createCapacitorSqliteAdapter();
       }
       if (isTauriRuntime()) {
-        const { createTauriSqlAdapter } = await import("@/lib/sync/adapters/tauri-sql");
+        const { createTauriSqlAdapter } = await import("@/platform/desktop/tauri-sql");
         return createTauriSqlAdapter();
       }
     } catch {

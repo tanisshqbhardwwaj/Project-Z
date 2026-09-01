@@ -19,7 +19,7 @@ import {
   formatStockLabel,
   stockLimitMessage,
   validateCartStock,
-} from "@/lib/shop/inventory";
+} from "@/lib/shop/inventory/inventory";
 import {
   type SaleLine,
   PAYMENT_METHODS,
@@ -27,10 +27,10 @@ import {
   mergeCarts,
   mergeLineIntoCart,
   newLineId,
-} from "@/lib/shop/invoice-cart";
+} from "@/lib/shop/invoices/invoice-cart";
 import { buildDraftInvoice } from "@/components/shop/invoice-live-preview";
 import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
-import { parsePricingJson } from "@/lib/shop/invoice-pricing";
+import { parsePricingJson } from "@/lib/shop/invoices/invoice-pricing";
 import {
   CustomerPicker,
   type ShopCustomerOption,
@@ -44,7 +44,7 @@ import {
   formatInvoiceMoney,
   resolveInvoiceLineAllocations,
   shouldShowLineDiscountHints,
-} from "@/lib/shop/invoice-pricing";
+} from "@/lib/shop/invoices/invoice-pricing";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { CameraScanButton } from "@/components/shop/camera-scan-button";
@@ -55,8 +55,8 @@ import {
   CashTenderPanel,
   buildCashTender,
 } from "@/components/shop/cash-tender-panel";
-import type { CashTender } from "@/lib/shop/invoice-receipt-print";
-import { useKeepAwake } from "@/hooks/use-keep-awake";
+import type { CashTender } from "@/lib/shop/invoices/invoice-receipt-print";
+import { useKeepAwake } from "@/platform/android/use-keep-awake";
 import { useToast } from "@/hooks/use-toast";
 
 const SCAN_ADD_ITEM_KEY = "project-z:scan-add-item";
@@ -65,20 +65,20 @@ import {
   clearInvoiceDraft,
   loadInvoiceDraft,
   saveInvoiceDraft,
-} from "@/lib/shop/invoice-draft-storage";
+} from "@/lib/shop/invoices/invoice-draft-storage";
 import {
   VariantSearchPicker,
   VariantSelect,
   variantOptionText,
 } from "@/components/shop/variant-picker";
-import { saleLineItems, saleLinesToDraftCart } from "@/lib/shop/sale-invoice-mapper";
+import { saleLineItems, saleLinesToDraftCart } from "@/lib/shop/invoices/sale-invoice-mapper";
 import { resolveShopBusinessTypes } from "@/lib/org/shop-settings";
 import {
   catalogLabelForSectors,
   hasMenuBilling,
   hasServiceCatalog,
   type ShopItemKind,
-} from "@/lib/shop/sector-mode";
+} from "@/lib/shop/branch/sector-mode";
 import {
   filterInventoryForCatalog,
   InvoiceCatalogPicker,
@@ -86,8 +86,8 @@ import {
 } from "@/components/shop/invoice-catalog-picker";
 import { getModuleDefinition, moduleLabel, moduleRoute } from "@/lib/org/modules";
 import { getActiveBranchId } from "@/lib/api/client";
-import { parseKotPayload, type KotPayload } from "@/lib/shop/kot";
-import { variantSubtitle } from "@/lib/shop/variant-display";
+import { parseKotPayload, type KotPayload } from "@/lib/shop/invoices/kot";
+import { variantSubtitle } from "@/lib/shop/inventory/variant-display";
 import { useKotPrint } from "@/components/shop/kot-print";
 import { InvoiceCartTable } from "@/components/shop/invoice-cart-table";
 

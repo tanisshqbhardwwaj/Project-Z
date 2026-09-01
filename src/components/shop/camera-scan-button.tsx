@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { detectBarcodeFromBlob, scanRetailBarcode } from "@/lib/shop/barcode-scan";
+import { detectBarcodeFromBlob, scanRetailBarcode } from "@/platform/android/barcode-scan";
 
 export function CameraScanButton({ onCode }: { onCode: (code: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);

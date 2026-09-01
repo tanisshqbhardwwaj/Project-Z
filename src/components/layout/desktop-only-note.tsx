@@ -1,6 +1,6 @@
 "use client";
 
-import { isCapacitorAndroid } from "@/lib/platform/native";
+import { isCapacitorAndroid } from "@/platform/common/native";
 
 export function DesktopOnlyNote({
   feature = "this screen",

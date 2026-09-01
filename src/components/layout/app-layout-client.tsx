@@ -7,7 +7,7 @@ import { CashierRouteGuard } from "@/components/layout/cashier-route-guard";
 import { SyncEngineProvider } from "@/components/sync/sync-badge";
 import { OfflineBanner } from "@/components/sync/offline-banner";
 import { CommandPalette } from "@/components/layout/command-palette";
-import { AndroidBackButton } from "@/components/layout/android-back-button";
+import { AndroidBackButton } from "@/platform/android/android-back-button";
 import { PageLoader } from "@/components/ui/page-loader";
 import { useAuthStore } from "@/stores/auth-store";
 
