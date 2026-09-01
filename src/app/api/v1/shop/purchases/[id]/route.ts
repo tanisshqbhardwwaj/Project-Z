@@ -11,7 +11,7 @@ import {
   cancelShopPurchase,
   getShopPurchase,
   updateShopPurchase,
-} from "@/services/shop-purchase.service";
+} from "@/services/shop/shop-purchase.service";
 
 const lineSchema = z.object({
   inventoryItemId: z.string().uuid().optional().nullable(),

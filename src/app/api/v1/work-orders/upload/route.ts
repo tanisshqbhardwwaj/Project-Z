@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthContext, handleApi, requirePermission } from "@/lib/api/context";
 import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { normalizeWorkOrderUpload } from "@/lib/media/normalize-work-order-file";
-import { uploadAndExtract } from "@/services/extraction.service";
+import { uploadAndExtract } from "@/services/shared/extraction.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 const ALLOWED_EXTENSIONS = new Set(["pdf", "jpg", "jpeg", "png", "webp", "heic", "heif"]);

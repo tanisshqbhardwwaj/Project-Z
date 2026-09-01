@@ -7,7 +7,7 @@ import {
   listBetaTestEmails,
   removeBetaTestEmail,
   MAX_BETA_TEST_EMAILS,
-} from "@/services/beta-test-email.service";
+} from "@/services/shared/beta-test-email.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 const addSchema = z.object({ email: z.string().email() });

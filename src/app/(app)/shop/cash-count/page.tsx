@@ -21,7 +21,7 @@ import {
   normalizeDenominationCounts,
   totalPaiseFromDenominations,
   type CashDenominationCounts,
-} from "@/lib/shop/cash-denominations";
+} from "@/lib/shop/shared/cash-denominations";
 import { formatINR } from "@/lib/finance/money";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

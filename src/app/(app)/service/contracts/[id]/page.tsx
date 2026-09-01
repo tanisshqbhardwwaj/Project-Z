@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatINR } from "@/lib/finance/money";
-import { formatCustomerLabel } from "@/lib/shop/customer";
+import { formatCustomerLabel } from "@/lib/shop/customers/customer";
 
 type ContractDetail = {
   id: string;

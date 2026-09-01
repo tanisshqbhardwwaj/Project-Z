@@ -8,7 +8,7 @@ import {
   requirePermission,
 } from "@/lib/api/context";
 import { z } from "zod";
-import { createOrganization, updateOrganization } from "@/services/organization.service";
+import { createOrganization, updateOrganization } from "@/services/org/organization.service";
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { BUSINESS_TYPES } from "@/lib/org/business-type";
 import { SHOP_SECTORS } from "@/lib/org/shop-sector";

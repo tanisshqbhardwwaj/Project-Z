@@ -8,9 +8,9 @@ import {
   markSetupFeePaid,
   reactivateOrganization,
   updateOrgBillingFromOps,
-} from "@/services/billing.service";
+} from "@/services/billing/billing.service";
 import { grantOrgAddon, revokeOrgAddon } from "@/lib/billing/org-addon.service";
-import { getOpsOrganizationDetail, updateOpsOrganizationModules } from "@/services/ops.service";
+import { getOpsOrganizationDetail, updateOpsOrganizationModules } from "@/services/shared/ops.service";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

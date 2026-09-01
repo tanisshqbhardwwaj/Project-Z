@@ -5,7 +5,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { deleteOffer, updateOffer } from "@/services/shop-offer.service";
+import { deleteOffer, updateOffer } from "@/services/shop/shop-offer.service";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

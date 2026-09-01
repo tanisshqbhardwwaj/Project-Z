@@ -3,7 +3,7 @@ import {
   handleApi,
   apiSuccess,
 } from "@/lib/api/context";
-import { previewOffersForCart } from "@/services/shop-offer.service";
+import { previewOffersForCart } from "@/services/shop/shop-offer.service";
 import { requireShopBilling } from "@/lib/staff/shop-access";
 
 export async function POST(request: Request) {

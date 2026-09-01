@@ -7,7 +7,7 @@ import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { PageLoader } from "@/components/ui/page-loader";
 import { formatINR } from "@/lib/finance/money";
-import { isInfiniteStock } from "@/lib/shop/inventory";
+import { isInfiniteStock } from "@/lib/shop/inventory/inventory";
 import {
   inventoryCategoriesForSector,
   inventoryCategoryLabel,
@@ -15,7 +15,7 @@ import {
   inventorySubcategoryLabel,
   parseInventoryCategory,
   parseInventorySubcategory,
-} from "@/lib/shop/inventory-categories";
+} from "@/lib/shop/inventory/inventory-categories";
 import type { ShopSector } from "@/lib/org/shop-sector";
 import { getShopSectorConfig } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";

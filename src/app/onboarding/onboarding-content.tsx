@@ -30,7 +30,7 @@ import {
   defaultSectorsForOffering,
   sectorsForOffering,
   type ShopOfferingKind,
-} from "@/lib/shop/onboarding-sectors";
+} from "@/lib/shop/branch/onboarding-sectors";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 

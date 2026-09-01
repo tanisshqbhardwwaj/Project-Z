@@ -8,7 +8,7 @@ import {
   apiSuccess,
   ApiError,
 } from "@/lib/api/context";
-import { updateOwnExpense } from "@/services/expense.service";
+import { updateOwnExpense } from "@/services/finance/expense.service";
 import { prisma } from "@/lib/db/prisma";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { rupeesToPaise } from "@/lib/finance/money";

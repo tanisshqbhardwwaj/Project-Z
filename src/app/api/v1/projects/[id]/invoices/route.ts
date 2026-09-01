@@ -9,7 +9,7 @@ import {
 import {
   createProjectInvoice,
   listProjectInvoices,
-} from "@/services/project-invoice.service";
+} from "@/services/projects/project-invoice.service";
 
 const createInvoiceSchema = z.object({
   clientName: z.string().optional().nullable(),

@@ -6,13 +6,13 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
 import { requireReportFeature } from "@/lib/billing/require-report-feature";
 import {
   getShopCashCount,
   listShopCashCounts,
   upsertShopCashCount,
-} from "@/services/shop-cash-count.service";
+} from "@/services/shop/shop-cash-count.service";
 
 const upsertSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

@@ -17,8 +17,8 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { formatINR } from "@/lib/finance/money";
 import { canManageOrg } from "@/lib/permissions/rbac";
-import { parseInventoryCategory } from "@/lib/shop/inventory-categories";
-import { describeOfferRule } from "@/lib/shop/offer-engine";
+import { parseInventoryCategory } from "@/lib/shop/inventory/inventory-categories";
+import { describeOfferRule } from "@/lib/shop/offers/offer-engine";
 import type { OrgRole } from "@prisma/client";
 
 type OfferRow = {

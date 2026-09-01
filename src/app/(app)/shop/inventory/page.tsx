@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory";
+import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory/inventory";
 import { FolderPlus, Plus, Wrench, FileText } from "lucide-react";
 import { BarcodeLabelPreview } from "@/components/shop/barcode-label";
 import { InventoryInsightsPanel } from "@/components/shop/inventory-insights-panel";
@@ -28,12 +28,12 @@ import {
 import { InventoryToolsDialog } from "@/components/shop/inventory-tools-dialog";
 import { LabelCopiesActions } from "@/components/shop/label-copies-actions";
 import { LabelHeaderPicker } from "@/components/shop/label-header-picker";
-import { buildBarcodeLabelData } from "@/lib/shop/label-data";
+import { buildBarcodeLabelData } from "@/lib/shop/inventory/label-data";
 import {
   resolveShopLabelBranding,
   type FullLabelHeaderMode,
 } from "@/lib/org/shop-settings";
-import { catalogCategoryLabel, catalogSubCategoryLabel } from "@/lib/shop/category-catalog";
+import { catalogCategoryLabel, catalogSubCategoryLabel } from "@/lib/shop/inventory/category-catalog";
 import { getShopSectorConfig, inventoryFieldsForSectors, variantsExpectedForSectors, variantAxisLabel, defaultVariantAxisForSectors } from "@/lib/org/shop-sector";
 import { cn } from "@/lib/utils";
 import { DesktopOnlyNote } from "@/components/layout/desktop-only-note";

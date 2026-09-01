@@ -12,7 +12,7 @@ import {
   deleteShopCategory,
   getOrgBusinessTypes,
   listShopCategories,
-} from "@/services/shop-category.service";
+} from "@/services/shop/shop-category.service";
 
 const createSchema = z.object({
   label: z.string().min(2).max(60),

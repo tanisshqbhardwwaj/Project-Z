@@ -4,8 +4,8 @@ import {
   requirePermission,
   apiSuccess,
 } from "@/lib/api/context";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
-import { getTopCustomers } from "@/services/shop-customer-analytics.service";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
+import { getTopCustomers } from "@/services/shop/shop-customer-analytics.service";
 import { requireReportFeature } from "@/lib/billing/require-report-feature";
 
 export async function GET(request: Request) {

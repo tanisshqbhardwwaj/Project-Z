@@ -26,7 +26,7 @@ import {
   VariantSearchPicker,
   type VariantOption,
 } from "@/components/shop/variant-picker";
-import { variantSubtitle } from "@/lib/shop/variant-display";
+import { variantSubtitle } from "@/lib/shop/inventory/variant-display";
 import {
   ArrowLeft,
   ArrowRight,

@@ -15,7 +15,7 @@ import {
   getRecurringExpenseOverview,
   listRecurringExpenses,
   syncRecurringExpenseReminders,
-} from "@/services/shop-recurring-expense.service";
+} from "@/services/shop/shop-recurring-expense.service";
 
 const createSchema = z.object({
   categoryId: z.string().uuid(),

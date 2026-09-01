@@ -8,13 +8,13 @@ vi.mock("@/inngest/client", () => ({
   isInngestEnabled: vi.fn(),
 }));
 
-vi.mock("@/services/extraction.service", () => ({
+vi.mock("@/services/shared/extraction.service", () => ({
   runWorkOrderExtraction: vi.fn(),
 }));
 
 import { inngest, isInngestEnabled } from "@/inngest/client";
-import { runWorkOrderExtraction } from "@/services/extraction.service";
-import { queueWorkOrderExtraction } from "@/services/extraction-queue.service";
+import { runWorkOrderExtraction } from "@/services/shared/extraction.service";
+import { queueWorkOrderExtraction } from "@/services/shared/extraction-queue.service";
 
 describe("extraction queue", () => {
   beforeEach(() => {

@@ -10,7 +10,7 @@ import { recordPurchasePaymentSchema } from "@/lib/validation/shop-purchase";
 import {
   listPurchasePayments,
   recordPurchasePayment,
-} from "@/services/shop-purchase.service";
+} from "@/services/shop/shop-purchase.service";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

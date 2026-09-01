@@ -4,7 +4,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { resolveBarcodeScan } from "@/services/shop.service";
+import { resolveBarcodeScan } from "@/services/shop/shop.service";
 import { requireShopScanAccess } from "@/lib/staff/shop-access";
 
 export async function GET(request: Request) {

@@ -1,6 +1,6 @@
 import type { AppointmentStatus } from "@prisma/client";
 import { toCursorPage } from "@/lib/api/cursor-page";
-import { isBranchAll } from "@/lib/shop/branch-context";
+import { isBranchAll } from "@/lib/shop/branch/branch-context";
 import {
   cancelServiceAppointment,
   checkStaffAppointmentConflict,

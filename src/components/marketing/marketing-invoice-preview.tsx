@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { ShopInvoicePrint } from "@/components/shop/shop-invoice-print";
 import { InvoicePreviewRoot } from "@/components/shop/invoice-preview-root";
 import { buildDraftInvoice } from "@/components/shop/invoice-live-preview";
-import { computeInvoicePricing } from "@/lib/shop/invoice-pricing";
+import { computeInvoicePricing } from "@/lib/shop/invoices/invoice-pricing";
 import { resolveShopInvoiceTemplate } from "@/lib/org/shop-settings";
 import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import { mk } from "@/components/marketing/marketing-theme";

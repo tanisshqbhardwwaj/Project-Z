@@ -5,7 +5,7 @@ import {
   listStaffCommissions,
   type CommissionConfig,
   type CommissionResult,
-} from "../staff-commission.service";
+} from "../staff/staff-commission.service";
 
 export type ServiceCommissionSummary = CommissionResult & {
   roleTitle: string | null;

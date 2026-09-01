@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthContext, handleApi, requirePermission, apiSuccess } from "@/lib/api/context";
-import { inviteMember, getOrganizationMembers } from "@/services/organization.service";
+import { inviteMember, getOrganizationMembers } from "@/services/org/organization.service";
 import { getClientIp } from "@/lib/rate-limit";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";

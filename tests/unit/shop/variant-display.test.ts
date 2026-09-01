@@ -8,7 +8,7 @@ import {
   variantOptionLabel,
   variantSearchHaystack,
   variantSubtitle,
-} from "@/lib/shop/variant-display";
+} from "@/lib/shop/inventory/variant-display";
 
 describe("variantDisplayName", () => {
   it("appends size and colour so sizes of one product stay distinguishable", () => {

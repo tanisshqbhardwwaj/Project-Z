@@ -12,7 +12,7 @@ import {
   deleteRecurringExpense,
   syncRecurringExpenseReminders,
   updateRecurringExpense,
-} from "@/services/shop-recurring-expense.service";
+} from "@/services/shop/shop-recurring-expense.service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 

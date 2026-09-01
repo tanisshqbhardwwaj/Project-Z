@@ -31,11 +31,11 @@ import {
   csvRowsToImport,
   downloadCsvTemplate,
   parseCsvText,
-} from "@/lib/shop/inventory-bulk-csv";
-import { downloadBarcodeExportCsv } from "@/lib/shop/inventory-export";
+} from "@/lib/shop/inventory/inventory-bulk-csv";
+import { downloadBarcodeExportCsv } from "@/lib/shop/inventory/inventory-export";
 import {
   inventoryCategoriesForSector,
-} from "@/lib/shop/inventory-categories";
+} from "@/lib/shop/inventory/inventory-categories";
 import { DesktopOnlyNote } from "@/components/layout/desktop-only-note";
 import type { InventoryStockItem } from "@/components/shop/inventory-stock-list";
 

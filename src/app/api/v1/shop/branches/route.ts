@@ -10,7 +10,7 @@ import {
   createShopBranch,
   getMultiStoreConfig,
   listShopBranches,
-} from "@/services/shop-branch.service";
+} from "@/services/shop/shop-branch.service";
 
 const createBranchSchema = z.object({
   name: z.string().min(1).max(80),

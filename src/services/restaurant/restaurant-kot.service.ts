@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import type { KotStatus } from "@prisma/client";
 import { requireModule } from "@/lib/org/require-module";
-import { parseKotPayload } from "@/lib/shop/kot";
-import { createAuditLog } from "../audit.service";
+import { parseKotPayload } from "@/lib/shop/invoices/kot";
+import { createAuditLog } from "../shared/audit.service";
 
 const ACTIVE_KOT_STATUSES: KotStatus[] = ["NEW", "PREPARING", "READY"];
 

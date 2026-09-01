@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Download, Printer } from "lucide-react";
 import type { LabelSize } from "@/lib/org/shop-settings";
 import type { BarcodeLabelData } from "@/components/shop/barcode-label";
-import { downloadLabelSheet, printLabelSheet } from "@/lib/shop/label-sheet";
+import { downloadLabelSheet, printLabelSheet } from "@/lib/shop/inventory/label-sheet";
 
 type LabelCopiesActionsProps = {
   size: LabelSize;

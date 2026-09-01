@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
-import { acceptProjectInvite } from "@/services/project.service";
+import { acceptProjectInvite } from "@/services/projects/project.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function POST(

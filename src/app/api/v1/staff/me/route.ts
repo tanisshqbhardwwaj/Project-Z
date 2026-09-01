@@ -4,7 +4,7 @@ import {
   apiSuccess,
   ApiError,
 } from "@/lib/api/context";
-import { getLinkedStaffMember } from "@/services/staff.service";
+import { getLinkedStaffMember } from "@/services/staff/staff.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { requireOwnAttendance } from "@/lib/staff/shop-access";
 

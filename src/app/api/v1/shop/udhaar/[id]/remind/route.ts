@@ -6,7 +6,7 @@ import {
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { requireReportFeature } from "@/lib/billing/require-report-feature";
-import { recordUdhaarReminderSent } from "@/services/shop-payment-reminder.service";
+import { recordUdhaarReminderSent } from "@/services/shop/shop-payment-reminder.service";
 
 export async function POST(
   _request: Request,

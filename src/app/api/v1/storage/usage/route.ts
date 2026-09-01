@@ -1,7 +1,7 @@
 import { handleApi, apiSuccess, getAuthContext, ApiError } from "@/lib/api/context";
 import { prisma } from "@/lib/db/prisma";
 import { subscriptionAllowsCloudSync } from "@/lib/billing/entitlements";
-import { getStorageUsageBreakdown } from "@/services/storage-quota.service";
+import { getStorageUsageBreakdown } from "@/services/shared/storage-quota.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { getPlanDefinition } from "@/lib/billing/plans";
 

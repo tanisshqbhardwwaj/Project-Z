@@ -9,7 +9,7 @@ import { yearMonthQuerySchema } from "@/lib/validation/staff";
 import {
   computeStaffCommission,
   listStaffCommissions,
-} from "@/services/staff-commission.service";
+} from "@/services/staff/staff-commission.service";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

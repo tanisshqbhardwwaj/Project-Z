@@ -1,7 +1,7 @@
 import { getLocalDb, androidInvoiceWindowDays } from "@/lib/local-db";
 import { apiFetch } from "@/lib/api/client";
 import { useSyncStore } from "@/lib/sync/store";
-import { formatShopBillNumber, fiscalYearLabel, normalizeCashierCode, resolveStoreCode } from "@/lib/shop/bill-number";
+import { formatShopBillNumber, fiscalYearLabel, normalizeCashierCode, resolveStoreCode } from "@/lib/shop/invoices/bill-number";
 import type { SyncKind, SyncPullSnapshot, SyncPushResult } from "@/lib/sync/kinds";
 import type { LocalOutboxRow } from "@/lib/local-db/types";
 import { nextOutboxFailure } from "@/lib/sync/outbox-policy";

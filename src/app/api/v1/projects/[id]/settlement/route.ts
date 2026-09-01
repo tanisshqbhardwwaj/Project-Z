@@ -1,5 +1,5 @@
 import { getAuthContext, handleApi, requireProjectAccess, apiSuccess } from "@/lib/api/context";
-import { getProjectSettlement } from "@/services/settlement.service";
+import { getProjectSettlement } from "@/services/projects/settlement.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function GET(

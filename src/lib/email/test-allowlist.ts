@@ -5,4 +5,4 @@ export {
   listBetaTestEmails,
   addBetaTestEmail,
   removeBetaTestEmail,
-} from "@/services/beta-test-email.service";
+} from "@/services/shared/beta-test-email.service";

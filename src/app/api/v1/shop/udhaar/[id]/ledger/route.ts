@@ -5,7 +5,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getCustomerLedger } from "@/services/shop-credit.service";
+import { getCustomerLedger } from "@/services/shop/shop-credit.service";
 
 export async function GET(
   request: Request,

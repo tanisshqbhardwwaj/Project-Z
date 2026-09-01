@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions/rbac";
 import { hasPermission } from "@/lib/permissions/rbac";
-import { catalogLabelForSectors } from "@/lib/shop/sector-mode";
+import { catalogLabelForSectors } from "@/lib/shop/branch/sector-mode";
 import {
   isServiceModuleKey,
   isServiceVerticalEnabled,
@@ -340,7 +340,7 @@ export type OrgSettingsJson = {
     brandName?: string;
     logoUrl?: string | null;
     invoice?: import("@/lib/org/shop-settings").ShopInvoiceSettings;
-    multiStore?: import("@/lib/shop/multi-store").MultiStoreSettings;
+    multiStore?: import("@/lib/shop/branch/multi-store").MultiStoreSettings;
   };
 };
 

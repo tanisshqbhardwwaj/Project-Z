@@ -12,8 +12,8 @@ import {
   createShopProduct,
   listShopProducts,
   type ProductVariantInput,
-} from "@/services/shop-product.service";
-import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch-context";
+} from "@/services/shop/shop-product.service";
+import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch/branch-context";
 
 function toVariantInput(
   variant: (typeof createProductSchema)["_output"]["variants"][number]

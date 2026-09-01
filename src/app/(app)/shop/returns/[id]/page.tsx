@@ -14,7 +14,7 @@ import { ShopInvoicePrint } from "@/components/shop/shop-invoice-print";
 import { InvoicePreviewRoot } from "@/components/shop/invoice-preview-root";
 import { formatINR } from "@/lib/finance/money";
 import { cn } from "@/lib/utils";
-import { returnReceiptToShopInvoice } from "@/lib/shop/return-invoice-mapper";
+import { returnReceiptToShopInvoice } from "@/lib/shop/returns/return-invoice-mapper";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
 import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";

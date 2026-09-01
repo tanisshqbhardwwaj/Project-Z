@@ -4,13 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { formatINR } from "@/lib/finance/money";
-import { formatStockDisplay, isInfiniteStock } from "@/lib/shop/inventory";
+import { formatStockDisplay, isInfiniteStock } from "@/lib/shop/inventory/inventory";
 import {
   matchesVariantSearch,
   variantDisplayName,
   variantSearchHaystack,
   variantSubtitle,
-} from "@/lib/shop/variant-display";
+} from "@/lib/shop/inventory/variant-display";
 import { cn } from "@/lib/utils";
 import { Package, Search } from "lucide-react";
 

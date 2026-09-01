@@ -9,7 +9,7 @@ import {
   adjustStockOffline,
   upsertCustomerOffline,
 } from "@/lib/sync/offline-writes";
-import { normalizeLocalSaleRecord } from "@/lib/shop/sale-invoice-mapper";
+import { normalizeLocalSaleRecord } from "@/lib/shop/invoices/sale-invoice-mapper";
 
 const LOCAL_FIRST_POST = new Set([
   "/api/v1/shop/sales",

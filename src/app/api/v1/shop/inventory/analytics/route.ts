@@ -5,8 +5,8 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { hasPermission } from "@/lib/permissions/rbac";
-import { getInventoryAnalytics } from "@/services/shop.service";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
+import { getInventoryAnalytics } from "@/services/shop/shop.service";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
 import { requireReportFeature } from "@/lib/billing/require-report-feature";
 
 export async function GET(request: Request) {

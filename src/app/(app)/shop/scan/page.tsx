@@ -9,14 +9,14 @@ import { formatINR } from "@/lib/finance/money";
 import {
   parseInventoryCategory,
   parseInventorySubcategory,
-} from "@/lib/shop/inventory-categories";
+} from "@/lib/shop/inventory/inventory-categories";
 import { isModuleEnabled } from "@/hooks/use-enabled-modules";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { variantAttributeChips } from "@/lib/shop/variant-display";
+import { variantAttributeChips } from "@/lib/shop/inventory/variant-display";
 
 type ProductScan = {
   type: "product";

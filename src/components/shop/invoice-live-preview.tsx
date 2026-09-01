@@ -14,7 +14,7 @@ import {
   resolveInvoiceLineAllocations,
   type InvoicePricingResult,
   type StoredInvoicePricing,
-} from "@/lib/shop/invoice-pricing";
+} from "@/lib/shop/invoices/invoice-pricing";
 
 type InvoiceLivePreviewProps = {
   invoice: ShopInvoiceData;

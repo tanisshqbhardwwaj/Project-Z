@@ -4,7 +4,7 @@ import {
   requirePermission,
   apiSuccess,
 } from "@/lib/api/context";
-import { updateStaffMember } from "@/services/staff.service";
+import { updateStaffMember } from "@/services/staff/staff.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { updateStaffSchema } from "@/lib/validation/staff";
 

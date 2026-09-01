@@ -6,7 +6,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { createMeasurement, listMeasurements } from "@/services/contractor.service";
+import { createMeasurement, listMeasurements } from "@/services/projects/contractor.service";
 import {
   requireAssignedProjectView,
   requireAssignedProjectWrite,

@@ -3,14 +3,14 @@
 import { memo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Minus, Plus } from "lucide-react";
-import type { SaleLine } from "@/lib/shop/invoice-cart";
-import { lineTotal } from "@/lib/shop/invoice-cart";
-import { variantSubtitle } from "@/lib/shop/variant-display";
+import type { SaleLine } from "@/lib/shop/invoices/invoice-cart";
+import { lineTotal } from "@/lib/shop/invoices/invoice-cart";
+import { variantSubtitle } from "@/lib/shop/inventory/variant-display";
 import {
   formatInvoiceMoney,
   formatLineDiscountHint,
   type AllocatedLineDiscount,
-} from "@/lib/shop/invoice-pricing";
+} from "@/lib/shop/invoices/invoice-pricing";
 import type { ResolvedInvoiceTemplate } from "@/lib/org/shop-settings";
 import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Button } from "@/components/ui/button";

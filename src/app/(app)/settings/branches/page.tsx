@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import type { CustomerScope, MultiStoreSettings } from "@/lib/shop/multi-store";
-import { deriveStoreCode } from "@/lib/shop/bill-number";
+import type { CustomerScope, MultiStoreSettings } from "@/lib/shop/branch/multi-store";
+import { deriveStoreCode } from "@/lib/shop/invoices/bill-number";
 
 type BranchRow = {
   id: string;

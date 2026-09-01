@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
 import { requireShopBilling } from "@/lib/staff/shop-access";
-import { getTerminalPaymentStatus } from "@/services/shop-payment-terminal.service";
+import { getTerminalPaymentStatus } from "@/services/shop/shop-payment-terminal.service";
 
 const schema = z.object({
   externalId: z.string().min(1),

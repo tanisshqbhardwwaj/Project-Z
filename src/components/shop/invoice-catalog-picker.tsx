@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { catalogLabelForSectors } from "@/lib/shop/sector-mode";
+import { catalogLabelForSectors } from "@/lib/shop/branch/sector-mode";
 
 export type CatalogCategory = {
   key: string;

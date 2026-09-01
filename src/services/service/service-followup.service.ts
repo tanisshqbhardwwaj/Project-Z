@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import type { FollowUpStatus } from "@prisma/client";
 import { requireModule } from "@/lib/org/require-module";
-import { createAuditLog } from "../audit.service";
+import { createAuditLog } from "../shared/audit.service";
 
 export async function createServiceFollowUp(input: {
   organizationId: string;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isStaticTestEmailAllowlisted } from "@/services/beta-test-email.service";
+import { isStaticTestEmailAllowlisted } from "@/services/shared/beta-test-email.service";
 
 describe("test email allowlist", () => {
   afterEach(() => {

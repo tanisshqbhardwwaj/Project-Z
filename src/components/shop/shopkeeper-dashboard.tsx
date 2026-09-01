@@ -29,15 +29,15 @@ import {
 } from "@/components/shop/report-date-range";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { formatINR } from "@/lib/finance/money";
-import { formatCustomerLabel } from "@/lib/shop/customer";
+import { formatCustomerLabel } from "@/lib/shop/customers/customer";
 import {
   resolveShopDashboardBounds,
   type ShopDashboardPeriod,
-} from "@/lib/shop/dashboard-period";
+} from "@/lib/shop/reports/dashboard-period";
 import {
   filterSortInvoices,
   type InvoiceSort,
-} from "@/lib/shop/invoice-list-filters";
+} from "@/lib/shop/invoices/invoice-list-filters";
 import { StaffSalesSidebar } from "@/components/shop/staff-sales-sidebar";
 import { DashboardInvoiceFilters } from "@/components/shop/dashboard-invoice-filters";
 import { cn } from "@/lib/utils";

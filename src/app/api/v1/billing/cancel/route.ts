@@ -7,7 +7,7 @@ import {
   ApiError,
 } from "@/lib/api/context";
 import { prisma } from "@/lib/db/prisma";
-import { cancelOrganizationSubscription } from "@/services/billing.service";
+import { cancelOrganizationSubscription } from "@/services/billing/billing.service";
 
 const schema = z.object({
   confirmName: z.string().min(1),

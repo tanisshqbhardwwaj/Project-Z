@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   parseShopDashboardPeriod,
   resolveShopDashboardBounds,
-} from "@/lib/shop/dashboard-period";
-import { filterSortInvoices } from "@/lib/shop/invoice-list-filters";
+} from "@/lib/shop/reports/dashboard-period";
+import { filterSortInvoices } from "@/lib/shop/invoices/invoice-list-filters";
 
 describe("resolveShopDashboardBounds", () => {
   it("returns today bounds", () => {

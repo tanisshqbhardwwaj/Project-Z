@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { Printer } from "lucide-react";
-import type { KotPayload } from "@/lib/shop/kot";
+import type { KotPayload } from "@/lib/shop/invoices/kot";
 
 const KOT_PRINT_ROOT_ID = "shop-kot-print-root";
 

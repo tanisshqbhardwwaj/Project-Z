@@ -1,9 +1,9 @@
-/** Platform, billing, and ops domain services. */
-export * from "../organization.service";
-export * from "../billing.service";
-export * from "../ops.service";
-export * from "../audit.service";
-export * from "../notification.service";
-export * from "../search.service";
-export * from "../dashboard.service";
-export * from "../storage-quota.service";
+/** Cross-cutting platform services (org, billing, ops, audit, etc.). */
+export * from "../org/organization.service";
+export * from "../billing/billing.service";
+export * from "../shared/ops.service";
+export * from "../shared/audit.service";
+export * from "../shared/notification.service";
+export * from "../shared/search.service";
+export * from "../finance/dashboard.service";
+export * from "../shared/storage-quota.service";

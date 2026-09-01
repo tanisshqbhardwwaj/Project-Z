@@ -12,8 +12,8 @@ import {
   bulkUpdatePrices,
   mergeInventoryItems,
   receiveStock,
-} from "@/services/shop.service";
-import { csvRowsToImport, parseCsvText } from "@/lib/shop/inventory-bulk-csv";
+} from "@/services/shop/shop.service";
+import { csvRowsToImport, parseCsvText } from "@/lib/shop/inventory/inventory-bulk-csv";
 import { prisma } from "@/lib/db/prisma";
 import { resolveShopBusinessTypes } from "@/lib/org/shop-settings";
 

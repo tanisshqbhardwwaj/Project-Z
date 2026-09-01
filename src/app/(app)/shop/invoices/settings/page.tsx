@@ -44,7 +44,7 @@ import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import { printShopInvoice } from "@/lib/shop/print/invoice-print-service";
 import type { OrgSettingsJson } from "@/lib/org/modules";
 import { cn } from "@/lib/utils";
-import { deriveStoreCode, fiscalYearLabel, formatShopBillNumber } from "@/lib/shop/bill-number";
+import { deriveStoreCode, fiscalYearLabel, formatShopBillNumber } from "@/lib/shop/invoices/bill-number";
 import { ArrowLeft, Printer, Save } from "lucide-react";
 
 const SAMPLE_INVOICE: ShopInvoiceData = {

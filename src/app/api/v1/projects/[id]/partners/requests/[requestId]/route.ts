@@ -4,7 +4,7 @@ import {
   requireProjectAccess,
   apiSuccess,
 } from "@/lib/api/context";
-import { approvePartnerRequest, rejectPartnerRequest } from "@/services/project.service";
+import { approvePartnerRequest, rejectPartnerRequest } from "@/services/projects/project.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
 

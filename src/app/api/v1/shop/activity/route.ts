@@ -11,7 +11,7 @@ import {
   getShopActivityLogs,
   type ActivityDatePreset,
   type ActivityModuleFilter,
-} from "@/services/shop-activity.service";
+} from "@/services/shop/shop-activity.service";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

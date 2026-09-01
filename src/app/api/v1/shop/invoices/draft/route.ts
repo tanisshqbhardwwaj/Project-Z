@@ -9,8 +9,8 @@ import {
   loadInvoiceDraftFromDb,
   saveInvoiceDraftToDb,
   clearInvoiceDraftFromDb,
-} from "@/lib/shop/invoice-draft-db";
-import type { InvoiceDraft } from "@/lib/shop/invoice-draft-storage";
+} from "@/lib/shop/invoices/invoice-draft-db";
+import type { InvoiceDraft } from "@/lib/shop/invoices/invoice-draft-storage";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

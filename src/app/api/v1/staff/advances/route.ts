@@ -10,7 +10,7 @@ import { createStaffAdvanceSchema } from "@/lib/validation/staff";
 import {
   createStaffAdvance,
   listStaffAdvances,
-} from "@/services/staff-advance.service";
+} from "@/services/staff/staff-advance.service";
 import { dayKeyToUtcDate } from "@/lib/date/org-day";
 
 export async function GET(request: Request) {

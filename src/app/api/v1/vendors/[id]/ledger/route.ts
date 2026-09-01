@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthContext, handleApi, apiSuccess, requirePermission } from "@/lib/api/context";
-import { getVendorLedger } from "@/services/vendor.service";
+import { getVendorLedger } from "@/services/org/vendor.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function GET(

@@ -21,7 +21,7 @@ import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
 import type {
   ActivityDatePreset,
   ActivityModuleFilter,
-} from "@/services/shop-activity.service";
+} from "@/services/shop/shop-activity.service";
 
 type ActivityRow = {
   id: string;

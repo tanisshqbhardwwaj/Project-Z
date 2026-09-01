@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { subscriptionAllowsCloudSync } from "@/lib/billing/entitlements";
 import { getPlanDefinition, formatStorageBytes } from "@/lib/billing/plans";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getStorageUsageBreakdown } from "@/services/storage-quota.service";
+import { getStorageUsageBreakdown } from "@/services/shared/storage-quota.service";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

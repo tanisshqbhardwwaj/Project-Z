@@ -3,15 +3,15 @@
 import { BarcodeSvg } from "@/components/shop/barcode-svg";
 import type { ResolvedInvoiceTemplate } from "@/lib/org/shop-settings";
 import { DEFAULT_INVOICE_SETTINGS } from "@/lib/org/shop-settings";
-import type { StoredInvoicePricing } from "@/lib/shop/invoice-pricing";
+import type { StoredInvoicePricing } from "@/lib/shop/invoices/invoice-pricing";
 import {
   allocateLineDiscounts,
   formatInvoiceMoney,
   formatLineDiscountHint,
   resolveInvoiceLineAllocations,
   shouldShowLineDiscountHints,
-} from "@/lib/shop/invoice-pricing";
-import { variantSubtitle } from "@/lib/shop/variant-display";
+} from "@/lib/shop/invoices/invoice-pricing";
+import { variantSubtitle } from "@/lib/shop/inventory/variant-display";
 
 export type CashTenderInfo = {
   receivedRupees: number;

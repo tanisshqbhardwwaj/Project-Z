@@ -11,14 +11,14 @@ import {
   bulkMarkAttendance,
   listAttendanceRange,
   listAttendanceGrid,
-} from "@/services/attendance-payroll.service";
+} from "@/services/staff/attendance-payroll.service";
 import {
   checkInWithPin,
   checkInWithQrToken,
   getAttendanceBoard,
   staffCheckIn,
   staffCheckOut,
-} from "@/services/attendance-checkin.service";
+} from "@/services/staff/attendance-checkin.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import {
   upsertAttendanceSchema,

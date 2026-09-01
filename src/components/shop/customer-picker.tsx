@@ -9,7 +9,7 @@ import { buildCursorListUrl } from "@/lib/api/list-url";
 import type { CursorPage } from "@/lib/api/cursor-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatCustomerLabel } from "@/lib/shop/customer";
+import { formatCustomerLabel } from "@/lib/shop/customers/customer";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { UserRound } from "lucide-react";

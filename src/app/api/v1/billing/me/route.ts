@@ -6,11 +6,11 @@ import {
   requireOwner,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getOrgBillingSnapshot, billingModulesForOrg } from "@/services/billing.service";
+import { getOrgBillingSnapshot, billingModulesForOrg } from "@/services/billing/billing.service";
 import { getPlanDefinition, formatStorageBytes, formatINRFromPaise } from "@/lib/billing/plans";
 import { inventorySkuCapForPlan } from "@/lib/billing/entitlements";
 import { inventorySkuUsagePercent } from "@/lib/billing/entitlement-engine";
-import { getStorageUsageBreakdown } from "@/services/storage-quota.service";
+import { getStorageUsageBreakdown } from "@/services/shared/storage-quota.service";
 import { prisma } from "@/lib/db/prisma";
 
 export async function GET(request: Request) {

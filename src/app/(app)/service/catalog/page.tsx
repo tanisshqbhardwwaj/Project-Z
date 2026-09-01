@@ -11,7 +11,7 @@ import { apiFetch } from "@/lib/api/client";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { catalogCategoryLabel, catalogSubCategoryLabel } from "@/lib/shop/category-catalog";
+import { catalogCategoryLabel, catalogSubCategoryLabel } from "@/lib/shop/inventory/category-catalog";
 import { getShopSectorConfig, inventoryFieldsForSectors, variantsExpectedForSectors } from "@/lib/org/shop-sector";
 import {
   ProductFormDialog,

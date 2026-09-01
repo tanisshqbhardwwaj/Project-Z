@@ -7,13 +7,13 @@ import {
 } from "@/lib/api/context";
 import { hasPermission } from "@/lib/permissions/rbac";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
 import { requireModule } from "@/lib/org/require-module";
 import type { DeliveryStatus } from "@prisma/client";
 import {
   listDeliveries,
   createDelivery,
-} from "@/services/delivery.service";
+} from "@/services/shared/delivery.service";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

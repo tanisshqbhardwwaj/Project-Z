@@ -12,7 +12,7 @@ import {
   adjustCustomerCredit,
   createCustomerCredit,
   listCustomerCredits,
-} from "@/services/shop.service";
+} from "@/services/shop/shop.service";
 
 const createCreditSchema = z.object({
   customerName: z.string().min(2),

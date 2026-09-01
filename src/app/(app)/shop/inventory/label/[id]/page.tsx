@@ -17,8 +17,8 @@ import {
 } from "@/components/shop/label-copies-actions";
 import type { FullLabelHeaderMode, LabelSize } from "@/lib/org/shop-settings";
 import type { ShopLabelBranding } from "@/lib/org/shop-settings";
-import { buildBarcodeLabelData } from "@/lib/shop/label-data";
-import { printLabelSheet } from "@/lib/shop/label-sheet";
+import { buildBarcodeLabelData } from "@/lib/shop/inventory/label-data";
+import { printLabelSheet } from "@/lib/shop/inventory/label-sheet";
 import { cn } from "@/lib/utils";
 
 type LabelPayload = {

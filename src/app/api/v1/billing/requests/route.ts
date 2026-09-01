@@ -6,7 +6,7 @@ import {
   requireOwner,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { createPlanRequest } from "@/services/billing.service";
+import { createPlanRequest } from "@/services/billing/billing.service";
 
 const requestSchema = z.object({
   plan: z.enum(["BASIC", "BUSINESS", "PROFESSIONAL", "BUSINESS_PRO"]),

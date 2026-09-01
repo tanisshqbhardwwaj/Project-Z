@@ -4,7 +4,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { findShopSaleByBillNumber } from "@/services/shop.service";
+import { findShopSaleByBillNumber } from "@/services/shop/shop.service";
 import { requireShopReturns } from "@/lib/staff/shop-access";
 
 /** Look up any invoice by bill number for returns (cross-cashier). */

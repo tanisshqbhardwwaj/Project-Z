@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { printShopInvoice } from "@/lib/shop/print/invoice-print-service";
-import type { CashTender } from "@/lib/shop/invoice-receipt-print";
+import type { CashTender } from "@/lib/shop/invoices/invoice-receipt-print";
 import { paperSizeLabel } from "@/lib/shop/print/invoice-print-layout";
 
 export type { CashTender };

@@ -8,7 +8,7 @@ import {
   resolveInvoiceLineAllocations,
   shouldShowLineDiscountHints,
   type StoredInvoicePricing,
-} from "@/lib/shop/invoice-pricing";
+} from "@/lib/shop/invoices/invoice-pricing";
 
 describe("allocateLineDiscounts", () => {
   it("returns original lines when discount is zero", () => {

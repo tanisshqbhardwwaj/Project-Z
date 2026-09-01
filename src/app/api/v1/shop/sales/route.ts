@@ -6,9 +6,9 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { createShopSale, listShopSales } from "@/services/shop.service";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
-import { customerBranchIdForCreate } from "@/lib/shop/multi-store";
+import { createShopSale, listShopSales } from "@/services/shop/shop.service";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
+import { customerBranchIdForCreate } from "@/lib/shop/branch/multi-store";
 import {
   ownSalesStaffScope,
   requireShopBilling,

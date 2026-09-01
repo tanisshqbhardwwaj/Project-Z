@@ -8,7 +8,7 @@ import type {
 import { rupeesToPaise } from "@/lib/finance/money";
 import { requireModule } from "@/lib/org/require-module";
 import { addDaysToDayKey, dayKeyToUtcDate, utcDateToDayKey } from "@/lib/date/org-day";
-import { createAuditLog } from "../audit.service";
+import { createAuditLog } from "../shared/audit.service";
 
 function billingCycleMonths(cycle: ContractBillingCycle): number {
   switch (cycle) {

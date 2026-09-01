@@ -23,7 +23,7 @@ import {
   buildDraftInvoice,
 } from "@/components/shop/invoice-live-preview";
 import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
-import { computeInvoicePricing } from "@/lib/shop/invoice-pricing";
+import { computeInvoicePricing } from "@/lib/shop/invoices/invoice-pricing";
 import { projectInvoiceToShopInvoice } from "@/lib/project/project-invoice-mapper";
 import {
   useShopInvoicePrint,

@@ -18,7 +18,7 @@ import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { hasPermission } from "@/lib/permissions/rbac";
 import type { OrgRole } from "@prisma/client";
-import { newLineId } from "@/lib/shop/invoice-cart";
+import { newLineId } from "@/lib/shop/invoices/invoice-cart";
 import {
   VariantSelect,
   variantOptionText,

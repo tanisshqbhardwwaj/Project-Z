@@ -10,7 +10,7 @@ import {
   createBoqItem,
   listBoqItems,
   updateBoqItem,
-} from "@/services/contractor.service";
+} from "@/services/projects/contractor.service";
 import {
   requireAssignedBoqWrite,
   requireAssignedProjectView,

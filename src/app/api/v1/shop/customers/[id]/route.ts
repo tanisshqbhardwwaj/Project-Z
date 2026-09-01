@@ -5,7 +5,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getShopCustomer } from "@/services/shop.service";
+import { getShopCustomer } from "@/services/shop/shop.service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 

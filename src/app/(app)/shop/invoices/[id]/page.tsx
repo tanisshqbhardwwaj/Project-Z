@@ -16,7 +16,7 @@ import {
 } from "@/components/shop/shop-invoice-print";
 import { InvoicePreviewRoot } from "@/components/shop/invoice-preview-root";
 import { formatINR } from "@/lib/finance/money";
-import { saleToShopInvoice, type NormalizedSaleRecord } from "@/lib/shop/sale-invoice-mapper";
+import { saleToShopInvoice, type NormalizedSaleRecord } from "@/lib/shop/invoices/sale-invoice-mapper";
 import { InvoiceReturnPanel } from "@/components/shop/invoice-return-panel";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
@@ -25,8 +25,8 @@ import {
   buildInvoiceWhatsAppMessage,
   downloadInvoiceViaPrint,
   shareInvoiceOnWhatsAppWithPdf,
-} from "@/lib/shop/invoice-share";
-import { generateInvoicePdfBlob } from "@/lib/shop/invoice-pdf";
+} from "@/lib/shop/invoices/invoice-share";
+import { generateInvoicePdfBlob } from "@/lib/shop/invoices/invoice-pdf";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,

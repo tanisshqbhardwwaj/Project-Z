@@ -10,12 +10,12 @@ import { moduleLabel } from "@/lib/org/modules";
 import { InvoiceEntryForm } from "@/components/shop/invoice-entry-form";
 import { InvoiceLivePreview, buildDraftInvoice } from "@/components/shop/invoice-live-preview";
 import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
-import { computeInvoicePricing } from "@/lib/shop/invoice-pricing";
+import { computeInvoicePricing } from "@/lib/shop/invoices/invoice-pricing";
 import {
   buildInvoiceWhatsAppMessage,
   shareInvoiceOnWhatsAppWithPdf,
-} from "@/lib/shop/invoice-share";
-import { generateInvoicePdfBlob } from "@/lib/shop/invoice-pdf";
+} from "@/lib/shop/invoices/invoice-share";
+import { generateInvoicePdfBlob } from "@/lib/shop/invoices/invoice-pdf";
 import { Button } from "@/components/ui/button";
 import { Download, MessageCircle, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { upsertUnreadAlertNotification } from "@/services/notification.service";
+import { upsertUnreadAlertNotification } from "@/services/shared/notification.service";
 
 function startOfDay(d: Date) {
   const x = new Date(d);
