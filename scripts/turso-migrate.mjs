@@ -62,6 +62,9 @@ await client.execute(
   )`
 );
 
+/** Drop leftover table from a failed StaffAttendance rebuild (older migration revision). */
+await client.execute(`DROP TABLE IF EXISTS "new_StaffAttendance"`);
+
 const applied = new Set();
 const existing = await client.execute(`SELECT "name" FROM "_turso_migrations"`);
 for (const row of existing.rows) {
