@@ -1,44 +1,45 @@
-# Fly.io — BusinessOS / Project Z
-# Mumbai (bom) is not available for new GitHub launches; Singapore is closest to India.
-# See: https://fly.io/docs/reference/regions/
+# fly.toml app configuration file generated for econsole on 2026-09-02T16:51:38Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "econsole"
-primary_region = "sin"
+app = 'econsole'
+primary_region = 'sin'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  PORT = "3000"
-  HOSTNAME = "0.0.0.0"
-  NODE_ENV = "production"
+  HOSTNAME = '0.0.0.0'
+  NODE_ENV = 'production'
+  PORT = '3000'
+
+[[mounts]]
+  source = 'data'
+  destination = '/data'
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
-  processes = ["app"]
+  processes = ['app']
 
   [http_service.concurrency]
-    type = "requests"
+    type = 'requests'
     hard_limit = 250
     soft_limit = 200
 
-[[http_service.checks]]
-  grace_period = "60s"
-  interval = "15s"
-  method = "GET"
-  path = "/api/v1/health"
-  timeout = "5s"
-
-# Persistent SQLite — create once: fly volumes create data --region sin --size 5 -a econsole
-[mounts]
-  source = "data"
-  destination = "/data"
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '5s'
+    grace_period = '1m0s'
+    method = 'GET'
+    path = '/api/v1/health'
 
 [[vm]]
-  memory = "1gb"
-  cpu_kind = "shared"
+  memory = '1gb'
+  cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 1024
