@@ -119,12 +119,12 @@ export async function downloadStaffBarcodePdf(
     canvas.width = 400;
     canvas.height = 120;
     const ctx = canvas.getContext("2d");
+    let ty = 18;
     if (ctx) {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#111111";
       ctx.font = "bold 16px system-ui,sans-serif";
-      let ty = 18;
       for (const line of labelLines(label.data, fields)) {
         ctx.font =
           line === label.data.staffName

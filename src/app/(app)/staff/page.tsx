@@ -414,6 +414,7 @@ export default function StaffHubPage() {
         : new Date().toISOString().slice(0, 10),
       status: staff.status,
       notes: staff.notes ?? "",
+      attendancePin: "",
       ...access,
     });
     setProfileOpen(true);
