@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory";
+import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory/inventory";
 
 const SAMPLE_SERVICES = [
   { name: "Haircut", categoryKey: "salon", duration: 30, priceRupees: 300 },

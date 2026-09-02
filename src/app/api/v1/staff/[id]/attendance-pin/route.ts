@@ -6,7 +6,7 @@ import {
   apiSuccess,
   ApiError,
 } from "@/lib/api/context";
-import { setStaffAttendancePin } from "@/services/attendance-checkin.service";
+import { setStaffAttendancePin } from "@/services/staff/attendance-checkin.service";
 import { prisma } from "@/lib/db/prisma";
 
 const pinSchema = z.object({

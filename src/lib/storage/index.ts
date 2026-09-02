@@ -110,7 +110,7 @@ export async function uploadFile(
 
   if (organizationId) {
     const { assertCloudStorageAllowed } = await import(
-      "@/services/storage-quota.service"
+      "@/services/shared/storage-quota.service"
     );
     await assertCloudStorageAllowed(organizationId, BigInt(buf.length));
   }
@@ -127,7 +127,7 @@ export async function uploadFile(
 
   if (organizationId) {
     const { recordStorageUpload } = await import(
-      "@/services/storage-quota.service"
+      "@/services/shared/storage-quota.service"
     );
     await recordStorageUpload({
       organizationId,

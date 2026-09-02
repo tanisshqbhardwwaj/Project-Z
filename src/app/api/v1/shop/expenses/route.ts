@@ -9,7 +9,7 @@ import {
 } from "@/lib/api/context";
 import { canViewShopExpenses, canManageShopExpenses } from "@/lib/permissions/rbac";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { createShopExpense, listShopExpenses } from "@/services/shop-expense.service";
+import { createShopExpense, listShopExpenses } from "@/services/shop/shop-expense.service";
 
 const createSchema = z.object({
   categoryId: z.string().uuid(),

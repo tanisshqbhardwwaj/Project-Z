@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Receipt,
   ScanBarcode,
+  ScanLine,
   RotateCcw,
   FileText,
   CalendarDays,
@@ -135,6 +136,14 @@ export function cashierNavItems(access: StaffAccess): CashierNavItem[] {
     });
   }
 
+  items.push({
+    href: "/staff/scan",
+    label: "Scan Staff",
+    key: "cashier_staff_scan",
+    icon: ScanLine,
+    description: "Barcode check-in and check-out",
+  });
+
   if (access.canViewOwnAttendance) {
     items.push({
       href: "/staff/me",
@@ -208,7 +217,12 @@ export function cashierHomePath(access: StaffAccess): string {
   return staffHomePath(access);
 }
 
-const ALWAYS_ALLOWED = ["/cashier", "/settings/profile", "/settings/storage"];
+const ALWAYS_ALLOWED = [
+  "/cashier",
+  "/settings/profile",
+  "/settings/storage",
+  "/staff/scan",
+];
 
 export function isCashierRouteAllowed(
   pathname: string,

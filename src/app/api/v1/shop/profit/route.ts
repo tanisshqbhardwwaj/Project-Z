@@ -5,8 +5,8 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
-import { getShopProfitAnalytics, getShopProfitReport } from "@/services/shop-profit.service";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
+import { getShopProfitAnalytics, getShopProfitReport } from "@/services/shop/shop-profit.service";
 import { requireReportFeature } from "@/lib/billing/require-report-feature";
 
 export async function GET(request: Request) {

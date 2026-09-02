@@ -24,7 +24,7 @@ import {
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { formatINR } from "@/lib/finance/money";
-import { formatCustomerLabel } from "@/lib/shop/customer";
+import { formatCustomerLabel } from "@/lib/shop/customers/customer";
 
 type PackageDetail = {
   id: string;

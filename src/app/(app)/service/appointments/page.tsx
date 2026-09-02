@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCustomerLabel } from "@/lib/shop/customer";
+import { formatCustomerLabel } from "@/lib/shop/customers/customer";
 import { cn } from "@/lib/utils";
 
 type AppointmentRow = {

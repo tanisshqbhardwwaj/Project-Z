@@ -11,7 +11,7 @@ import {
   createDrawingRevision,
   listDesignStages,
   updateDesignStage,
-} from "@/services/architect.service";
+} from "@/services/projects/architect.service";
 import {
   requireAssignedProjectView,
   requireAssignedProjectWrite,

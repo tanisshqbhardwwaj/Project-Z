@@ -5,7 +5,7 @@ import {
   approvePlanRequest,
   listPendingPlanRequests,
   rejectPlanRequest,
-} from "@/services/billing.service";
+} from "@/services/billing/billing.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function GET() {

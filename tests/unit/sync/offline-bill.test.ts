@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SYNC_KINDS } from "@/lib/sync/kinds";
-import { formatShopBillNumber, fiscalYearLabel } from "@/lib/shop/bill-number";
+import { formatShopBillNumber, fiscalYearLabel } from "@/lib/shop/invoices/bill-number";
 
 describe("sync kinds", () => {
   it("covers shop writes that go through the outbox", () => {

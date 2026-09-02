@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -12,9 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
-import { FieldHint } from "@/components/ui/field-hint";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
-import { FIELD_LIMITS, requireOrganizationName } from "@/lib/api/validation";
+import { requireField } from "@/lib/api/validation";
 import {
   BUSINESS_TYPE_CONFIG,
   isShopVertical,
@@ -27,14 +26,17 @@ import {
   isShopSector,
   type ShopSector,
 } from "@/lib/org/shop-sector";
-import { hasServiceCatalog } from "@/lib/shop/sector-mode";
 import {
   resolveCustomBusinessTypeLabel,
   resolveShopBusinessTypes,
 } from "@/lib/org/shop-settings";
 import { cn } from "@/lib/utils";
-import { Users } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+import {
+  ChevronRight,
+  Package,
+  Users,
+  UsersRound,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,12 +44,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { OrgModuleToggles } from "@/components/org/org-module-toggles";
+import { useActivePlan } from "@/hooks/use-active-plan";
+import { useOrgAddons } from "@/hooks/use-org-addons";
 import {
-  modulesForBusinessType,
-  moduleLabel,
+  SettingsPageHeader,
+  SettingsCardGrid,
+  settingsCardClass,
+} from "@/components/settings/settings-page-shell";
+import {
   type ModuleKey,
   type OrgSettingsJson,
+  normalizeModuleToggleMap,
+  serializeModuleTogglesForApi,
 } from "@/lib/org/modules";
+import {
+  DEFAULT_STAFF_BARCODE_LABEL,
+  readStaffBarcodeLabelSettings,
+  type StaffBarcodeLabelFields,
+} from "@/lib/staff/barcode-label-settings";
+import { StaffBarcodeLabelSettingsCard } from "@/components/staff/staff-barcode-label-settings";
 
 type OrgData = {
   id: string;
@@ -59,6 +75,80 @@ type OrgData = {
   settings?: OrgSettingsJson;
   defaultCompletionDays: number;
 };
+
+type OrgFormSnapshot = {
+  name: string;
+  businessType: BusinessType;
+  businessTypes: ShopSector[];
+  customBusinessType: string;
+  enableStaff: boolean;
+  moduleToggles: Partial<Record<ModuleKey, boolean>>;
+  unmarkedPolicy: "PRESENT" | "ABSENT" | "EXCLUDED";
+  defaultCompletionDays: string;
+  brandName: string;
+  logoUrl: string | null;
+  staffBarcodeLabel: StaffBarcodeLabelFields;
+};
+
+function SectionCard({
+  title,
+  description,
+  children,
+  className,
+  variant = "default",
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  className?: string;
+  variant?: "default" | "danger";
+}) {
+  return (
+    <Card
+      className={cn(
+        settingsCardClass,
+        variant === "danger" && "border-destructive/30",
+        className
+      )}
+    >
+      <CardHeader className="space-y-1 pb-2">
+        <CardTitle
+          className={cn(
+            "text-xs font-semibold uppercase tracking-wider leading-none",
+            variant === "danger" ? "text-destructive" : "text-muted-foreground"
+          )}
+        >
+          {title}
+        </CardTitle>
+        {description ? (
+          <p className="text-sm normal-case leading-snug text-muted-foreground">{description}</p>
+        ) : null}
+      </CardHeader>
+      <CardContent className="pt-0">{children}</CardContent>
+    </Card>
+  );
+}
+
+function QuickLinkRow({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-accent/50"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="flex-1 text-sm font-medium">{label}</span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+    </Link>
+  );
+}
 
 export default function OrganizationSettingsPage() {
   const router = useRouter();
@@ -73,6 +163,7 @@ export default function OrganizationSettingsPage() {
   const [savedMessage, setSavedMessage] = useState("");
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
+  const [initialBusinessType, setInitialBusinessType] = useState<BusinessType>("CONTRACTOR");
   const [businessTypes, setBusinessTypes] = useState<ShopSector[]>(["GENERAL"]);
   const [customBusinessType, setCustomBusinessType] = useState("");
   const [enableStaff, setEnableStaff] = useState(false);
@@ -81,7 +172,50 @@ export default function OrganizationSettingsPage() {
   const [defaultCompletionDays, setDefaultCompletionDays] = useState("30");
   const [brandName, setBrandName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [staffBarcodeLabel, setStaffBarcodeLabel] = useState<StaffBarcodeLabelFields>({
+    ...DEFAULT_STAFF_BARCODE_LABEL,
+  });
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
+  const plan = useActivePlan();
+  const { addonKeys } = useOrgAddons();
+  const [initialSnapshot, setInitialSnapshot] = useState<OrgFormSnapshot | null>(null);
+
+  function applySnapshot(snapshot: OrgFormSnapshot) {
+    setName(snapshot.name);
+    setBusinessType(snapshot.businessType);
+    setInitialBusinessType(snapshot.businessType);
+    setBusinessTypes(snapshot.businessTypes);
+    setCustomBusinessType(snapshot.customBusinessType);
+    setEnableStaff(snapshot.enableStaff);
+    setModuleToggles(snapshot.moduleToggles);
+    setUnmarkedPolicy(snapshot.unmarkedPolicy);
+    setDefaultCompletionDays(snapshot.defaultCompletionDays);
+    setBrandName(snapshot.brandName);
+    setLogoUrl(snapshot.logoUrl);
+    setStaffBarcodeLabel(snapshot.staffBarcodeLabel);
+  }
+
+  function buildSnapshot(org: OrgData): OrgFormSnapshot {
+    const sectors = resolveShopBusinessTypes(org.settings ?? {}, org.shopSector ?? null).filter(
+      isShopSector
+    );
+    return {
+      name: org.name,
+      businessType: org.businessType ?? "CONTRACTOR",
+      businessTypes: sectors,
+      customBusinessType: resolveCustomBusinessTypeLabel(org.settings ?? {}) ?? "",
+      enableStaff: Boolean(org.enableStaff),
+      moduleToggles: normalizeModuleToggleMap(
+        org.settings?.modules,
+        Boolean(org.enableStaff)
+      ),
+      unmarkedPolicy: org.settings?.unmarkedDayPolicy ?? "EXCLUDED",
+      defaultCompletionDays: String(org.defaultCompletionDays ?? 30),
+      brandName: org.settings?.shop?.brandName ?? "",
+      logoUrl: org.settings?.shop?.logoUrl ?? null,
+      staffBarcodeLabel: readStaffBarcodeLabelSettings(org.settings),
+    };
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -92,23 +226,9 @@ export default function OrganizationSettingsPage() {
     ])
       .then(([org, listPayload]) => {
         if (cancelled) return;
-        setName(org.name);
-        setBusinessType(org.businessType ?? "CONTRACTOR");
-        setBusinessTypes(
-          resolveShopBusinessTypes(
-            org.settings ?? {},
-            org.shopSector ?? null
-          ).filter(isShopSector)
-        );
-        setCustomBusinessType(
-          resolveCustomBusinessTypeLabel(org.settings ?? {}) ?? ""
-        );
-        setEnableStaff(Boolean(org.enableStaff));
-        setModuleToggles(org.settings?.modules ?? {});
-        setUnmarkedPolicy(org.settings?.unmarkedDayPolicy ?? "EXCLUDED");
-        setDefaultCompletionDays(String(org.defaultCompletionDays ?? 30));
-        setBrandName(org.settings?.shop?.brandName ?? "");
-        setLogoUrl(org.settings?.shop?.logoUrl ?? null);
+        const snapshot = buildSnapshot(org);
+        applySnapshot(snapshot);
+        setInitialSnapshot(snapshot);
 
         const orgs = listPayload.data?.organizations ?? [];
         const current = orgs.find((o: { id: string }) => o.id === org.id);
@@ -143,7 +263,7 @@ export default function OrganizationSettingsPage() {
     clear();
     setSavedMessage("");
 
-    const nameError = requireOrganizationName(name);
+    const nameError = requireField(name, "organization name");
     if (nameError) {
       showWarning(nameError);
       return;
@@ -159,16 +279,6 @@ export default function OrganizationSettingsPage() {
       !customBusinessType.trim()
     ) {
       showWarning("Tell us what your custom business type is");
-      return;
-    }
-    if (
-      businessType === "SHOPKEEPER" &&
-      businessTypes.includes("OTHER") &&
-      customBusinessType.trim().length > FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX
-    ) {
-      showWarning(
-        `Custom business type must be at most ${FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX} characters`
-      );
       return;
     }
 
@@ -195,11 +305,9 @@ export default function OrganizationSettingsPage() {
               }
             : { shopSector: null }),
           settings: {
-            modules: {
-              ...moduleToggles,
-              staff: moduleToggles.staff ?? enableStaff,
-            },
+            modules: serializeModuleTogglesForApi(moduleToggles, enableStaff),
             unmarkedDayPolicy: unmarkedPolicy,
+            staffBarcodeLabel,
             ...(businessType === "SHOPKEEPER"
               ? {
                   shop: {
@@ -226,6 +334,23 @@ export default function OrganizationSettingsPage() {
       );
       await bootstrap();
       setSavedMessage("Organization updated");
+      setInitialSnapshot({
+        name: updated.name,
+        businessType: updated.businessType ?? businessType,
+        businessTypes: businessType === "SHOPKEEPER" ? businessTypes : [],
+        customBusinessType,
+        enableStaff: Boolean(updated.settings?.modules?.staff ?? updated.enableStaff),
+        moduleToggles: normalizeModuleToggleMap(
+          updated.settings?.modules ?? moduleToggles,
+          Boolean(updated.settings?.modules?.staff ?? updated.enableStaff)
+        ),
+        unmarkedPolicy,
+        defaultCompletionDays: String(updated.defaultCompletionDays ?? days),
+        brandName,
+        logoUrl,
+        staffBarcodeLabel,
+      });
+      setInitialBusinessType(updated.businessType ?? businessType);
     } catch (err) {
       applyError(err, "Failed to update organization");
     } finally {
@@ -265,82 +390,100 @@ export default function OrganizationSettingsPage() {
     }
   }
 
+  function handleCancel() {
+    if (!initialSnapshot) return;
+    clear();
+    setSavedMessage("");
+    applySnapshot(initialSnapshot);
+  }
+
+  const staffEnabled = Boolean(moduleToggles.staff ?? enableStaff);
+  const inventoryEnabled = Boolean(moduleToggles.shop_inventory ?? isShopVertical(businessType));
+
   if (loading) return <PageLoader label="Loading organization..." />;
 
   return (
-    <div className="mx-auto max-w-lg space-y-5 pb-8">
-      <div>
-        <h1 className="text-2xl font-bold">Manage Organization</h1>
-        <p className="text-sm text-muted-foreground">
-          {isOwner
-            ? "Update your organization name, business type, and defaults."
-            : "Only the owner can edit organization settings."}
-        </p>
+    <div className="space-y-4 pb-20">
+      <SettingsPageHeader
+        title="Organization Settings"
+        description={
+          isOwner
+            ? "Manage your organization profile, features and defaults."
+            : "Only the owner can edit organization settings."
+        }
+      />
+
+      <div className="space-y-3">
+        <FormFeedback warning={warning} error={error} />
+        {savedMessage ? (
+          <p className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
+            {savedMessage}
+          </p>
+        ) : null}
       </div>
 
-      <Card className="rounded-2xl border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">Organization details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <FormFeedback warning={warning} error={error} />
-          {savedMessage ? (
-            <p className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-              {savedMessage}
-            </p>
-          ) : null}
+      <div className="space-y-4">
+        <SectionCard title="Organization">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="org-name">Organization name</Label>
+              <Input
+                id="org-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="h-12 rounded-xl"
+                disabled={!isOwner}
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="org-name">Organization name</Label>
-            <Input
-              id="org-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={FIELD_LIMITS.ORG_NAME_MAX}
-              className="h-12 rounded-xl"
-              disabled={!isOwner}
-            />
-            <FieldHint>
-              {FIELD_LIMITS.ORG_NAME_MIN}–{FIELD_LIMITS.ORG_NAME_MAX} characters
-            </FieldHint>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Business type</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {selectableBusinessTypes(businessType).map((type) => {
-                const config = BUSINESS_TYPE_CONFIG[type];
-                const active = businessType === type;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    disabled={!isOwner}
-                    onClick={() => setBusinessType(type)}
-                    className={cn(
-                      "rounded-xl border p-3 text-left transition-colors disabled:opacity-60",
-                      active
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : "border-border hover:bg-accent/50"
-                    )}
-                  >
-                    <p className="text-sm font-semibold">{config.label}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{config.description}</p>
-                  </button>
-                );
-              })}
+            <div className="space-y-2">
+              <Label>Business type</Label>
+              {businessType !== initialBusinessType ? (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  Changing business type resets your setup checklist. Save to apply.
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {selectableBusinessTypes(businessType).map((type) => {
+                  const config = BUSINESS_TYPE_CONFIG[type];
+                  const active = businessType === type;
+                  const shortLabel =
+                    type === "SHOPKEEPER"
+                      ? "Shop"
+                      : type === "CONTRACTOR"
+                        ? "Contractor"
+                        : type === "ARCHITECT"
+                          ? "Architect"
+                          : config.label;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      disabled={!isOwner}
+                      onClick={() => setBusinessType(type)}
+                      className={cn(
+                        "rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60",
+                        active
+                          ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
+                          : "border-border hover:bg-accent/50"
+                      )}
+                    >
+                      {shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
+        </SectionCard>
 
-          {businessType === "SHOPKEEPER" && (
-            <div className="space-y-2">
-              <Label>My business is</Label>
-              <p className="text-xs text-muted-foreground">
-                Pick every type you trade in. Product categories and the fields on
-                the product form adapt to your selection. The first one you pick is
-                your primary type.
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
+        {businessType === "SHOPKEEPER" ? (
+          <SectionCard
+            title="Shop trade / sector"
+            description="Select the sectors your shop operates in."
+          >
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {SHOP_SECTORS.map((sector) => {
                   const config = SHOP_SECTOR_CONFIG[sector];
                   const active = businessTypes.includes(sector);
@@ -353,22 +496,19 @@ export default function OrganizationSettingsPage() {
                       onClick={() => toggleBusinessType(sector)}
                       aria-pressed={active}
                       className={cn(
-                        "rounded-xl border p-3 text-left transition-colors disabled:opacity-60",
+                        "rounded-xl border px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-60",
                         active
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          ? "border-primary bg-primary/10 font-medium text-primary ring-1 ring-primary"
                           : "border-border hover:bg-accent/50"
                       )}
                     >
                       <span className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold">{config.label}</span>
-                        {active ? (
-                          <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
-                            {isPrimary ? "Primary" : "✓"}
+                        <span>{config.label}</span>
+                        {active && isPrimary ? (
+                          <span className="text-[10px] uppercase tracking-wide opacity-80">
+                            Primary
                           </span>
                         ) : null}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {config.description}
                       </span>
                     </button>
                   );
@@ -376,267 +516,263 @@ export default function OrganizationSettingsPage() {
               </div>
 
               {businessTypes.includes("OTHER") ? (
-                <div className="space-y-1.5 pt-1">
-                  <Label htmlFor="custom-business-type">
-                    What is your business? (custom type)
-                  </Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="custom-business-type">Custom business type</Label>
                   <Input
                     id="custom-business-type"
                     value={customBusinessType}
                     onChange={(e) => setCustomBusinessType(e.target.value)}
-                    className="h-12 rounded-xl"
+                    className="h-12 max-w-md rounded-xl"
                     placeholder="e.g. Mobile Repair & Accessories"
                     disabled={!isOwner}
-                    maxLength={FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX}
+                    maxLength={120}
                   />
                 </div>
               ) : null}
-
-              <p className="pt-1 text-xs text-muted-foreground">
-                {hasServiceCatalog(businessTypes) ? (
-                  <>
-                    Service categories come from your business type above. Add or edit them in{" "}
-                    <Link href="/service/catalog" className="text-primary hover:underline">
-                      Service catalog → Category
-                    </Link>
-                    .
-                  </>
-                ) : (
-                  <>
-                    Need a category we don&apos;t list? Add your own from{" "}
-                    <Link href="/shop/inventory" className="text-primary hover:underline">
-                      Inventory → Category
-                    </Link>
-                    .
-                  </>
-                )}
-              </p>
             </div>
-          )}
+          </SectionCard>
+        ) : null}
 
-          {isShopVertical(businessType) && (
-            <Card className="rounded-2xl border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg">Shop label printing</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Small tags show brand name. Full tags show shop name, logo, product details, and price.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="brand-name">Brand name (small tags)</Label>
-                  <Input
-                    id="brand-name"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    maxLength={FIELD_LIMITS.ORG_NAME_MAX}
-                    className="h-12 rounded-xl"
-                    placeholder={name || "Your brand"}
-                    disabled={!isOwner}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Shown on compact barcode stickers. Leave blank to use organization name.
-                    Also used on invoices when display name is not set.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="shop-logo">Shop logo (full tags)</Label>
-                  <Input
-                    id="shop-logo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    className="h-12 rounded-xl"
-                    disabled={!isOwner}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 200_000) {
-                        showWarning("Logo must be under 200 KB");
-                        e.target.value = "";
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onload = () => setLogoUrl(String(reader.result));
-                      reader.readAsDataURL(file);
-                    }}
-                  />
-                  {logoUrl ? (
-                    <div className="flex items-center gap-3 rounded-xl border p-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={logoUrl} alt="Shop logo" className="h-10 w-10 object-contain" />
-                      <div className="min-w-0 flex-1 text-xs text-muted-foreground">
-                        Logo appears on full-size price tags and invoices (when enabled)
-                      </div>
-                      {isOwner && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="rounded-xl text-destructive"
-                          onClick={() => setLogoUrl(null)}
-                        >
-                          Remove
-                        </Button>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+        <SectionCard title="Features">
+          <OrgModuleToggles
+            businessType={businessType}
+            primaryShopSector={businessTypes[0] ?? null}
+            plan={plan}
+            activeAddonKeys={addonKeys}
+            moduleToggles={moduleToggles}
+            enableStaff={enableStaff}
+            disabled={!isOwner}
+            onToggle={(key, next) =>
+              setModuleToggles((prev) => ({
+                ...prev,
+                [key]: next,
+              }))
+            }
+          />
+        </SectionCard>
 
-          {isShopVertical(businessType) && (
-            <Card className="rounded-2xl border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg">Invoice template</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Header, shop GSTIN, footer text, and which fields appear on printed invoices.
-                </p>
-              </CardHeader>
-              <CardContent>
-                <Link href="/shop/invoices/settings">
-                  <Button variant="outline" className="rounded-xl">
-                    Open invoice settings
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="rounded-2xl border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-lg">Features</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {modulesForBusinessType(businessType, businessTypes[0] ?? null).map((mod) => {
-                const on = Boolean(
-                  moduleToggles[mod.key] ??
-                    (mod.key === "staff" ? enableStaff : mod.defaultOn[businessType])
-                );
-                return (
-                  <div
-                    key={mod.key}
-                    className="flex items-start gap-3 rounded-xl border p-3 sm:items-center"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">
-                        {moduleLabel(mod.key, businessType)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{mod.description}</p>
-                    </div>
-                    <Switch
-                      checked={on}
+        {isShopVertical(businessType) ? (
+          <SettingsCardGrid className="gap-4 lg:gap-5">
+            <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
+              <SectionCard title="Defaults">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Unmarked days</Label>
+                    <select
+                      value={unmarkedPolicy}
                       disabled={!isOwner}
-                      onCheckedChange={(next) =>
-                        setModuleToggles((prev) => ({
-                          ...prev,
-                          [mod.key]: next,
-                        }))
+                      onChange={(e) =>
+                        setUnmarkedPolicy(
+                          e.target.value as "PRESENT" | "ABSENT" | "EXCLUDED"
+                        )
                       }
+                      className="h-12 w-full rounded-xl border bg-background px-3"
+                    >
+                      <option value="EXCLUDED">Working (full month for monthly salary)</option>
+                      <option value="PRESENT">Present</option>
+                      <option value="ABSENT">Absent</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="completion-days">Completion days</Label>
+                    <Input
+                      id="completion-days"
+                      type="number"
+                      min={1}
+                      max={3650}
+                      value={defaultCompletionDays}
+                      onChange={(e) => setDefaultCompletionDays(e.target.value)}
+                      className="h-12 rounded-xl"
+                      disabled={!isOwner}
                     />
                   </div>
-                );
-              })}
-              <div className="space-y-2">
-                <Label>Unmarked working days count as</Label>
-                <select
-                  value={unmarkedPolicy}
+                </div>
+              </SectionCard>
+
+              {staffEnabled ? (
+                <StaffBarcodeLabelSettingsCard
+                  value={staffBarcodeLabel}
                   disabled={!isOwner}
-                  onChange={(e) =>
-                    setUnmarkedPolicy(
-                      e.target.value as "PRESENT" | "ABSENT" | "EXCLUDED"
-                    )
-                  }
-                  className="h-12 w-full rounded-xl border bg-background px-3"
-                >
-                  <option value="EXCLUDED">Working (full month for monthly salary)</option>
-                  <option value="PRESENT">Present</option>
-                  <option value="ABSENT">Absent</option>
-                </select>
+                  onChange={setStaffBarcodeLabel}
+                />
+              ) : null}
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
+              <SectionCard
+                title="Shop label printing"
+                description="Brand name and logo on price tags."
+              >
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="brand-name">Brand name (small tags)</Label>
+                    <Input
+                      id="brand-name"
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      className="h-12 rounded-xl"
+                      placeholder={name || "Your brand"}
+                      disabled={!isOwner}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shop-logo">Shop logo (full tags)</Label>
+                    <Input
+                      id="shop-logo"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="h-12 rounded-xl"
+                      disabled={!isOwner}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 200_000) {
+                          showWarning("Logo must be under 200 KB");
+                          e.target.value = "";
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => setLogoUrl(String(reader.result));
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    {logoUrl ? (
+                      <div className="flex items-center gap-3 rounded-xl border p-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={logoUrl} alt="Shop logo" className="h-10 w-10 object-contain" />
+                        {isOwner ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto rounded-xl text-destructive"
+                            onClick={() => setLogoUrl(null)}
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                title="Invoice template"
+                description="Header, GSTIN, footer and print fields."
+              >
+                <Link href="/shop/invoices/settings">
+                  <Button variant="outline" className="rounded-xl">
+                    Configure invoice template
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </Link>
+              </SectionCard>
+            </div>
+          </SettingsCardGrid>
+        ) : (
+          <div className="space-y-4">
+            <SectionCard title="Defaults">
+              <div className="grid gap-4 sm:grid-cols-2 sm:max-w-2xl">
+                <div className="space-y-2">
+                  <Label>Unmarked days</Label>
+                  <select
+                    value={unmarkedPolicy}
+                    disabled={!isOwner}
+                    onChange={(e) =>
+                      setUnmarkedPolicy(
+                        e.target.value as "PRESENT" | "ABSENT" | "EXCLUDED"
+                      )
+                    }
+                    className="h-12 w-full rounded-xl border bg-background px-3"
+                  >
+                    <option value="EXCLUDED">Working (full month for monthly salary)</option>
+                    <option value="PRESENT">Present</option>
+                    <option value="ABSENT">Absent</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="completion-days">Completion days</Label>
+                  <Input
+                    id="completion-days"
+                    type="number"
+                    min={1}
+                    max={3650}
+                    value={defaultCompletionDays}
+                    onChange={(e) => setDefaultCompletionDays(e.target.value)}
+                    className="h-12 rounded-xl"
+                    disabled={!isOwner}
+                  />
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </SectionCard>
 
-          <div className="space-y-2">
-            <Label htmlFor="completion-days">Default completion days</Label>
-            <Input
-              id="completion-days"
-              type="number"
-              min={1}
-              max={3650}
-              value={defaultCompletionDays}
-              onChange={(e) => setDefaultCompletionDays(e.target.value)}
-              className="h-12 rounded-xl"
-              disabled={!isOwner}
-            />
+            {staffEnabled ? (
+              <StaffBarcodeLabelSettingsCard
+                value={staffBarcodeLabel}
+                disabled={!isOwner}
+                onChange={setStaffBarcodeLabel}
+              />
+            ) : null}
           </div>
+        )}
 
-          {isOwner && (
+        <SectionCard title="Quick links">
+          <div className="space-y-1.5">
+            <QuickLinkRow href="/settings/members" icon={UsersRound} label="Members" />
+            {staffEnabled ? (
+              <QuickLinkRow href="/staff" icon={Users} label="Staff" />
+            ) : null}
+            {inventoryEnabled ? (
+              <QuickLinkRow href="/shop/inventory" icon={Package} label="Inventory" />
+            ) : null}
+          </div>
+        </SectionCard>
+
+        {canDeleteOrg && isOwner ? (
+          <SectionCard title="Danger zone" variant="danger">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium">Delete this organization</p>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone. Your primary organization cannot be deleted.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                className="shrink-0 rounded-xl"
+                onClick={() => setDeleteOpen(true)}
+              >
+                Delete organization
+              </Button>
+            </div>
+          </SectionCard>
+        ) : null}
+      </div>
+
+      {isOwner ? (
+        <div className="sticky bottom-0 z-20 -mx-1 border-t bg-background/95 px-1 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="flex justify-end gap-2">
             <Button
-              className="h-12 w-full rounded-xl"
-              onClick={save}
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              disabled={saving || !initialSnapshot}
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl"
               disabled={saving}
+              onClick={save}
             >
-              {saving ? "Saving..." : "Save organization"}
+              {saving ? "Saving..." : "Save changes"}
             </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-2xl border-0 shadow-md">
-        <CardContent className="space-y-3 pt-6">
-          {isShopVertical(businessType) ? (
-            <Link href="/staff">
-              <Button variant="outline" className="h-12 w-full justify-start rounded-xl">
-                <Users className="mr-2 h-4 w-4" />
-                Manage Staff
-              </Button>
-            </Link>
-          ) : (
-            <Link href="/settings/members">
-              <Button variant="outline" className="h-12 w-full justify-start rounded-xl">
-                <Users className="mr-2 h-4 w-4" />
-                Manage Members
-              </Button>
-            </Link>
-          )}
-          {isShopVertical(businessType) && (
-            <Link href="/settings/branches">
-              <Button variant="outline" className="h-12 w-full justify-start rounded-xl">
-                Multi-store branches
-              </Button>
-            </Link>
-          )}
-          {(moduleToggles.staff ?? enableStaff) && (
-            <Link href="/staff">
-              <Button variant="outline" className="h-12 w-full justify-start rounded-xl">
-                Open Staff / Labour hub
-              </Button>
-            </Link>
-          )}
-        </CardContent>
-      </Card>
-
-      {canDeleteOrg && isOwner && (
-        <Card className="rounded-2xl border-destructive/30 shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg text-destructive">Delete organization</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Remove this secondary organization and all its data. Your primary
-              organization cannot be deleted.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="destructive"
-              className="h-12 w-full rounded-xl"
-              onClick={() => setDeleteOpen(true)}
-            >
-              Delete this organization
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </div>
+      ) : null}
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
@@ -667,10 +803,6 @@ export default function OrganizationSettingsPage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <Link href="/settings/profile" className="block text-center text-sm text-muted-foreground hover:underline">
-        Back to profile
-      </Link>
     </div>
   );
 }

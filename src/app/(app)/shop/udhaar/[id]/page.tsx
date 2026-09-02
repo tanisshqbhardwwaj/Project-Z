@@ -17,7 +17,7 @@ import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { formatINR } from "@/lib/finance/money";
 import { useActivePlan } from "@/hooks/use-active-plan";
 import { canAccessReportFeature } from "@/lib/billing/report-entitlements";
-import { shareInvoiceOnWhatsApp, hasWhatsAppPhone } from "@/lib/shop/invoice-share";
+import { shareInvoiceOnWhatsApp, hasWhatsAppPhone } from "@/lib/shop/invoices/invoice-share";
 import { MessageCircle } from "lucide-react";
 
 type LedgerData = {

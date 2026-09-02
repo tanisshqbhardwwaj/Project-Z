@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { handleApi, apiSuccess } from "@/lib/api/context";
 import { requirePlatformAdmin } from "@/lib/billing/platform-admin";
-import { listOpsOrganizations } from "@/services/billing.service";
+import { listOpsOrganizations } from "@/services/billing/billing.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import type { BillingPlan, SubscriptionStatus } from "@prisma/client";
 

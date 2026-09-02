@@ -3,7 +3,7 @@ import {
   evaluateSingleOffer,
   evaluateSingleOfferLineDiscounts,
   type ActiveOffer,
-} from "@/lib/shop/offer-engine";
+} from "@/lib/shop/offers/offer-engine";
 
 const productOffer = (overrides: Partial<ActiveOffer> = {}): ActiveOffer => ({
   id: "offer-1",

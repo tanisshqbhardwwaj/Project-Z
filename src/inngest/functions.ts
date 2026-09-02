@@ -1,11 +1,11 @@
 import { inngest, EXTRACTION_EVENT } from "@/inngest/client";
-import { runWorkOrderExtraction } from "@/services/extraction.service";
+import { runWorkOrderExtraction } from "@/services/shared/extraction.service";
 import { ExtractionQuotaError } from "@/lib/ai/extraction-retry";
 import { logger } from "@/lib/logger";
 import {
   listOrgsForPaymentReminderScan,
   syncUdhaarPaymentReminders,
-} from "@/services/shop-payment-reminder.service";
+} from "@/services/shop/shop-payment-reminder.service";
 import {
   listServiceOrgsForReminders,
   syncServiceReminders,
@@ -66,7 +66,7 @@ export const prunePlatformData = inngest.createFunction(
     triggers: [{ cron: "TZ=Asia/Kolkata 0 3 * * 0", jitter: "10m" }],
   },
   async () => {
-    const { pruneStalePlatformData } = await import("@/services/data-retention.service");
+    const { pruneStalePlatformData } = await import("@/services/shared/data-retention.service");
     const result = await pruneStalePlatformData();
     logger.info("data_retention.prune.complete", result);
     return result;

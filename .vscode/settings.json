@@ -1,0 +1,11 @@
+{
+  "files.exclude": {
+    ".gitignore": true,
+    "next-env.d.ts": true,
+    "*.tsbuildinfo": true,
+    "tsconfig.tsbuildinfo": true,
+    "package-lock.json": true,
+    ".dockerignore": true,
+    ".nvmrc": true
+  }
+}

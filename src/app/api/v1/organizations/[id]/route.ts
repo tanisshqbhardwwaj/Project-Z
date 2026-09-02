@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
-import { deleteOrganization } from "@/services/organization.service";
+import { deleteOrganization } from "@/services/org/organization.service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 

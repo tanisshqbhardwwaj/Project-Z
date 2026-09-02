@@ -1,13 +1,13 @@
-import type { CapacitorConfig } from "@capacitor/cli";
-import { capacitorNetworkFlags } from "./src/lib/security/csp";
+﻿import type { CapacitorConfig } from "@capacitor/cli";
 import { withNativeAppEntryUrl } from "./src/lib/app/public-url";
-import { NATIVE_APP_UA_MARK } from "./src/lib/platform/native";
+import { capacitorNetworkFlags } from "./src/lib/security/csp";
+import { NATIVE_APP_UA_MARK } from "./src/platform/common/native";
 
 const network = capacitorNetworkFlags();
 
 const config: CapacitorConfig = {
   appId: "com.projectz.shop",
-  appName: "BusinessOS · E-console",
+  appName: "BusinessOS ┬╖ E-console",
   webDir: "android-www",
   appendUserAgent: `${NATIVE_APP_UA_MARK}/Android`,
   server: {

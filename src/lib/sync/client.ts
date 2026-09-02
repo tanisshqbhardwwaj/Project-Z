@@ -1,7 +1,7 @@
 import { getLocalDb, androidInvoiceWindowDays } from "@/lib/local-db";
 import { apiFetch } from "@/lib/api/client";
 import { useSyncStore } from "@/lib/sync/store";
-import { formatShopBillNumber, fiscalYearLabel, normalizeCashierCode, resolveStoreCode } from "@/lib/shop/bill-number";
+import { formatShopBillNumber, fiscalYearLabel, normalizeCashierCode, resolveStoreCode } from "@/lib/shop/invoices/bill-number";
 import type { SyncKind, SyncPullSnapshot, SyncPushResult } from "@/lib/sync/kinds";
 import type { LocalOutboxRow } from "@/lib/local-db/types";
 import { nextOutboxFailure } from "@/lib/sync/outbox-policy";
@@ -85,6 +85,10 @@ export async function applyPullSnapshot(orgId: string, snapshot: SyncPullSnapsho
   await db.putAll("purchases", asRows(snapshot.purchases, (r) => String(r.id)));
   await db.putAll("expenses", asRows(snapshot.expenses, (r) => String(r.id)));
   await db.putAll("staff", asRows(snapshot.staff, (r) => String(r.id)));
+  await db.putAll(
+    "attendance",
+    asRows(snapshot.attendance ?? [], (r) => String(r.id))
+  );
 
   const used = Number(snapshot.storage.usedBytes);
   const quota = Number(snapshot.storage.quotaBytes);
@@ -156,6 +160,7 @@ export async function pullFromCloud(orgId: string) {
 
 export async function pushOutbox(orgId: string) {
   const db = getLocalDb();
+  const meta = await db.getMeta(orgId);
   const pending = await db.pendingOutbox(orgId);
   if (pending.length === 0) {
     useSyncStore.getState().setPending(0);
@@ -167,6 +172,7 @@ export async function pushOutbox(orgId: string) {
     const res = await apiFetch<{ results: SyncPushResult[] }>("/api/v1/sync/push", {
       method: "POST",
       body: JSON.stringify({
+        deviceId: meta?.deviceId ?? null,
         items: batch.map((r) => ({ id: r.id, kind: r.kind, payload: r.payload })),
       }),
     });
@@ -196,6 +202,8 @@ export async function runSync(orgId: string) {
     useSyncStore.getState().setConnection("offline");
     return;
   }
+  const { requiresVerifiedSession } = await import("@/stores/auth-store");
+  if (requiresVerifiedSession()) return;
   const ui = useSyncStore.getState();
   ui.setConnection("syncing");
   try {

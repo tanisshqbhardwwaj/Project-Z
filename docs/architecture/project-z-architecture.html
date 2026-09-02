@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Project Z — System diagrams</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm 12mm 12mm; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      font: 10.5pt/1.4 "Segoe UI", Calibri, Arial, sans-serif;
+      color: #111;
+      background: #fff;
+    }
+    h1 { font-size: 22pt; margin: 0 0 4pt; }
+    h2 { font-size: 15pt; margin: 0 0 6pt; }
+    h3 { font-size: 11pt; margin: 10pt 0 4pt; }
+    p { margin: 0 0 7pt; }
+    .muted { color: #555; font-size: 9.5pt; }
+    .page { page-break-after: always; min-height: 180mm; }
+    .page:last-child { page-break-after: auto; }
+    .cover-bar {
+      background: #111; color: #fff;
+      margin: -10mm -12mm 12mm; padding: 16mm 12mm 12mm;
+    }
+    .kicker { font-size: 8.5pt; letter-spacing: .16em; text-transform: uppercase; opacity: .65; }
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 8pt; }
+    th, td { border: 0.6pt solid #ccc; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+    th { background: #f2f2f2; }
+    .fig { margin: 6pt 0 0; font-size: 8.5pt; color: #555; }
+    svg { display: block; width: 100%; height: auto; }
+    .node { fill: #fff; stroke: #111; stroke-width: 1.4; }
+    .node-fill { fill: #111; stroke: #111; }
+    .node-soft { fill: #f4f4f4; stroke: #111; stroke-width: 1.4; }
+    .node-cloud { fill: #fff; stroke: #111; stroke-width: 1.6; stroke-dasharray: 4 2.5; }
+    .t { font-family: "Segoe UI", Arial, sans-serif; fill: #111; }
+    .t-w { fill: #fff; }
+    .t-title { font-size: 12px; font-weight: 700; }
+    .t-sub { font-size: 10px; fill: #333; }
+    .t-tiny { font-size: 9px; fill: #444; }
+    .lane { font-size: 9px; font-weight: 700; fill: #666; letter-spacing: 0.8px; }
+    .arr { stroke: #111; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .arr-dash { stroke-dasharray: 5 3; }
+    .legend { display: flex; gap: 16pt; margin-top: 6pt; font-size: 8.5pt; color: #444; }
+    .sw { display: inline-block; width: 14pt; height: 9pt; border: 1pt solid #111; vertical-align: middle; margin-right: 4pt; }
+    .sw-s { background: #fff; }
+    .sw-f { background: #111; }
+    .sw-g { background: #f4f4f4; }
+    .sw-c { background: #fff; border-style: dashed; }
+  </style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#111" />
+    </marker>
+  </defs>
+</svg>
+
+<section class="page">
+  <div class="cover-bar">
+    <div class="kicker">Internal · System design</div>
+    <h1>Project Z — four system diagrams</h1>
+    <p style="margin:8pt 0 0;opacity:.85">Same Next.js product. Four views: website, Android app, Windows, and all together.</p>
+    <p style="margin:8pt 0 0;font-size:9.5pt;opacity:.6">31 August 2026</p>
+  </div>
+  <p>One backend. Three shells. The website talks to the cloud on every click. Android and Windows can sell offline, then sync.</p>
+  <table>
+    <tr><th>Diagram</th><th>What it is</th><th>Local data</th></tr>
+    <tr><td>1. Website</td><td>Browser on Vercel / localhost</td><td>IndexedDB fallback only; always prefers the network</td></tr>
+    <tr><td>2. Android app</td><td>Capacitor APK, same UI</td><td>Capacitor SQLite · 90-day invoice window</td></tr>
+    <tr><td>3. Windows</td><td>Tauri .exe, same UI</td><td>Tauri SQL plugin</td></tr>
+    <tr><td>4. All in one</td><td>How the three meet Turso, R2, mail, jobs</td><td>—</td></tr>
+  </table>
+  <p class="muted" style="margin-top:10pt">Shared path after the device: middleware → JWT → org header → <code>/api/v1</code> → services → Prisma → Turso.</p>
+</section>
+
+<!-- WEBSITE -->
+<section class="page">
+  <h2>1. Website</h2>
+  <p class="muted">Chrome / Edge on a laptop or shop PC. No APK, no .exe. The browser is only a thin client.</p>
+  <svg viewBox="0 0 1100 520" role="img" aria-label="Website system diagram">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#111" />
+      </marker>
+    </defs>
+    <text class="lane" x="20" y="22">USER</text>
+    <rect class="node-soft" x="20" y="32" width="160" height="70" rx="4"/>
+    <text class="t t-title" x="32" y="58">Shop keeper</text>
+    <text class="t t-sub" x="32" y="76">browser only</text>
+
+    <path class="arr" d="M180 67 H 230"/>
+
+    <text class="lane" x="240" y="22">WEBSITE</text>
+    <rect class="node" x="230" y="32" width="210" height="88" rx="4"/>
+    <text class="t t-title" x="242" y="54">Next.js in the browser</text>
+    <text class="t t-tiny" x="242" y="72">Vercel or localhost:3000</text>
+    <text class="t t-tiny" x="242" y="88">React Query · Zustand</text>
+    <text class="t t-tiny" x="242" y="104">apiFetch + cookie</text>
+
+    <rect class="node-soft" x="230" y="136" width="210" height="56" rx="4"/>
+    <text class="t t-title" x="242" y="158">IndexedDB (optional)</text>
+    <text class="t t-tiny" x="242" y="176">used if native SQLite missing</text>
+
+    <path class="arr" d="M440 76 H 500"/>
+
+    <text class="lane" x="510" y="22">YOUR SERVER (WEBSITE HOST)</text>
+    <rect class="node-fill" x="500" y="32" width="250" height="160" rx="4"/>
+    <text class="t t-w t-title" x="514" y="56">Next.js 16 on Vercel</text>
+    <text class="t t-w" x="514" y="78" style="font-size:10px">1  middleware (cookie)</text>
+    <text class="t t-w" x="514" y="96" style="font-size:10px">2  NextAuth JWT</text>
+    <text class="t t-w" x="514" y="114" style="font-size:10px">3  getAuthContext (org + role)</text>
+    <text class="t t-w" x="514" y="132" style="font-size:10px">4  /api/v1 + Zod + RBAC</text>
+    <text class="t t-w" x="514" y="150" style="font-size:10px">5  src/services</text>
+    <text class="t t-w" x="514" y="168" style="font-size:10px">6  Prisma</text>
+
+    <path class="arr" d="M750 70 H 810"/>
+    <path class="arr" d="M750 112 H 810"/>
+    <path class="arr" d="M750 154 H 810"/>
+
+    <text class="lane" x="820" y="22">CLOUD</text>
+    <rect class="node-cloud" x="810" y="32" width="200" height="52" rx="4"/>
+    <text class="t t-title" x="822" y="54">Turso (SQLite)</text>
+    <text class="t t-tiny" x="822" y="72">all invoices, stock, users</text>
+
+    <rect class="node-cloud" x="810" y="96" width="200" height="44" rx="4"/>
+    <text class="t t-title" x="822" y="116">R2 / MinIO</text>
+    <text class="t t-tiny" x="822" y="132">photos, work-order files</text>
+
+    <rect class="node-cloud" x="810" y="152" width="200" height="44" rx="4"/>
+    <text class="t t-title" x="822" y="172">Resend · Inngest · AI</text>
+    <text class="t t-tiny" x="822" y="188">mail, crons, extract</text>
+
+    <text class="t t-tiny" x="20" y="230">What the website does NOT have</text>
+    <rect class="node-soft" x="20" y="240" width="1060" height="70" rx="4"/>
+    <text class="t t-sub" x="34" y="264">No Capacitor camera / barcode plugin. No Tauri SQL file on disk. Offline shop writes are weak — if the internet drops, the browser cannot be a full POS the way the app and Windows can.</text>
+    <text class="t t-sub" x="34" y="286">Login cookie lives in the browser. Org is sent as X-Organization-Id on every API call.</text>
+
+    <text class="t t-tiny" x="20" y="340">Typical website click (create invoice)</text>
+    <rect class="node" x="20" y="350" width="190" height="48" rx="3"/><text class="t t-title" x="30" y="370">Form submit</text><text class="t t-tiny" x="30" y="386">rupees in JSON</text>
+    <path class="arr" d="M210 374 H 248"/>
+    <rect class="node" x="250" y="350" width="190" height="48" rx="3"/><text class="t t-title" x="260" y="370">POST /api/v1/shop/sales</text><text class="t t-tiny" x="260" y="386">HTTPS to Vercel</text>
+    <path class="arr" d="M440 374 H 478"/>
+    <rect class="node" x="480" y="350" width="190" height="48" rx="3"/><text class="t t-title" x="490" y="370">Service + stock check</text><text class="t t-tiny" x="490" y="386">paise in Turso</text>
+    <path class="arr" d="M670 374 H 708"/>
+    <rect class="node" x="710" y="350" width="190" height="48" rx="3"/><text class="t t-title" x="720" y="370">JSON back</text><text class="t t-tiny" x="720" y="386">print in the tab</text>
+    <path class="arr" d="M900 374 H 938"/>
+    <rect class="node-soft" x="940" y="350" width="140" height="48" rx="3"/><text class="t t-title" x="950" y="370">No PDF stored</text><text class="t t-tiny" x="950" y="386">unless upload</text>
+  </svg>
+  <p class="fig">Figure 1 — Website. Online-first. Same APIs as the other two clients.</p>
+</section>
+
+<!-- ANDROID -->
+<section class="page">
+  <h2>2. Android app</h2>
+  <p class="muted">Capacitor wraps the same Next UI in an APK. Shop writes can go to the phone first, then sync when the network is back.</p>
+  <svg viewBox="0 0 1100 540" role="img" aria-label="Android app system diagram">
+    <defs>
+      <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#111" />
+      </marker>
+    </defs>
+    <text class="lane" x="20" y="22">PHONE</text>
+    <rect class="node-fill" x="20" y="32" width="340" height="280" rx="6"/>
+    <text class="t t-w t-title" x="36" y="56">Android APK (Capacitor)</text>
+    <text class="t t-w" x="36" y="76" style="font-size:10px">Same React screens as the website</text>
+
+    <rect class="node" x="36" y="92" width="308" height="58" rx="3"/>
+    <text class="t t-title" x="48" y="114">WebView UI</text>
+    <text class="t t-tiny" x="48" y="132">invoices, scan, cash, stock</text>
+
+    <rect class="node" x="36" y="160" width="308" height="58" rx="3"/>
+    <text class="t t-title" x="48" y="182">apiFetch → local-api</text>
+    <text class="t t-tiny" x="48" y="200">offline: shop APIs stay on device</text>
+
+    <rect class="node" x="36" y="228" width="308" height="64" rx="3"/>
+    <text class="t t-title" x="48" y="250">Capacitor SQLite</text>
+    <text class="t t-tiny" x="48" y="268">outbox + cached shop rows</text>
+    <text class="t t-tiny" x="48" y="282">invoices kept ~90 days on Android</text>
+
+    <text class="lane" x="36" y="340">PHONE PLUGINS</text>
+    <rect class="node-soft" x="20" y="350" width="160" height="50" rx="3"/>
+    <text class="t t-title" x="32" y="372">Camera / barcode</text>
+    <rect class="node-soft" x="190" y="350" width="170" height="50" rx="3"/>
+    <text class="t t-title" x="202" y="372">Back button · keep-awake</text>
+
+    <path class="arr" d="M360 170 H 430" marker-end="url(#arrow2)"/>
+    <text class="t t-tiny" x="368" y="160">online</text>
+    <path class="arr arr-dash" d="M360 250 H 430" marker-end="url(#arrow2)"/>
+    <text class="t t-tiny" x="368" y="244">sync later</text>
+
+    <text class="lane" x="440" y="22">SYNC</text>
+    <rect class="node" x="430" y="120" width="200" height="70" rx="4"/>
+    <text class="t t-title" x="442" y="148">POST /api/v1/sync/push</text>
+    <text class="t t-tiny" x="442" y="166">GET /api/v1/sync/pull</text>
+    <text class="t t-tiny" x="442" y="182">every ~45s + on online</text>
+
+    <path class="arr" d="M630 155 H 700" marker-end="url(#arrow2)"/>
+
+    <text class="lane" x="710" y="22">SAME CLOUD AS WEBSITE</text>
+    <rect class="node-fill" x="700" y="32" width="220" height="100" rx="4"/>
+    <text class="t t-w t-title" x="714" y="58">Next.js / Vercel</text>
+    <text class="t t-w" x="714" y="78" style="font-size:10px">shop-sync.service</text>
+    <text class="t t-w" x="714" y="96" style="font-size:10px">applies outbox in org scope</text>
+    <text class="t t-w" x="714" y="114" style="font-size:10px">then normal services</text>
+
+    <rect class="node-cloud" x="700" y="148" width="220" height="48" rx="4"/>
+    <text class="t t-title" x="714" y="170">Turso</text>
+    <text class="t t-tiny" x="714" y="186">source of truth</text>
+
+    <rect class="node-cloud" x="700" y="208" width="220" height="48" rx="4"/>
+    <text class="t t-title" x="714" y="230">R2</text>
+    <text class="t t-tiny" x="714" y="246">uploads when online</text>
+
+    <rect class="node-soft" x="430" y="350" width="490" height="70" rx="4"/>
+    <text class="t t-title" x="444" y="374">If the shop has no internet</text>
+    <text class="t t-sub" x="444" y="396">Sale, return, udhaar pay, purchase, expense, customer, stock adjust stay on the phone. They flush on push. Website users do not get this full path.</text>
+  </svg>
+  <p class="fig">Figure 2 — Android. Device SQLite is a cache + outbox. Turso wins after sync.</p>
+</section>
+
+<!-- WINDOWS -->
+<section class="page">
+  <h2>3. Windows</h2>
+  <p class="muted">Tauri .exe. Same React UI in a desktop WebView. Local SQL on the PC, not Capacitor SQLite.</p>
+  <svg viewBox="0 0 1100 540" role="img" aria-label="Windows system diagram">
+    <text class="lane" x="20" y="22">WINDOWS PC</text>
+    <rect class="node-fill" x="20" y="32" width="360" height="300" rx="6"/>
+    <text class="t t-w t-title" x="36" y="56">Project Z.exe (Tauri 2)</text>
+    <text class="t t-w" x="36" y="74" style="font-size:10px">1280×800 window · same frontend</text>
+
+    <rect class="node" x="36" y="90" width="328" height="52" rx="3"/>
+    <text class="t t-title" x="48" y="112">WebView UI</text>
+    <text class="t t-tiny" x="48" y="128">dev: loads localhost:3000 · prod: bundled dist</text>
+
+    <rect class="node" x="36" y="152" width="328" height="52" rx="3"/>
+    <text class="t t-title" x="48" y="174">apiFetch → local-api</text>
+    <text class="t t-tiny" x="48" y="190">same offline shop writes as Android</text>
+
+    <rect class="node" x="36" y="214" width="328" height="52" rx="3"/>
+    <text class="t t-title" x="48" y="236">Tauri SQL plugin</text>
+    <text class="t t-tiny" x="48" y="252">file on disk via Rust invoke</text>
+
+    <rect class="node" x="36" y="276" width="328" height="40" rx="3"/>
+    <text class="t t-title" x="48" y="300">DPAPI / updater hook (optional)</text>
+
+    <path class="arr" d="M380 178 H 450"/>
+    <path class="arr arr-dash" d="M380 240 H 450"/>
+
+    <text class="lane" x="460" y="22">NETWORK</text>
+    <rect class="node" x="450" y="140" width="200" height="80" rx="4"/>
+    <text class="t t-title" x="462" y="168">HTTPS to Vercel</text>
+    <text class="t t-tiny" x="462" y="186">cookie + org + branch</text>
+    <text class="t t-tiny" x="462" y="202">sync/push · sync/pull</text>
+
+    <path class="arr" d="M650 180 H 720"/>
+
+    <text class="lane" x="730" y="22">CLOUD (UNCHANGED)</text>
+    <rect class="node-fill" x="720" y="32" width="250" height="88" rx="4"/>
+    <text class="t t-w t-title" x="734" y="58">Next.js API</text>
+    <text class="t t-w" x="734" y="78" style="font-size:10px">same /api/v1 as website</text>
+    <text class="t t-w" x="734" y="98" style="font-size:10px">same auth, RBAC, billing</text>
+
+    <rect class="node-cloud" x="720" y="136" width="250" height="52" rx="4"/>
+    <text class="t t-title" x="734" y="158">Turso</text>
+    <text class="t t-tiny" x="734" y="176">shared with web + Android</text>
+
+    <rect class="node-cloud" x="720" y="202" width="250" height="52" rx="4"/>
+    <text class="t t-title" x="734" y="224">R2 · Resend · Inngest</text>
+    <text class="t t-tiny" x="734" y="242">files, mail, jobs</text>
+
+    <rect class="node-soft" x="450" y="360" width="520" height="72" rx="4"/>
+    <text class="t t-title" x="464" y="384">Difference vs Android</text>
+    <text class="t t-sub" x="464" y="406">Storage is Tauri SQL, not Capacitor. Invoice retention is long (not the 90-day Android cap). No phone camera plugin — desktop scanner / keyboard barcode.</text>
+    <text class="t t-sub" x="464" y="424">Updater endpoint is prepared toward Vercel; not a second backend.</text>
+  </svg>
+  <p class="fig">Figure 3 — Windows. Desktop shell + local SQL. Same cloud as the website and the phone.</p>
+</section>
+
+<!-- ALL IN ONE -->
+<section class="page">
+  <h2>4. All in one</h2>
+  <p class="muted">Three clients. One API. One database. Files and jobs sit beside it, not inside Turso.</p>
+  <svg viewBox="0 0 1100 560" role="img" aria-label="All clients system diagram">
+    <text class="lane" x="20" y="20">CLIENTS</text>
+    <rect class="node" x="20" y="30" width="200" height="72" rx="4"/>
+    <text class="t t-title" x="32" y="54">Website</text>
+    <text class="t t-tiny" x="32" y="72">browser · IndexedDB fallback</text>
+    <text class="t t-tiny" x="32" y="88">online-first</text>
+
+    <rect class="node" x="20" y="118" width="200" height="72" rx="4"/>
+    <text class="t t-title" x="32" y="142">Android app</text>
+    <text class="t t-tiny" x="32" y="160">Capacitor SQLite</text>
+    <text class="t t-tiny" x="32" y="176">offline POS + sync</text>
+
+    <rect class="node" x="20" y="206" width="200" height="72" rx="4"/>
+    <text class="t t-title" x="32" y="230">Windows</text>
+    <text class="t t-tiny" x="32" y="248">Tauri SQL</text>
+    <text class="t t-tiny" x="32" y="264">offline POS + sync</text>
+
+    <path class="arr" d="M220 66 H 300"/>
+    <path class="arr" d="M220 154 H 300"/>
+    <path class="arr" d="M220 242 H 300"/>
+
+    <text class="lane" x="310" y="20">ONE BACKEND</text>
+    <rect class="node-fill" x="300" y="30" width="280" height="248" rx="6"/>
+    <text class="t t-w t-title" x="316" y="56">Next.js 16 monolith</text>
+    <text class="t t-w" x="316" y="80" style="font-size:11px">Host: Vercel (or Docker)</text>
+    <text class="t t-w" x="316" y="108" style="font-size:10px">middleware · JWT cookie</text>
+    <text class="t t-w" x="316" y="128" style="font-size:10px">X-Organization-Id · X-Branch-Id</text>
+    <text class="t t-w" x="316" y="148" style="font-size:10px">/api/v1/*  +  /api/v1/sync/*</text>
+    <text class="t t-w" x="316" y="168" style="font-size:10px">services (rupees → paise)</text>
+    <text class="t t-w" x="316" y="188" style="font-size:10px">Prisma + libSQL adapter</text>
+    <text class="t t-w" x="316" y="216" style="font-size:10px">Roles: Owner Partner</text>
+    <text class="t t-w" x="316" y="232" style="font-size:10px">Accountant Viewer Cashier</text>
+    <text class="t t-w" x="316" y="256" style="font-size:10px">Modules + billing plan</text>
+
+    <path class="arr" d="M580 70 H 650"/>
+    <path class="arr" d="M580 140 H 650"/>
+    <path class="arr" d="M580 200 H 650"/>
+    <path class="arr" d="M580 250 H 650"/>
+
+    <text class="lane" x="660" y="20">STORES &amp; SIDE SERVICES</text>
+    <rect class="node-cloud" x="650" y="30" width="240" height="58" rx="4"/>
+    <text class="t t-title" x="664" y="52">Turso · Mumbai</text>
+    <text class="t t-tiny" x="664" y="70">source of truth for all rows</text>
+
+    <rect class="node-cloud" x="650" y="104" width="240" height="52" rx="4"/>
+    <text class="t t-title" x="664" y="126">Cloudflare R2 / MinIO</text>
+    <text class="t t-tiny" x="664" y="144">org/{id}/… files</text>
+
+    <rect class="node-cloud" x="650" y="172" width="240" height="52" rx="4"/>
+    <text class="t t-title" x="664" y="194">Resend</text>
+    <text class="t t-tiny" x="664" y="212">verify · reset · reminders</text>
+
+    <rect class="node-cloud" x="650" y="240" width="240" height="58" rx="4"/>
+    <text class="t t-title" x="664" y="262">Inngest</text>
+    <text class="t t-tiny" x="664" y="280">AI extract · 9:00 udhaar</text>
+    <text class="t t-tiny" x="664" y="294">8:30 service · Sunday prune</text>
+
+    <rect class="node-soft" x="20" y="330" width="1070" height="88" rx="4"/>
+    <text class="t t-title" x="36" y="354">One rule</text>
+    <text class="t t-sub" x="36" y="376">Website, app, and Windows never write Turso themselves. They only call the Next.js API. Local SQLite/SQL is a shop cache so a counter can work without internet. After sync, Turso is the only source of truth.</text>
+    <text class="t t-sub" x="36" y="398">Print is HTML in the client. Invoice PDFs are not stored. Ops (/ops) is the same server, gated by admin email — not a fourth product.</text>
+
+    <text class="lane" x="20" y="444">LEGEND</text>
+    <rect class="node" x="20" y="454" width="70" height="28" rx="2"/><text class="t t-tiny" x="98" y="472">Client / UI</text>
+    <rect class="node-fill" x="200" y="454" width="70" height="28" rx="2"/><text class="t t-tiny" x="278" y="472">Your server (Next.js)</text>
+    <rect class="node-cloud" x="460" y="454" width="70" height="28" rx="2"/><text class="t t-tiny" x="538" y="472">External cloud</text>
+    <line x1="700" y1="468" x2="760" y2="468" stroke="#111" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <text class="t t-tiny" x="770" y="472">always / online</text>
+    <line x1="900" y1="468" x2="960" y2="468" stroke="#111" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+    <text class="t t-tiny" x="970" y="472">sync later</text>
+  </svg>
+  <p class="fig">Figure 4 — All in one. Do not put photos in Turso. Do not give the phone a direct database URL.</p>
+</section>
+
+<section class="page">
+  <h2>How to read the four diagrams</h2>
+  <table>
+    <tr><th></th><th>Website</th><th>Android app</th><th>Windows</th></tr>
+    <tr><td>Shell</td><td>Browser tab</td><td>Capacitor APK</td><td>Tauri exe</td></tr>
+    <tr><td>UI code</td><td colspan="3">Same Next.js / React in <code>src/app</code></td></tr>
+    <tr><td>Local DB</td><td>IndexedDB fallback</td><td>Capacitor SQLite</td><td>Tauri SQL</td></tr>
+    <tr><td>Offline POS</td><td>Limited</td><td>Yes (shop routes)</td><td>Yes (shop routes)</td></tr>
+    <tr><td>Invoice cache</td><td>—</td><td>~90 days</td><td>Long</td></tr>
+    <tr><td>Device extras</td><td>—</td><td>Camera, back, keep-awake</td><td>Desktop window, DPAPI/updater</td></tr>
+    <tr><td>API</td><td colspan="3"><code>https://…/api/v1</code> on Vercel</td></tr>
+    <tr><td>Truth</td><td colspan="3">Turso after sync</td></tr>
+  </table>
+  <h3>One request (all three, when online)</h3>
+  <p class="muted">Client → cookie JWT → org + branch headers → <code>getAuthContext</code> → service → Prisma → Turso → JSON (BigInt as string).</p>
+  <h3>Not in the pictures on purpose</h3>
+  <p class="muted">Microservices (roadmap only). Postgres. Social login. SMS/push. Stored invoice PDFs. Builder vertical (removed).</p>
+</section>
+
+</body>
+</html>

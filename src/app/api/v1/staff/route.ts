@@ -9,7 +9,7 @@ import {
   createStaffMember,
   listStaffMembers,
   listStaffWithPerformance,
-} from "@/services/staff.service";
+} from "@/services/staff/staff.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { createStaffSchema } from "@/lib/validation/staff";
 

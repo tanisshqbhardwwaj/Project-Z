@@ -1,15 +1,15 @@
 import { prisma } from "@/lib/db/prisma";
 import { toCursorPage, type CursorPage } from "@/lib/api/cursor-page";
-import { invoiceSearchWhere } from "@/lib/shop/customer";
+import { invoiceSearchWhere } from "@/lib/shop/customers/customer";
 import {
   getCustomerRaw,
   searchCustomersRaw,
   type CustomerBranchScope,
-} from "@/lib/shop/customer-store";
-import { ensureShopCustomerSchema } from "@/lib/shop/ensure-shop-customer-schema";
-import { ensureShopSaleSchema } from "@/lib/shop/ensure-shop-sale-schema";
+} from "@/lib/shop/customers/customer-store";
+import { ensureShopCustomerSchema } from "@/lib/shop/schema/ensure-shop-customer-schema";
+import { ensureShopSaleSchema } from "@/lib/shop/schema/ensure-shop-sale-schema";
 import { requireModule } from "@/lib/org/require-module";
-import { isBranchAll, type BranchScope } from "@/lib/shop/branch-context";
+import { isBranchAll, type BranchScope } from "@/lib/shop/branch/branch-context";
 
 export type ShopCustomerWithCount = Awaited<
   ReturnType<typeof searchCustomersRaw>

@@ -12,6 +12,7 @@ export const INDEXED_STORES: LocalStoreName[] = [
   "purchases",
   "expenses",
   "staff",
+  "attendance",
 ];
 
 export type ShopDiskSnapshot = {

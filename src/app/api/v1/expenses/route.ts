@@ -7,7 +7,7 @@ import {
   requireProjectAccess,
   apiSuccess,
 } from "@/lib/api/context";
-import { createExpense, getDefaultCategoryId, listExpenses } from "@/services/expense.service";
+import { createExpense, getDefaultCategoryId, listExpenses } from "@/services/finance/expense.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { getAccessibleProjectIds } from "@/lib/permissions/project-scope";

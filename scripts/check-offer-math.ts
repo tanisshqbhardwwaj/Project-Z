@@ -1,4 +1,4 @@
-import { listApplicableOffers, type ActiveOffer } from "../src/lib/shop/offer-engine";
+import { listApplicableOffers, type ActiveOffer } from "../src/lib/shop/offers/offer-engine";
 
 const jacketId = "bc377e43-c622-459d-8a20-4b71c97cee3d";
 const tshirtId = "6582aff4-346b-4fee-a726-ca787e41db46";

@@ -4,7 +4,10 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Providers } from "@/components/providers";
 import { ThemeScript } from "@/components/theme/theme-script";
+import { NativeStaticRoot } from "@/components/providers/native-static-root";
 import "./globals.css";
+
+const isNativeShellBuild = process.env.NEXT_PUBLIC_NATIVE_SHELL === "1";
 
 const inter = localFont({
   src: "./fonts/InterVariable.woff2",
@@ -46,6 +49,17 @@ export const viewport: Viewport = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  if (isNativeShellBuild) {
+    return (
+      <html lang="en" className={`${inter.variable} h-full`} suppressHydrationWarning>
+        <body className="min-h-full antialiased">
+          <ThemeScript />
+          <NativeStaticRoot>{children}</NativeStaticRoot>
+        </body>
+      </html>
+    );
+  }
+
   const locale = await getLocale();
   const messages = await getMessages();
 

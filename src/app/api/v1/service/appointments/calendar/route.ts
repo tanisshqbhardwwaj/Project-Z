@@ -5,7 +5,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
 import { requireModule } from "@/lib/org/require-module";
 import { getAppointmentCalendar } from "@/services/service/appointments.service";
 

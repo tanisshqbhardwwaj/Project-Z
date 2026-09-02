@@ -1,6 +1,6 @@
 import type { RestaurantOrderStatus, SalesChannel, ShopOrderType } from "@prisma/client";
 import { toCursorPage } from "@/lib/api/cursor-page";
-import { isBranchAll } from "@/lib/shop/branch-context";
+import { isBranchAll } from "@/lib/shop/branch/branch-context";
 import {
   addRestaurantOrderItems,
   cancelRestaurantOrder,

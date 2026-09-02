@@ -17,7 +17,7 @@ import {
 import {
   findUdhaarReminderCandidates,
   orgEligibleForPaymentReminders,
-} from "@/services/shop-payment-reminder.service";
+} from "@/services/shop/shop-payment-reminder.service";
 
 const patchSchema = z.object({
   enabled: z.boolean().optional(),

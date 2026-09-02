@@ -11,7 +11,7 @@ import {
   deleteShopExpense,
   getShopExpense,
   updateShopExpense,
-} from "@/services/shop-expense.service";
+} from "@/services/shop/shop-expense.service";
 
 const updateSchema = z.object({
   categoryId: z.string().uuid().optional(),

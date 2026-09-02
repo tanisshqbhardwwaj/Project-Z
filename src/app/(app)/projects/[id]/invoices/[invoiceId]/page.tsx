@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Printer } from "lucide-react";
@@ -14,7 +14,11 @@ import { InvoiceLivePreview } from "@/components/shop/invoice-live-preview";
 import { projectInvoiceToShopInvoice } from "@/lib/project/project-invoice-mapper";
 import type { NormalizedProjectInvoice } from "@/lib/project/project-invoice-mapper";
 import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
+import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { getProjectDisplayName } from "@/lib/project/display-name";
+import type { InvoicePaperSize } from "@/lib/org/shop-settings";
+import { previewRailWidthClass } from "@/lib/shop/print/invoice-print-layout";
+import { cn } from "@/lib/utils";
 
 type ProjectInvoiceDetail = {
   id: string;
@@ -43,6 +47,9 @@ function ProjectInvoiceDetailContent() {
   const projectId = params.id as string;
   const invoiceId = params.invoiceId as string;
   const { activeOrganizationName } = useAuthStore();
+  const template = useShopInvoiceTemplate();
+  const [paperSize, setPaperSize] = useState<InvoicePaperSize>(template.paperSize);
+  const [printMarginMm, setPrintMarginMm] = useState(template.printMarginMm);
 
   const { data: invoice, loading, error } = useFetch(
     `project:${projectId}:invoice:${invoiceId}`,
@@ -52,7 +59,7 @@ function ProjectInvoiceDetailContent() {
       )
   );
 
-  const { printInvoice, PrintLayer } = useShopInvoicePrint();
+  const { printInvoice, PrintLayer } = useShopInvoicePrint({ paperSize, printMarginMm });
 
   const printData = useMemo(() => {
     if (!invoice) return null;
@@ -119,7 +126,16 @@ function ProjectInvoiceDetailContent() {
         </div>
       </div>
 
-      <InvoiceLivePreview invoice={printData} />
+      <div className={cn("w-fit max-w-full", previewRailWidthClass(paperSize))}>
+        <InvoiceLivePreview
+          invoice={printData}
+          paperSize={paperSize}
+          printMarginMm={printMarginMm}
+          showPaperSizeControls
+          onPaperSizeChange={setPaperSize}
+          onPrintMarginChange={setPrintMarginMm}
+        />
+      </div>
 
       <PrintLayer />
     </div>

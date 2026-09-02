@@ -6,8 +6,8 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
-import { transferStockBetweenBranches } from "@/services/shop-branch-transfer.service";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
+import { transferStockBetweenBranches } from "@/services/shop/shop-branch-transfer.service";
 
 const transferSchema = z.object({
   fromBranchId: z.string().uuid(),

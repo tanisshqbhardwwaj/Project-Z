@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthContext, handleApi, requirePermission, apiSuccess } from "@/lib/api/context";
-import { createVendor, listVendors, getVendorLedger } from "@/services/vendor.service";
+import { createVendor, listVendors, getVendorLedger } from "@/services/org/vendor.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
 

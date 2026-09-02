@@ -4,7 +4,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getSaleReturn } from "@/services/shop-return.service";
+import { getSaleReturn } from "@/services/shop/shop-return.service";
 import { requireShopReturns } from "@/lib/staff/shop-access";
 
 export async function GET(

@@ -5,7 +5,7 @@ import {
   assertCloudStorageAllowed,
   evictOldestBackups,
   recordStorageUpload,
-} from "@/services/storage-quota.service";
+} from "@/services/shared/storage-quota.service";
 import { uploadFile, buildStorageKey } from "@/lib/storage/index";
 
 export async function POST(request: Request) {

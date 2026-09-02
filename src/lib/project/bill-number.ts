@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { fiscalYearLabel } from "@/lib/shop/bill-number";
+import { fiscalYearLabel } from "@/lib/shop/invoices/bill-number";
 
 type Tx = Prisma.TransactionClient;
 

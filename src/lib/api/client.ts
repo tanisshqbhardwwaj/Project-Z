@@ -1,4 +1,6 @@
-import { humanizeErrorMessage } from "@/lib/api/validation";
+﻿import { resolveUserError } from "@/lib/errors";
+import { resolveAppFetchUrl, nativeFetchInit } from "@/lib/api/resolve-url";
+import { getNativeAccessToken } from "@/platform/common/native-tokens";
 import { ACTIVE_ORG_STORAGE_KEY } from "@/lib/org/constants";
 
 type ApiResponse<T> = { data: T; meta?: Record<string, unknown> };
@@ -63,6 +65,13 @@ export class ApiClientError extends Error {
   }
 }
 
+async function buildAuthHeaders(headers: Headers): Promise<void> {
+  const token = await getNativeAccessToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -76,7 +85,6 @@ export async function apiFetch<T>(
           return await handleLocalApi<T>(path, options);
         } catch (localErr) {
           if (typeof navigator !== "undefined" && !navigator.onLine) throw localErr;
-          /* online: fall through to cloud if local intercept is write-only duplicate risk */
           if (method === "GET") {
             /* ignore and try network */
           } else {
@@ -88,13 +96,14 @@ export async function apiFetch<T>(
         }
       }
     } catch {
-      /* local db unavailable — use network */
+      /* local db unavailable â€” use network */
     }
   }
 
-  const headers = new Headers(options.headers);
+  const init = nativeFetchInit(options);
+  const headers = new Headers(init.headers);
 
-  if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -108,7 +117,9 @@ export async function apiFetch<T>(
     headers.set("X-Branch-Id", branchId);
   }
 
-  const res = await fetch(path, { ...options, headers });
+  await buildAuthHeaders(headers);
+
+  const res = await fetch(resolveAppFetchUrl(path), { ...init, headers });
   const json = await res.json().catch(() => ({}));
 
   if (!res.ok) {
@@ -116,7 +127,11 @@ export async function apiFetch<T>(
     throw new ApiClientError(
       res.status,
       err.error?.code ?? "UNKNOWN",
-      humanizeErrorMessage(err.error?.message ?? "Request failed", err.error?.details)
+      resolveUserError({
+        code: err.error?.code,
+        message: err.error?.message ?? "Request failed",
+        details: err.error?.details,
+      })
     );
   }
 
@@ -127,7 +142,8 @@ export async function apiFetchRaw<T = unknown>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const headers = new Headers(options.headers);
+  const init = nativeFetchInit(options);
+  const headers = new Headers(init.headers);
   const orgId = getActiveOrganizationId();
   if (orgId) {
     headers.set("X-Organization-Id", orgId);
@@ -136,15 +152,56 @@ export async function apiFetchRaw<T = unknown>(
   if (branchId) {
     headers.set("X-Branch-Id", branchId);
   }
-  const res = await fetch(path, { ...options, headers });
+  await buildAuthHeaders(headers);
+  const res = await fetch(resolveAppFetchUrl(path), { ...init, headers });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = json as ApiErrorBody;
     throw new ApiClientError(
       res.status,
       err.error?.code ?? "UNKNOWN",
-      humanizeErrorMessage(err.error?.message ?? "Request failed", err.error?.details)
+      resolveUserError({
+        code: err.error?.code,
+        message: err.error?.message ?? "Request failed",
+        details: err.error?.details,
+      })
     );
   }
   return json as T;
+}
+
+/** Shared fetch for auth/forms that expect raw JSON envelope. */
+export async function appFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const init = nativeFetchInit(options);
+  const headers = new Headers(init.headers);
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+  const orgId = getActiveOrganizationId();
+  if (orgId) {
+    headers.set("X-Organization-Id", orgId);
+  }
+  const branchId = getActiveBranchId();
+  if (branchId) {
+    headers.set("X-Branch-Id", branchId);
+  }
+  await buildAuthHeaders(headers);
+  return fetch(resolveAppFetchUrl(path), { ...init, headers });
+}
+
+/** Download binary exports (CSV/PDF) with auth + org headers. */
+export async function apiFetchBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const init = nativeFetchInit(options);
+  const headers = new Headers(init.headers);
+  const orgId = getActiveOrganizationId();
+  if (orgId) headers.set("X-Organization-Id", orgId);
+  const branchId = getActiveBranchId();
+  if (branchId) headers.set("X-Branch-Id", branchId);
+  await buildAuthHeaders(headers);
+  const res = await fetch(resolveAppFetchUrl(path), { ...init, headers });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ApiClientError(res.status, "DOWNLOAD_FAILED", text || "Download failed");
+  }
+  return res.blob();
 }

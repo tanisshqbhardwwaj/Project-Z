@@ -1,5 +1,5 @@
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
-import { pullShopSnapshot } from "@/services/shop-sync.service";
+import { pullShopSnapshot } from "@/services/shop/shop-sync.service";
 import { requireShopScanAccess } from "@/lib/staff/shop-access";
 
 export async function GET(request: Request) {

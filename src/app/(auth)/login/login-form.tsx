@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -21,6 +21,10 @@ import {
   requireEmail,
   requireField,
 } from "@/lib/api/validation";
+import { appFetch } from "@/lib/api/client";
+import { isNativeShell } from "@/platform/common/native";
+import { saveNativeTokens } from "@/platform/common/native-tokens";
+import { useAuthStore } from "@/stores/auth-store";
 
 export default function LoginForm({ googleLoginEnabled = false }: { googleLoginEnabled?: boolean }) {
   const t = useTranslations("auth");
@@ -54,7 +58,7 @@ export default function LoginForm({ googleLoginEnabled = false }: { googleLoginE
       Configuration:
         "Google sign-in hit a server setup issue. Restart npm run dev and try again. If it persists, check the terminal for auth errors.",
       AccessDenied:
-        "Google sign-in could not finish. If you use a @econsole.in account, ensure you completed the Google prompt — or try email/password login.",
+        "Google sign-in could not finish. If you use a @econsole.in account, ensure you completed the Google prompt ΓÇö or try email/password login.",
       OAuthAccountNotLinked:
         "This email is already registered with a password. Log in with email/password, or use the same Google account after linking.",
       Callback:
@@ -66,6 +70,15 @@ export default function LoginForm({ googleLoginEnabled = false }: { googleLoginE
     showWarning(messages[oauthError] ?? "Google sign-in failed. Try again or use email/password.");
   }, [searchParams, showWarning]);
 
+  
+  async function completeLogin(data: { data?: { native?: unknown } }) {
+    if (isNativeShell() && data?.data?.native) {
+      await saveNativeTokens(data.data.native as Parameters<typeof saveNativeTokens>[0]);
+    }
+    await useAuthStore.getState().bootstrap();
+    router.push(callbackUrl);
+    router.refresh();
+  }
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     clear();
@@ -76,7 +89,7 @@ export default function LoginForm({ googleLoginEnabled = false }: { googleLoginE
         return;
       }
       setLoading(true);
-      const res = await fetch("/api/v1/auth/login", {
+      const res = await appFetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mfaToken, totpCode }),
@@ -92,8 +105,7 @@ export default function LoginForm({ googleLoginEnabled = false }: { googleLoginE
         }
         return;
       }
-      router.push(callbackUrl);
-      router.refresh();
+      await completeLogin(data);
       return;
     }
 
@@ -108,7 +120,7 @@ export default function LoginForm({ googleLoginEnabled = false }: { googleLoginE
 
     setLoading(true);
 
-    const res = await fetch("/api/v1/auth/login", {
+    const res = await appFetch("/api/v1/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -129,8 +141,7 @@ export default function LoginForm({ googleLoginEnabled = false }: { googleLoginE
       return;
     }
 
-    router.push(callbackUrl);
-    router.refresh();
+    await completeLogin(data);
   }
 
   return (
@@ -154,7 +165,7 @@ export default function LoginForm({ googleLoginEnabled = false }: { googleLoginE
           <FormFeedback warning={warning} error={error} />
           {!totpStep && error && error.toLowerCase().includes("verify") && (
             <Link href="/verify-email" className="text-sm text-primary hover:underline">
-              Resend verification email →
+              Resend verification email ΓåÆ
             </Link>
           )}
           {!totpStep ? (
@@ -218,7 +229,7 @@ export default function LoginForm({ googleLoginEnabled = false }: { googleLoginE
                   clear();
                 }}
               >
-                ← Back to password
+                ΓåÉ Back to password
               </button>
             </div>
           )}

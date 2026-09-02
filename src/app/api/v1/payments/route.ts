@@ -7,8 +7,8 @@ import {
   apiSuccess,
   ApiError,
 } from "@/lib/api/context";
-import { createPayment } from "@/services/payment.service";
-import { listExpenses } from "@/services/expense.service";
+import { createPayment } from "@/services/finance/payment.service";
+import { listExpenses } from "@/services/finance/expense.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { prisma } from "@/lib/db/prisma";

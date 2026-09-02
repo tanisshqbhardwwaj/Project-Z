@@ -1,5 +1,5 @@
 import { getAuthContext, handleApi, requireProjectAccess, apiSuccess } from "@/lib/api/context";
-import { listDocuments } from "@/services/document.service";
+import { listDocuments } from "@/services/shared/document.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function GET(

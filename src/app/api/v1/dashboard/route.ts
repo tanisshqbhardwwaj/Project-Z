@@ -1,5 +1,5 @@
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
-import { getOrgDashboard } from "@/services/dashboard.service";
+import { getOrgDashboard } from "@/services/finance/dashboard.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function GET(request: Request) {

@@ -1,7 +1,7 @@
 import { handleApi, apiSuccess } from "@/lib/api/context";
 import { requirePlatformAdmin } from "@/lib/billing/platform-admin";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { listOpsUsers } from "@/services/ops.service";
+import { listOpsUsers } from "@/services/shared/ops.service";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

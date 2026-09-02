@@ -1,6 +1,6 @@
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
-import { getUnreadCount } from "@/services/notification.service";
-import { syncShopAlertNotifications } from "@/services/shop-notification.service";
+import { getUnreadCount } from "@/services/shared/notification.service";
+import { syncShopAlertNotifications } from "@/services/shop/shop-notification.service";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

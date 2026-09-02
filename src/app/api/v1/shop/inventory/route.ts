@@ -15,8 +15,8 @@ import {
   listInventoryItems,
   searchInventoryForBilling,
   updateInventoryItem,
-} from "@/services/shop.service";
-import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch-context";
+} from "@/services/shop/shop.service";
+import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch/branch-context";
 import { requireInventoryManage } from "@/lib/staff/shop-access";
 
 const createItemSchema = z.object({

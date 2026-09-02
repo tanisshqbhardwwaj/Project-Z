@@ -6,7 +6,7 @@ import {
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { processReturnSchema } from "@/lib/validation/shop-return";
-import { listSaleReturns, processReturn } from "@/services/shop-return.service";
+import { listSaleReturns, processReturn } from "@/services/shop/shop-return.service";
 import {
   ownSalesStaffScope,
   requireShopReturns,

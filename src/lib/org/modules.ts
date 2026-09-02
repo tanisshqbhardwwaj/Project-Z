@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions/rbac";
 import { hasPermission } from "@/lib/permissions/rbac";
-import { catalogLabelForSectors } from "@/lib/shop/sector-mode";
+import { catalogLabelForSectors } from "@/lib/shop/branch/sector-mode";
 import {
   isServiceModuleKey,
   isServiceVerticalEnabled,
@@ -69,7 +69,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     label: {
       SHOPKEEPER: "Staff",
       SERVICE: "Staff",
-      CONTRACTOR: "Labour",
+      CONTRACTOR: "Staff",
       ARCHITECT: "Staff",
     },
     description: "People, daily attendance, and monthly payroll",
@@ -336,13 +336,56 @@ export type OrgSettingsJson = {
     radiusMeters?: number;
     required?: boolean;
   };
+  /** Fields printed on staff attendance barcode labels. */
+  staffBarcodeLabel?: {
+    showName?: boolean;
+    showPhone?: boolean;
+    showEmail?: boolean;
+    showRole?: boolean;
+    showOrgName?: boolean;
+  };
   shop?: {
     brandName?: string;
     logoUrl?: string | null;
     invoice?: import("@/lib/org/shop-settings").ShopInvoiceSettings;
-    multiStore?: import("@/lib/shop/multi-store").MultiStoreSettings;
+    multiStore?: import("@/lib/shop/branch/multi-store").MultiStoreSettings;
   };
 };
+
+/** Coerce legacy module flags (0/1, "true"/"false") to booleans. */
+export function normalizeModuleToggleMap(
+  modules: Partial<Record<ModuleKey, unknown>> | null | undefined,
+  enableStaffFallback = false
+): Partial<Record<ModuleKey, boolean>> {
+  if (!modules || typeof modules !== "object") return {};
+  const out: Partial<Record<ModuleKey, boolean>> = {};
+  for (const [key, value] of Object.entries(modules)) {
+    out[key as ModuleKey] = coerceModuleToggle(value, enableStaffFallback);
+  }
+  return out;
+}
+
+export function coerceModuleToggle(value: unknown, fallback = false): boolean {
+  if (value === true || value === 1 || value === "1" || value === "true") return true;
+  if (value === false || value === 0 || value === "0" || value === "false" || value === null) {
+    return false;
+  }
+  if (value === undefined) return fallback;
+  return Boolean(value);
+}
+
+export function serializeModuleTogglesForApi(
+  toggles: Partial<Record<ModuleKey, unknown>>,
+  enableStaff: boolean
+): Record<string, boolean> {
+  const merged = { ...toggles, staff: toggles.staff ?? enableStaff };
+  return Object.fromEntries(
+    Object.entries(merged).map(([key, value]) => [
+      key,
+      coerceModuleToggle(value, key === "staff" ? enableStaff : false),
+    ])
+  );
+}
 
 export function moduleRoute(
   def: ModuleDefinition,

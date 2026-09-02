@@ -1,5 +1,6 @@
+import { NextResponse } from "next/server";
 import { getAuthContext, handleApi, requirePermission, apiSuccess, ApiError } from "@/lib/api/context";
-import { createInviteLink } from "@/services/organization.service";
+import { createInviteLink } from "@/services/org/organization.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
 import type { OrgRole } from "@prisma/client";

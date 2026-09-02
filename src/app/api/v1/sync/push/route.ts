@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
-import { applySyncPush } from "@/services/shop-sync.service";
+import { applySyncPush } from "@/services/shop/shop-sync.service";
 
 const itemSchema = z.object({
   id: z.string().uuid(),

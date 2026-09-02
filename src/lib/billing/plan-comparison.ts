@@ -304,3 +304,72 @@ export function comparisonPlanHeaders() {
     };
   });
 }
+
+/** Whether a cell counts as included or available on a plan (check, limit label, add-on, etc.). */
+export function isPlanCellAvailable(value: ComparisonCell): boolean {
+  if (value === true) return true;
+  if (value === false) return false;
+  return value.trim().length > 0;
+}
+
+/** Row is available on every plan in the matrix. */
+export function isUniversalComparisonRow(row: ComparisonRow): boolean {
+  return PLAN_ORDER.every((code) => isPlanCellAvailable(row.values[code]));
+}
+
+/** Lowest plan tier index where the feature becomes available; PLAN_ORDER.length if never. */
+export function minimumPlanTierIndex(row: ComparisonRow): number {
+  for (let i = 0; i < PLAN_ORDER.length; i++) {
+    if (isPlanCellAvailable(row.values[PLAN_ORDER[i]])) return i;
+  }
+  return PLAN_ORDER.length;
+}
+
+/** Sort rows: all-plan features first, then by lowest unlock tier ascending. */
+export function sortComparisonRows(rows: ComparisonRow[]): ComparisonRow[] {
+  return [...rows].sort((a, b) => {
+    const aUniversal = isUniversalComparisonRow(a);
+    const bUniversal = isUniversalComparisonRow(b);
+    if (aUniversal !== bUniversal) return aUniversal ? -1 : 1;
+
+    const tierA = minimumPlanTierIndex(a);
+    const tierB = minimumPlanTierIndex(b);
+    if (tierA !== tierB) return tierA - tierB;
+
+    return a.feature.localeCompare(b.feature);
+  });
+}
+
+export type ComparisonRowGroup = {
+  label: string | null;
+  rows: ComparisonRow[];
+};
+
+/** Split sorted rows into labeled groups for clearer section stacking in the UI. */
+export function groupComparisonRows(rows: ComparisonRow[]): ComparisonRowGroup[] {
+  const sorted = sortComparisonRows(rows);
+  const universal = sorted.filter(isUniversalComparisonRow);
+  const tiered = sorted.filter((row) => !isUniversalComparisonRow(row) && minimumPlanTierIndex(row) < PLAN_ORDER.length);
+  const unavailable = sorted.filter(
+    (row) => !isUniversalComparisonRow(row) && minimumPlanTierIndex(row) >= PLAN_ORDER.length
+  );
+
+  const groups: ComparisonRowGroup[] = [];
+  if (universal.length > 0) {
+    groups.push({ label: "Included on all plans", rows: universal });
+  }
+  if (tiered.length > 0) {
+    groups.push({ label: "Unlocks on higher plans", rows: tiered });
+  }
+  if (unavailable.length > 0) {
+    groups.push({ label: null, rows: unavailable });
+  }
+  return groups;
+}
+
+export function getSortedPlanComparisonCategories(): ComparisonCategory[] {
+  return PLAN_COMPARISON_CATEGORIES.map((category) => ({
+    ...category,
+    rows: sortComparisonRows(category.rows),
+  }));
+}

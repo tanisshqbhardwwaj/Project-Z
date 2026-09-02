@@ -29,10 +29,25 @@ if (-not (Test-Path $env:ANDROID_HOME)) {
   exit 1
 }
 
-# Distribution APKs always load production (never localhost from a dev .env).
-$env:CAPACITOR_SERVER_URL = "https://www.econsole.in"
-$env:NEXT_PUBLIC_APP_URL = $env:CAPACITOR_SERVER_URL
-Write-Host "CAPACITOR_SERVER_URL=$($env:CAPACITOR_SERVER_URL)"
+# Release builds bundle static UI locally; set CAPACITOR_SERVER_URL only for LAN debug.
+if ($env:CAPACITOR_SERVER_URL) {
+  Write-Host "LAN debug remote URL: $($env:CAPACITOR_SERVER_URL)"
+} else {
+  if ($env:CAPACITOR_ALLOW_CLEARTEXT -eq "true" -and -not $Debug) {
+    Write-Host "ERROR: CAPACITOR_ALLOW_CLEARTEXT is not allowed for release builds." -ForegroundColor Red
+    exit 1
+  }
+  $env:NEXT_PUBLIC_APP_URL = "https://www.econsole.in"
+  Write-Host "Building bundled static UI for Android..."
+  node scripts/native-static-build.mjs
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  Remove-Item Env:CAPACITOR_SERVER_URL -ErrorAction SilentlyContinue
+}
+
+if (-not $env:NEXT_PUBLIC_APP_URL) {
+  $env:NEXT_PUBLIC_APP_URL = if ($env:CAPACITOR_SERVER_URL) { $env:CAPACITOR_SERVER_URL } else { "https://www.econsole.in" }
+}
+Write-Host "NEXT_PUBLIC_APP_URL=$($env:NEXT_PUBLIC_APP_URL)"
 
 Write-Host "Syncing native app URLs..."
 node scripts/sync-native-app-url.mjs

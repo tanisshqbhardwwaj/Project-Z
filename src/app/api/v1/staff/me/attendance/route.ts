@@ -4,12 +4,12 @@ import {
   apiSuccess,
   ApiError,
 } from "@/lib/api/context";
-import { getLinkedStaffMember } from "@/services/staff.service";
-import { listAttendanceRange } from "@/services/attendance-payroll.service";
+import { getLinkedStaffMember } from "@/services/staff/staff.service";
+import { listAttendanceRange } from "@/services/staff/attendance-payroll.service";
 import {
   staffCheckIn,
   staffCheckOut,
-} from "@/services/attendance-checkin.service";
+} from "@/services/staff/attendance-checkin.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { yearMonthQuerySchema } from "@/lib/validation/staff";
 import { eachDayKeyInMonth, orgTodayKey, utcDateToDayKey } from "@/lib/date/org-day";

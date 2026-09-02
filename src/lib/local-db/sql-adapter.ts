@@ -14,6 +14,7 @@ const KV_OK: LocalStoreName[] = [
   "purchases",
   "expenses",
   "staff",
+  "attendance",
 ];
 
 function isKvStore(store: LocalStoreName): boolean {

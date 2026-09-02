@@ -11,7 +11,7 @@ import {
   acceptExtraction,
   getOrgScopedExtraction,
   rerunExtraction,
-} from "@/services/extraction.service";
+} from "@/services/shared/extraction.service";
 
 export async function GET(
   request: Request,

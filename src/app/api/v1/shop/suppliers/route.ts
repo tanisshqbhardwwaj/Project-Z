@@ -11,7 +11,7 @@ import { serializeBigInt } from "@/lib/db/prisma";
 import {
   createShopSupplier,
   listShopSuppliers,
-} from "@/services/shop-purchase.service";
+} from "@/services/shop/shop-purchase.service";
 
 const createSchema = z.object({
   name: z.string().min(2),

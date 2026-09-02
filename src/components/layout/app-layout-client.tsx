@@ -1,13 +1,19 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
+import { cn } from "@/lib/utils";
 import { useRequireAuth } from "@/hooks/use-require-auth";
-import { AppHeader, AppSidebar, MobileNav, APP_SIDEBAR_WIDTH_CLASS } from "@/components/layout/app-shell";
+import {
+  AppHeader,
+  AppSidebar,
+  MobileNav,
+  APP_SIDEBAR_WIDTH_CLASS,
+} from "@/components/layout/app-shell";
 import { CashierRouteGuard } from "@/components/layout/cashier-route-guard";
 import { SyncEngineProvider } from "@/components/sync/sync-badge";
 import { OfflineBanner } from "@/components/sync/offline-banner";
 import { CommandPalette } from "@/components/layout/command-palette";
-import { AndroidBackButton } from "@/components/layout/android-back-button";
+import { AndroidBackButton } from "@/platform/android/android-back-button";
 import { PageLoader } from "@/components/ui/page-loader";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -37,20 +43,18 @@ export function AppLayoutClient({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background">
+    <div className="flex h-[100dvh] overflow-hidden bg-background">
       <AppSidebar />
-      <div className={APP_SIDEBAR_WIDTH_CLASS}>
-        <div className="flex min-h-screen min-w-0 flex-col">
-          <AppHeader orgName={activeOrganizationName ?? undefined} />
-          <main className="min-w-0 flex-1 p-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
-            <SyncEngineProvider>
-              <OfflineBanner />
-              <CashierRouteGuard>
-                <div key={activeOrganizationId ?? "none"}>{children}</div>
-              </CashierRouteGuard>
-            </SyncEngineProvider>
-          </main>
-        </div>
+      <div className={cn(APP_SIDEBAR_WIDTH_CLASS, "flex min-w-0 flex-1 flex-col overflow-hidden")}>
+        <AppHeader orgName={activeOrganizationName ?? undefined} />
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
+          <SyncEngineProvider>
+            <OfflineBanner />
+            <CashierRouteGuard>
+              <div key={activeOrganizationId ?? "none"}>{children}</div>
+            </CashierRouteGuard>
+          </SyncEngineProvider>
+        </main>
       </div>
       <MobileNav />
       <CommandPalette />

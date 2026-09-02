@@ -3,7 +3,7 @@ import { logger } from "@/lib/logger";
 import type { AuthContext } from "@/lib/api/context";
 import type { Prisma } from "@prisma/client";
 import { OUTBOX_MAX_ATTEMPTS, nextOutboxFailure } from "@/lib/sync/outbox-policy";
-import { applySyncPush } from "@/services/shop-sync.service";
+import { applySyncPush } from "@/services/shop/shop-sync.service";
 
 export async function enqueueSyncOutbox(input: {
   organizationId: string;

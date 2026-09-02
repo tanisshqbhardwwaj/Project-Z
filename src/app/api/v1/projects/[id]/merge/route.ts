@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthContext, handleApi, requireProjectAccess, requireProjectWriteAccess, apiSuccess } from "@/lib/api/context";
-import { mergeProjects } from "@/services/project.service";
+import { mergeProjects } from "@/services/projects/project.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { z } from "zod";
 

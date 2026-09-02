@@ -1,14 +1,22 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { ZodError } from "zod";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import type { BusinessType, OrgRole } from "@prisma/client";
+import { auth } from "@/lib/auth";
+import { resolveAuthenticatedUserId } from "@/lib/auth/resolve-session";
 import { hasPermission, canManageOrg, canAccessProjectsNav, type Permission } from "@/lib/permissions/rbac";
 import { subscriptionAllowsProductUse } from "@/lib/billing/entitlements";
 import { formatZodError } from "@/lib/api/validation";
 import { logger } from "@/lib/logger";
 import { RateLimitError } from "@/lib/rate-limit";
 import { clientSafeInternalMessage } from "@/lib/api/internal-error";
+import {
+  ErrorCodes,
+  resolveUserError,
+  isKnownBusinessError,
+  httpStatusForThrownMessage,
+} from "@/lib/errors";
 import { touchOrganizationActivity } from "@/lib/db/touch-org-activity";
 import { ensureOrgBillingSchema } from "@/lib/db/ensure-org-billing-schema";
 import { readActiveOrgCookie } from "@/lib/org/active-org-cookie";
@@ -52,14 +60,16 @@ export async function getAuthContext(
   organizationIdHeader?: string | null,
   options?: { allowCancelled?: boolean }
 ): Promise<AuthContext> {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const headerStore = await headers();
+  const userId = await resolveAuthenticatedUserId(headerStore.get("authorization"));
+  if (!userId) {
     throw new ApiError(401, "UNAUTHORIZED", "Authentication required");
   }
 
   const headerId = organizationIdHeader || null;
   const cookieId = await readActiveOrgCookie();
-  const sessionId = session.user.activeOrganizationId ?? null;
+  const session = await auth();
+  const sessionId = session?.user?.activeOrganizationId ?? null;
 
   let organizationId = headerId;
   if (!organizationId && cookieId) {
@@ -67,7 +77,7 @@ export async function getAuthContext(
       where: {
         organizationId_userId: {
           organizationId: cookieId,
-          userId: session.user.id,
+          userId,
         },
       },
       select: { status: true },
@@ -80,7 +90,7 @@ export async function getAuthContext(
 
   if (!organizationId) {
     const fallbackMember = await prisma.organizationMember.findFirst({
-      where: { userId: session.user.id, status: "ACTIVE" },
+      where: { userId, status: "ACTIVE" },
       orderBy: { joinedAt: "asc" },
     });
     organizationId = fallbackMember?.organizationId ?? null;
@@ -119,7 +129,7 @@ export async function getAuthContext(
     throw new ApiError(
       403,
       "SUBSCRIPTION_EXPIRED",
-      "Your trial has ended. Go to Settings → Billing or contact support to continue."
+      "Your trial has ended. Go to Settings â†’ Billing or contact support to continue."
     );
   }
 
@@ -127,7 +137,7 @@ export async function getAuthContext(
     throw new ApiError(
       403,
       "SUBSCRIPTION_CANCELLED",
-      "This shop subscription is cancelled. Go to Settings → Billing or contact support to reactivate."
+      "This shop subscription is cancelled. Go to Settings â†’ Billing or contact support to reactivate."
     );
   }
 
@@ -135,9 +145,10 @@ export async function getAuthContext(
     where: {
       organizationId_userId: {
         organizationId,
-        userId: session.user.id,
+        userId,
       },
     },
+    include: { user: { select: { email: true, name: true } } },
   });
 
   if (!member || member.status !== "ACTIVE") {
@@ -147,9 +158,9 @@ export async function getAuthContext(
   void touchOrganizationActivity(organizationId);
 
   return {
-    userId: session.user.id,
-    userEmail: session.user.email!,
-    userName: session.user.name ?? "",
+    userId,
+    userEmail: member.user.email,
+    userName: member.user.name ?? "",
     organizationId,
     role: member.role,
     businessType: org.businessType,
@@ -222,8 +233,13 @@ export function apiSuccess<T>(
 }
 
 export function apiError(error: ApiError) {
+  const message = resolveUserError({
+    code: error.code,
+    message: error.message,
+    details: error.details,
+  });
   return NextResponse.json(
-    { error: { code: error.code, message: error.message, details: error.details } },
+    { error: { code: error.code, message, details: error.details } },
     { status: error.status }
   );
 }
@@ -258,22 +274,31 @@ export async function handleApi(
     }
     if (e instanceof Error) {
       const msg = e.message;
+      if (isKnownBusinessError(msg)) {
+        return apiError(
+          new ApiError(
+            httpStatusForThrownMessage(msg),
+            ErrorCodes.BUSINESS_RULE,
+            resolveUserError({ message: msg })
+          )
+        );
+      }
       if (
         msg.includes("UNIQUE constraint failed") ||
         msg.includes("Unique constraint failed")
       ) {
-        const friendly = "A record with this value already exists";
-        return apiError(new ApiError(409, "CONFLICT", friendly));
+        const friendly = resolveUserError({ code: ErrorCodes.CONFLICT });
+        return apiError(new ApiError(409, ErrorCodes.CONFLICT, friendly));
       }
     }
     logger.error("api.unhandled_error", {
       error: e instanceof Error ? e.message : String(e),
       name: e instanceof Error ? e.name : "UnknownError",
     });
-    const message = clientSafeInternalMessage(
-      e,
-      process.env.NODE_ENV === "production"
-    );
-    return apiError(new ApiError(500, "INTERNAL_ERROR", message));
+    const message = resolveUserError({
+      code: ErrorCodes.INTERNAL_ERROR,
+      message: clientSafeInternalMessage(e, process.env.NODE_ENV === "production"),
+    });
+    return apiError(new ApiError(500, ErrorCodes.INTERNAL_ERROR, message));
   }
 }

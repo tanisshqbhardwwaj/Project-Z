@@ -7,7 +7,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { createMaterialIssue, listMaterialIssues } from "@/services/contractor.service";
+import { createMaterialIssue, listMaterialIssues } from "@/services/projects/contractor.service";
 import {
   requireAssignedProjectView,
   requireAssignedProjectWrite,

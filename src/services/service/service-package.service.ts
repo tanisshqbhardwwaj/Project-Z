@@ -2,8 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import type { PackageStatus, Prisma, ServicePackageType } from "@prisma/client";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { requireModule } from "@/lib/org/require-module";
-import { createAuditLog } from "../audit.service";
-import { createShopSale } from "../shop.service";
+import { createAuditLog } from "../shared/audit.service";
+import { createShopSale } from "../shop/shop.service";
 
 function addDays(date: Date, days: number): Date {
   const d = new Date(date);

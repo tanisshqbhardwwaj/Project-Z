@@ -6,7 +6,7 @@ import {
   monthLabel,
   occurrencePeriodsFor,
   occurrenceUrgency,
-} from "@/lib/shop/recurring-schedule";
+} from "@/lib/shop/shared/recurring-schedule";
 
 const utc = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 

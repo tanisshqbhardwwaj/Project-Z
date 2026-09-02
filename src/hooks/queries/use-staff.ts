@@ -37,6 +37,8 @@ export type StaffMember = {
   commissionAmountPaise: string | null;
   accessJson?: unknown;
   cashierCode?: string | null;
+  attendanceBarcode?: string | null;
+  attendanceBarcodeSetAt?: string | null;
   status: "ACTIVE" | "LEFT";
   joinedAt: string | null;
   notes: string | null;
@@ -516,6 +518,91 @@ export function useSetAttendancePin() {
         body: JSON.stringify({ pin }),
       }),
     onSuccess: () => {
+      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+    },
+  });
+}
+
+export function useGenerateStaffBarcode() {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      staffId,
+      regenerate,
+    }: {
+      staffId: string;
+      regenerate?: boolean;
+    }) =>
+      apiFetch<{
+        id: string;
+        attendanceBarcode: string | null;
+        attendanceBarcodeSetAt: string | null;
+      }>(`/api/v1/staff/${staffId}/attendance-barcode`, {
+        method: "POST",
+        body: JSON.stringify({ regenerate: !!regenerate }),
+      }),
+    onSuccess: () => {
+      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+    },
+  });
+}
+
+export function useRevokeStaffBarcode() {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (staffId: string) =>
+      apiFetch(`/api/v1/staff/${staffId}/attendance-barcode`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+    },
+  });
+}
+
+export function useBulkGenerateStaffBarcode() {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input?: { regenerate?: boolean; staffIds?: string[] }) =>
+      apiFetch<{
+        count: number;
+        staff: Array<{
+          id?: string;
+          staffId?: string;
+          attendanceBarcode: string | null;
+          attendanceBarcodeSetAt: string | null;
+        }>;
+      }>("/api/v1/staff/attendance-barcode/bulk", {
+        method: "POST",
+        body: JSON.stringify(input ?? {}),
+      }),
+    onSuccess: () => {
+      if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
+    },
+  });
+}
+
+export function useCorrectAttendance(date: string) {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  const attendanceKey = orgId ? queryKeys.staff.attendance(orgId, date) : null;
+  return useMutation({
+    mutationFn: (body: {
+      attendanceId: string;
+      checkInAt?: string | null;
+      checkOutAt?: string | null;
+      status?: AttendanceStatus;
+      notes?: string | null;
+    }) =>
+      apiFetch("/api/v1/staff/attendance", {
+        method: "POST",
+        body: JSON.stringify({ action: "correct", ...body }),
+      }),
+    onSuccess: () => {
+      if (attendanceKey) qc.invalidateQueries({ queryKey: attendanceKey });
       if (orgId) qc.invalidateQueries({ queryKey: queryKeys.staff.all(orgId) });
     },
   });

@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { SHOP_ALERT } from "@/lib/shop/shop-alerts";
+import { SHOP_ALERT } from "@/lib/shop/reports/shop-alerts";
 
 type NotificationRow = {
   id: string;

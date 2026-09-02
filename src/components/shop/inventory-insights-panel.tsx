@@ -15,7 +15,7 @@ import { queryKeys } from "@/lib/query/keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageLoader } from "@/components/ui/page-loader";
 import { cn } from "@/lib/utils";
-import type { InventoryAnalytics } from "@/lib/shop/inventory-analytics";
+import type { InventoryAnalytics } from "@/lib/shop/inventory/inventory-analytics";
 
 const PERIOD_OPTIONS = [
   { days: 7, label: "7d" },

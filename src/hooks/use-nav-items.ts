@@ -5,23 +5,23 @@ import {
   LayoutDashboard,
   FolderKanban,
   ScanBarcode,
+  ScanLine,
   Bell,
-  User,
+  Settings,
   CreditCard,
-  Cloud,
   Shield,
   Tag,
   RotateCcw,
   Users,
   BarChart3,
-  Building2,
-  UsersRound,
   CalendarDays,
   MapPin,
   type LucideIcon,
 } from "lucide-react";
 import type { OrgRole } from "@prisma/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { useActiveSubscriptionStatus } from "@/hooks/use-active-subscription-status";
+import { billingNudgeBadge, shouldShowBillingInSidebar } from "@/lib/billing/show-billing-nudge";
 import { useBusinessType } from "@/hooks/use-business-type";
 import { useModuleNav } from "@/hooks/use-module-nav";
 import { useCashierMode } from "@/hooks/use-cashier-mode";
@@ -37,6 +37,7 @@ export type NavItem = {
   icon: LucideIcon;
   label: string;
   key: string;
+  badge?: string;
 };
 
 export type NavGroups = {
@@ -54,6 +55,7 @@ export function useNavGroups(): NavGroups {
   const activeOrgSettings = useAuthStore((s) => s.activeOrgSettings);
   const enabledModules = useAuthStore((s) => s.enabledModules);
   const isPlatformAdmin = useAuthStore((s) => s.isPlatformAdmin);
+  const subscriptionStatus = useActiveSubscriptionStatus();
   const moduleNav = useModuleNav();
   const { active: cashierMode, navItems: cashierNav } = useCashierMode();
   const isShopVerticalOrg = isShopVertical(activeBusinessType);
@@ -194,6 +196,15 @@ export function useNavGroups(): NavGroups {
       });
     }
 
+    if (isModuleEnabled(enabledModules, "staff")) {
+      tools.push({
+        href: "/staff/scan",
+        icon: ScanLine,
+        label: "Staff attendance",
+        key: "staff_scan",
+      });
+    }
+
     if (
       isRestaurantSector &&
       isModuleEnabled(enabledModules, "deliveries") &&
@@ -209,32 +220,21 @@ export function useNavGroups(): NavGroups {
     }
 
     if (role === "OWNER") {
-      tools.push({
-        href: "/settings/organization",
-        icon: Building2,
-        label: "Organization",
-        key: "organization",
-      });
-      if (!isShopVerticalOrg) {
+      if (
+        shouldShowBillingInSidebar({
+          role,
+          businessType: activeBusinessType,
+          subscriptionStatus,
+        })
+      ) {
         tools.push({
-          href: "/settings/members",
-          icon: UsersRound,
-          label: "Members",
-          key: "members",
+          href: "/settings/billing",
+          icon: CreditCard,
+          label: "Billing",
+          key: "billing_nudge",
+          badge: billingNudgeBadge(subscriptionStatus),
         });
       }
-      tools.push({
-        href: "/settings/storage",
-        icon: Cloud,
-        label: "Storage & Sync",
-        key: "storage",
-      });
-      tools.push({
-        href: "/settings/billing",
-        icon: CreditCard,
-        label: "Billing",
-        key: "billing",
-      });
     }
 
     if (isPlatformAdmin) {
@@ -253,7 +253,7 @@ export function useNavGroups(): NavGroups {
         label: "Notifications",
         key: "notifications",
       },
-      { href: "/settings/profile", icon: User, label: "Profile", key: "profile" }
+      { href: "/settings/profile", icon: Settings, label: "Settings", key: "settings" }
     );
 
     return { core, modules, tools, showProjects };
@@ -270,6 +270,8 @@ export function useNavGroups(): NavGroups {
     enabledModules,
     role,
     isPlatformAdmin,
+    activeBusinessType,
+    subscriptionStatus,
     activeOrgSettings,
     activeShopSector,
   ]);

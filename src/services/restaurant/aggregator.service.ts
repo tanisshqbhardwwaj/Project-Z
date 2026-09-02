@@ -7,7 +7,7 @@ import type {
 import { rupeesToPaise } from "@/lib/finance/money";
 import { requireModule } from "@/lib/org/require-module";
 import { parseOrgSettings } from "@/lib/org/require-module";
-import { createAuditLog } from "../audit.service";
+import { createAuditLog } from "../shared/audit.service";
 import { openRestaurantOrder, type RestaurantOrderLine } from "./restaurant-order.service";
 
 export type AggregatorChannelConfig = {

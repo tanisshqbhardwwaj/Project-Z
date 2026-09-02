@@ -4,7 +4,7 @@ import {
   fiscalYearLabel,
   formatShopBillNumber,
   normalizeCashierCode,
-} from "@/lib/shop/bill-number";
+} from "@/lib/shop/invoices/bill-number";
 
 describe("fiscalYearLabel", () => {
   it("uses Apr–Mar fiscal year", () => {

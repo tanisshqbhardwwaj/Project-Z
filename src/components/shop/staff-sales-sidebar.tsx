@@ -8,12 +8,12 @@ import { apiFetch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query/keys";
 import { useAuthStore } from "@/stores/auth-store";
 import { formatINR } from "@/lib/finance/money";
-import { formatCustomerLabel } from "@/lib/shop/customer";
-import type { ShopDashboardPeriod } from "@/lib/shop/dashboard-period";
+import { formatCustomerLabel } from "@/lib/shop/customers/customer";
+import type { ShopDashboardPeriod } from "@/lib/shop/reports/dashboard-period";
 import {
   filterSortInvoices,
   type InvoiceSort,
-} from "@/lib/shop/invoice-list-filters";
+} from "@/lib/shop/invoices/invoice-list-filters";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

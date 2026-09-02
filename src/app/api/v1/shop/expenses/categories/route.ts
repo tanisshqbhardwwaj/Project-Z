@@ -12,7 +12,7 @@ import { serializeBigInt } from "@/lib/db/prisma";
 import {
   createShopExpenseCategory,
   listShopExpenseCategories,
-} from "@/services/shop-expense.service";
+} from "@/services/shop/shop-expense.service";
 
 const createSchema = z.object({ name: z.string().min(2) });
 

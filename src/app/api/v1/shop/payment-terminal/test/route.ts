@@ -1,5 +1,5 @@
 import { getAuthContext, handleApi, apiSuccess, requirePermission } from "@/lib/api/context";
-import { testTerminalConnection } from "@/services/shop-payment-terminal.service";
+import { testTerminalConnection } from "@/services/shop/shop-payment-terminal.service";
 
 export async function POST(request: Request) {
   return handleApi(async () => {

@@ -155,6 +155,44 @@ fn local_data_dir() -> Result<String, String> {
     Ok(base.join("ProjectZ").to_string_lossy().to_string())
 }
 
+fn native_tokens_path() -> Result<PathBuf, String> {
+    let base = dirs_next::data_dir().ok_or("Could not resolve AppData")?;
+    let dir = base.join("ProjectZ");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("native-session.dat"))
+}
+
+#[tauri::command]
+fn save_native_tokens(payload: String) -> Result<(), String> {
+    let path = native_tokens_path()?;
+    let protected = dpapi::protect(payload.as_bytes())?;
+    fs::write(&path, protected).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn load_native_tokens() -> Result<Option<String>, String> {
+    let path = native_tokens_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let stored = fs::read(&path).map_err(|e| e.to_string())?;
+    if stored.is_empty() {
+        return Ok(None);
+    }
+    let plain = dpapi::unprotect(&stored)?;
+    Ok(Some(String::from_utf8(plain).map_err(|e| e.to_string())?))
+}
+
+#[tauri::command]
+fn clear_native_tokens() -> Result<(), String> {
+    let path = native_tokens_path()?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -163,7 +201,10 @@ pub fn run() {
             save_shop_db,
             load_shop_db,
             list_shop_orgs,
-            local_data_dir
+            local_data_dir,
+            save_native_tokens,
+            load_native_tokens,
+            clear_native_tokens
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

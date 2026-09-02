@@ -13,8 +13,8 @@ import {
   BRANCH_ALL,
 } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
-import { shouldShowBranchSwitcher } from "@/lib/shop/multi-store";
-import type { MultiStoreSettings } from "@/lib/shop/multi-store";
+import { shouldShowBranchSwitcher } from "@/lib/shop/branch/multi-store";
+import type { MultiStoreSettings } from "@/lib/shop/branch/multi-store";
 
 type BranchItem = {
   id: string;

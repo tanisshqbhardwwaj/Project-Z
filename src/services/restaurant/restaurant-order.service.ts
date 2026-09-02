@@ -6,9 +6,9 @@ import type {
   ShopOrderType,
 } from "@prisma/client";
 import { requireModule } from "@/lib/org/require-module";
-import { buildKotPayload } from "@/lib/shop/kot";
-import { createAuditLog } from "../audit.service";
-import { createShopSale, type ShopSaleItem } from "../shop.service";
+import { buildKotPayload } from "@/lib/shop/invoices/kot";
+import { createAuditLog } from "../shared/audit.service";
+import { createShopSale, type ShopSaleItem } from "../shop/shop.service";
 
 export type RestaurantOrderLine = {
   lineId: string;
@@ -262,7 +262,7 @@ export async function fireRestaurantKot(input: {
     size: line.size,
     variantLabel: line.variantLabel,
     unit: line.unit,
-    itemKind: line.itemKind as import("@/lib/shop/sector-mode").ShopItemKind | undefined,
+    itemKind: line.itemKind as import("@/lib/shop/branch/sector-mode").ShopItemKind | undefined,
   }));
 
   const roundNumber =

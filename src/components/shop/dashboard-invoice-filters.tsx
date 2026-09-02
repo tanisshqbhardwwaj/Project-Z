@@ -3,7 +3,7 @@
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { InvoiceSort } from "@/lib/shop/invoice-list-filters";
+import type { InvoiceSort } from "@/lib/shop/invoices/invoice-list-filters";
 
 const SORT_OPTIONS: { value: InvoiceSort; label: string }[] = [
   { value: "newest", label: "Newest first" },

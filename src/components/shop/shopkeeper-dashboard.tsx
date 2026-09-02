@@ -29,17 +29,21 @@ import {
 } from "@/components/shop/report-date-range";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { formatINR } from "@/lib/finance/money";
-import { formatCustomerLabel } from "@/lib/shop/customer";
+import { formatCustomerLabel } from "@/lib/shop/customers/customer";
 import {
   resolveShopDashboardBounds,
   type ShopDashboardPeriod,
-} from "@/lib/shop/dashboard-period";
+} from "@/lib/shop/reports/dashboard-period";
 import {
   filterSortInvoices,
   type InvoiceSort,
-} from "@/lib/shop/invoice-list-filters";
+} from "@/lib/shop/invoices/invoice-list-filters";
 import { StaffSalesSidebar } from "@/components/shop/staff-sales-sidebar";
 import { DashboardInvoiceFilters } from "@/components/shop/dashboard-invoice-filters";
+import { SetupChecklist } from "@/components/org/setup-checklist";
+import { PageContainer } from "@/components/layout/page-container";
+import { TwoColumn } from "@/components/layout/two-column";
+import { StaffAttendanceScanner } from "@/components/staff/staff-attendance-scanner";
 import { cn } from "@/lib/utils";
 
 type DashboardPeriod = ShopDashboardPeriod;
@@ -87,6 +91,7 @@ export function ShopkeeperDashboard() {
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
   const inventoryEnabled = isModuleEnabled(enabledModules, "shop_inventory");
   const udhaarEnabled = isModuleEnabled(enabledModules, "shop_udhaar");
+  const staffEnabled = isModuleEnabled(enabledModules, "staff");
   const [period, setPeriod] = useState<ReportPeriodPreset>("today");
   const [exactDate, setExactDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
@@ -188,8 +193,75 @@ export function ShopkeeperDashboard() {
     .map(([method, count]) => `${method} ${count}`)
     .join(" · ");
 
+  const recentInvoicesPanel = (
+    <Card className="rounded-2xl border-0 shadow-md xl:sticky xl:top-4">
+      <CardHeader className="space-y-4">
+        <div className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="h-5 w-5" />
+            Invoices ({periodLabel.toLowerCase()})
+          </CardTitle>
+          <Link href="/shop/invoices">
+            <Button variant="ghost" size="sm" className="rounded-xl">
+              View all
+            </Button>
+          </Link>
+        </div>
+        <DashboardInvoiceFilters
+          search={invoiceSearch}
+          onSearchChange={setInvoiceSearch}
+          payment={invoicePayment}
+          onPaymentChange={setInvoicePayment}
+          sort={invoiceSort}
+          onSortChange={setInvoiceSort}
+          paymentMethods={paymentMethods}
+        />
+      </CardHeader>
+      <CardContent className="divide-y p-0 pt-0">
+        {filteredInvoices.length === 0 ? (
+          <p className="p-6 text-sm text-muted-foreground">
+            {data.recentInvoices.length === 0
+              ? "No invoices in this period."
+              : "No invoices match your search or filters."}
+          </p>
+        ) : (
+          filteredInvoices.map((inv) => (
+            <Link
+              key={inv.id}
+              href={`/shop/invoices/${inv.id}`}
+              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted/40 xl:px-5"
+            >
+              <div className="min-w-0 pr-2">
+                <p className="truncate font-medium">
+                  {inv.customerName
+                    ? formatCustomerLabel({
+                        name: inv.customerName,
+                        phone: inv.customerPhone,
+                      })
+                    : "Walk-in"}
+                  {inv.billNumber ? (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      #{inv.billNumber}
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(inv.createdAt).toLocaleString("en-IN")} · {inv.paymentMethod}
+                </p>
+              </div>
+              <span className="shrink-0 font-semibold tabular-nums">
+                {formatINR(inv.totalPaise)}
+              </span>
+            </Link>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="min-w-0 space-y-6">
+    <PageContainer width="wide" className="space-y-6">
+      <SetupChecklist />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">Shop dashboard</h1>
@@ -221,6 +293,12 @@ export function ShopkeeperDashboard() {
         </div>
       </div>
 
+      <TwoColumn
+        sidePosition="right"
+        sideWidth="420px"
+        side={recentInvoicesPanel}
+        main={
+          <div className="min-w-0 space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-2xl border-0 shadow-md">
           <CardHeader className="pb-2">
@@ -271,9 +349,6 @@ export function ShopkeeperDashboard() {
             <MoneyDisplay paise={data.expenseTotalPaise ?? "0"} className="text-2xl" />
           </CardContent>
         </Card>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-2xl border-0 shadow-md">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -319,21 +394,21 @@ export function ShopkeeperDashboard() {
           href={udhaarEnabled ? "/shop/udhaar" : "/settings/organization"}
           className="block h-full"
         >
-        <Card className="h-full rounded-2xl border-0 shadow-md transition-shadow hover:shadow-lg">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Outstanding udhaar
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <MoneyDisplay paise={data.outstandingCreditPaise ?? "0"} className="text-2xl text-amber-600" />
-            {!udhaarEnabled ? (
-              <p className="mt-1 text-xs text-muted-foreground">Enable credit ledger in Features</p>
-            ) : (
-              <p className="mt-1 text-xs text-muted-foreground">Open customer ledger</p>
-            )}
-          </CardContent>
-        </Card>
+          <Card className="h-full rounded-2xl border-0 shadow-md transition-shadow hover:shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Outstanding udhaar
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MoneyDisplay paise={data.outstandingCreditPaise ?? "0"} className="text-2xl text-amber-600" />
+              {!udhaarEnabled ? (
+                <p className="mt-1 text-xs text-muted-foreground">Enable credit ledger in Features</p>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">Open customer ledger</p>
+              )}
+            </CardContent>
+          </Card>
         </Link>
       </div>
 
@@ -398,7 +473,7 @@ export function ShopkeeperDashboard() {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Operations
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link href="/shop/offers" className="block h-full">
             <Card className="h-full rounded-2xl border-0 shadow-md transition-shadow hover:shadow-lg">
               <CardHeader className="pb-2">
@@ -435,21 +510,6 @@ export function ShopkeeperDashboard() {
               <CardContent>
                 <p className="text-2xl font-bold tabular-nums">{data.recentReturnsCount ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Tap for return history</p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href={udhaarEnabled ? "/shop/udhaar" : "/settings/organization"} className="block h-full">
-            <Card className="h-full rounded-2xl border-0 shadow-md transition-shadow hover:shadow-lg">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Credit ledger
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <MoneyDisplay paise={data.outstandingCreditPaise ?? "0"} className="text-2xl text-amber-600" />
-                <p className="text-xs text-muted-foreground">
-                  {udhaarEnabled ? "Udhaar accounts & payments" : "Enable in Features"}
-                </p>
               </CardContent>
             </Card>
           </Link>
@@ -521,23 +581,6 @@ export function ShopkeeperDashboard() {
         </Card>
       ) : null}
 
-      <StaffSalesSidebar
-        open={staffPanelOpen}
-        period={period}
-        exactDate={exactDate}
-        rangeFrom={rangeFrom}
-        rangeTo={rangeTo}
-        periodLabel={periodLabel}
-        staffList={data.salesByStaff}
-        paymentMethods={paymentMethods}
-        selectedStaff={selectedStaff}
-        onClose={() => {
-          setStaffPanelOpen(false);
-          setSelectedStaff(null);
-        }}
-        onSelectStaff={setSelectedStaff}
-      />
-
       <Card className="rounded-2xl border-0 shadow-md">
         <CardHeader>
           <CardTitle>Quick actions</CardTitle>
@@ -583,73 +626,31 @@ export function ShopkeeperDashboard() {
               Offers & discounts
             </Button>
           </Link>
+          {staffEnabled ? (
+            <StaffAttendanceScanner variant="tile" label="Scan Staff" />
+          ) : null}
         </CardContent>
       </Card>
-
-      <Card className="rounded-2xl border-0 shadow-md">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Invoices ({periodLabel.toLowerCase()})
-            </CardTitle>
-            <Link href="/shop/invoices">
-              <Button variant="ghost" size="sm" className="rounded-xl">
-                View all
-              </Button>
-            </Link>
           </div>
-          <DashboardInvoiceFilters
-            search={invoiceSearch}
-            onSearchChange={setInvoiceSearch}
-            payment={invoicePayment}
-            onPaymentChange={setInvoicePayment}
-            sort={invoiceSort}
-            onSortChange={setInvoiceSort}
-            paymentMethods={paymentMethods}
-          />
-        </CardHeader>
-        <CardContent className="divide-y p-0 pt-0">
-          {filteredInvoices.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">
-              {data.recentInvoices.length === 0
-                ? "No invoices in this period."
-                : "No invoices match your search or filters."}
-            </p>
-          ) : (
-            filteredInvoices.map((inv) => (
-              <Link
-                key={inv.id}
-                href={`/shop/invoices/${inv.id}`}
-                className="flex items-center justify-between px-6 py-3 transition-colors hover:bg-muted/40"
-              >
-                <div>
-                  <p className="font-medium">
-                    {inv.customerName
-                      ? formatCustomerLabel({
-                          name: inv.customerName,
-                          phone: inv.customerPhone,
-                        })
-                      : "Walk-in"}
-                    {inv.billNumber ? (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        #{inv.billNumber}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(inv.createdAt).toLocaleString("en-IN")} ·{" "}
-                    {inv.paymentMethod}
-                  </p>
-                </div>
-                <span className="font-semibold tabular-nums">
-                  {formatINR(inv.totalPaise)}
-                </span>
-              </Link>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </div>
+        }
+      />
+
+      <StaffSalesSidebar
+        open={staffPanelOpen}
+        period={period}
+        exactDate={exactDate}
+        rangeFrom={rangeFrom}
+        rangeTo={rangeTo}
+        periodLabel={periodLabel}
+        staffList={data.salesByStaff}
+        paymentMethods={paymentMethods}
+        selectedStaff={selectedStaff}
+        onClose={() => {
+          setStaffPanelOpen(false);
+          setSelectedStaff(null);
+        }}
+        onSelectStaff={setSelectedStaff}
+      />
+    </PageContainer>
   );
 }

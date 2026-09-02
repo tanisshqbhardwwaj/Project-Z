@@ -5,7 +5,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { findSimilarProducts } from "@/services/shop-product.service";
+import { findSimilarProducts } from "@/services/shop/shop-product.service";
 
 /**
  * Backs the "a similar product already exists — continue?" prompt. Duplicate

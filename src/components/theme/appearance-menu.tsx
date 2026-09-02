@@ -63,15 +63,12 @@ export function AppearanceMenu({ className, variant = "icon" }: AppearanceMenuPr
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       size="icon"
       aria-label={label}
       title={PREFERENCE_LABEL[preference]}
       onClick={() => cycleThemePreference()}
-      className={cn(
-        "h-9 w-9 shrink-0 rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
-        className
-      )}
+      className={cn("h-9 w-9 shrink-0 rounded-xl text-muted-foreground", className)}
     >
       <ActiveIcon className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
     </Button>

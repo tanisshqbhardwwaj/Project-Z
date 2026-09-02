@@ -1,7 +1,7 @@
 import {
   activatePlanAfterPayment as activatePlanAfterPaymentImpl,
   type PaymentActivationInput,
-} from "@/services/billing.service";
+} from "@/services/billing/billing.service";
 import type { BillingPlan } from "@prisma/client";
 
 export type { PaymentActivationInput };

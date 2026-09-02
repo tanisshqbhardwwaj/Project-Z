@@ -16,8 +16,8 @@ import {
   deleteShopProduct,
   getShopProduct,
   updateShopProduct,
-} from "@/services/shop-product.service";
-import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch-context";
+} from "@/services/shop/shop-product.service";
+import { getShopBranchContext, isBranchAll, ensureDefaultBranch } from "@/lib/shop/branch/branch-context";
 
 type RouteContext = { params: Promise<{ id: string }> };
 

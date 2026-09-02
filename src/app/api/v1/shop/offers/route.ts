@@ -10,7 +10,7 @@ import { serializeBigInt } from "@/lib/db/prisma";
 import {
   createOffer,
   listOffers,
-} from "@/services/shop-offer.service";
+} from "@/services/shop/shop-offer.service";
 
 const createOfferSchema = z.object({
   name: z.string().min(1),

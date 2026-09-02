@@ -21,8 +21,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatINR } from "@/lib/finance/money";
-import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory";
-import { attributeLabel } from "@/lib/shop/variant-display";
+import { INFINITE_STOCK_QTY } from "@/lib/shop/inventory/inventory";
+import { attributeLabel } from "@/lib/shop/inventory/variant-display";
 import {
   addItemLabelForKind,
   defaultItemKindForSectors,
@@ -31,12 +31,12 @@ import {
   hasServiceCatalog,
   isNonStockItemKind,
   type ShopItemKind,
-} from "@/lib/shop/sector-mode";
+} from "@/lib/shop/branch/sector-mode";
 import {
   parseRecipeFromAttributes,
   serializeRecipeToAttributes,
   type RecipeIngredient,
-} from "@/lib/shop/recipe";
+} from "@/lib/shop/inventory/recipe";
 import {
   defaultVariantAxisForSectors,
   sizePresetsForSectors,

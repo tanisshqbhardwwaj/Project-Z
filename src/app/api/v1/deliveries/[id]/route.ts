@@ -11,7 +11,7 @@ import {
   getDelivery,
   updateDelivery,
   deleteDelivery,
-} from "@/services/delivery.service";
+} from "@/services/shared/delivery.service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 

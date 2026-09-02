@@ -206,6 +206,18 @@ enum AttendanceCheckMethod {
   QR
   DEVICE
   GEO
+  BARCODE
+}
+
+enum StaffAttendanceEventType {
+  CHECK_IN
+  CHECK_OUT
+  CORRECTION
+}
+
+enum StaffAttendanceEventSource {
+  BARCODE
+  MANUAL
 }
 
 enum PayrollStatus {
@@ -444,6 +456,7 @@ model User {
   staffCreated        StaffMember[]           @relation("StaffCreatedBy")
   staffLinked         StaffMember[]           @relation("StaffUserLink")
   attendanceMarked    StaffAttendance[]       @relation("AttendanceMarkedBy")
+  attendanceEventsCreated StaffAttendanceEvent[] @relation("StaffAttendanceEventCreatedBy")
   payrollCreated      StaffPayroll[]          @relation("PayrollCreatedBy")
   payrollUpdated      StaffPayroll[]          @relation("PayrollUpdatedBy")
   staffWagesCreated   StaffWage[]             @relation("StaffWageCreatedBy")
@@ -579,6 +592,7 @@ model Organization {
   auditLogs        AuditLog[]
   staffMembers     StaffMember[]
   staffAttendance  StaffAttendance[]
+  staffAttendanceEvents StaffAttendanceEvent[]
   staffPayrolls    StaffPayroll[]
   staffWages       StaffWage[]
   staffAdvances    StaffAdvance[]
@@ -833,6 +847,9 @@ model StaffMember {
   /** Owner-set login capabilities for linked cashiers (JSON). */
   accessJson         Json                @default("{}")
   attendancePinHash  String?
+  /** Unique staff-attendance barcode (SA- prefix, separate from product barcodes). */
+  attendanceBarcode     String?
+  attendanceBarcodeSetAt DateTime?
   status             StaffStatus @default(ACTIVE)
   joinedAt           DateTime?
   leftAt             DateTime?
@@ -845,6 +862,7 @@ model StaffMember {
   user         User?             @relation("StaffUserLink", fields: [userId], references: [id], onDelete: SetNull)
   createdBy    User              @relation("StaffCreatedBy", fields: [createdById], references: [id])
   attendance   StaffAttendance[]
+  attendanceEvents StaffAttendanceEvent[]
   payrolls     StaffPayroll[]
   wageHistory  StaffWage[]
   advances     StaffAdvance[]
@@ -856,7 +874,9 @@ model StaffMember {
 
   @@unique([organizationId, userId])
   @@unique([organizationId, cashierCode])
+  @@unique([organizationId, attendanceBarcode])
   @@index([organizationId, status])
+  @@index([organizationId, attendanceBarcode])
   @@index([userId])
 }
 
@@ -891,6 +911,7 @@ model StaffAttendance {
   geoVerified    Boolean?
   geoDistanceMeters Float?
   deviceFingerprint String?
+  deviceId       String?
   overtimeHours  Float            @default(0)
   notes          String?
   markedById     String
@@ -898,11 +919,34 @@ model StaffAttendance {
   updatedAt      DateTime         @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  staff        StaffMember  @relation(fields: [staffId], references: [id], onDelete: Restrict)
   markedBy     User         @relation("AttendanceMarkedBy", fields: [markedById], references: [id])
+  events       StaffAttendanceEvent[]
 
   @@unique([staffId, date])
   @@index([organizationId, date])
+}
+
+model StaffAttendanceEvent {
+  id             String                     @id @default(uuid())
+  organizationId String
+  staffId        String
+  attendanceId   String?
+  deviceId       String?
+  type           StaffAttendanceEventType
+  at             DateTime
+  source         StaffAttendanceEventSource @default(BARCODE)
+  createdById    String
+  previousJson   Json?
+  createdAt      DateTime                   @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        StaffMember      @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  attendance   StaffAttendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  createdBy    User             @relation("StaffAttendanceEventCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, staffId, at])
+  @@index([organizationId, at])
 }
 
 model StaffAdvance {

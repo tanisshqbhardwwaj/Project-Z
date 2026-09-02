@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
 import { requireShopBilling } from "@/lib/staff/shop-access";
-import { createTerminalPaymentRequest } from "@/services/shop-payment-terminal.service";
+import { createTerminalPaymentRequest } from "@/services/shop/shop-payment-terminal.service";
 
 const schema = z.object({
   amountPaise: z.string().regex(/^\d+$/),

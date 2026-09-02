@@ -40,11 +40,16 @@ export function ProjectsSection() {
       <p className={cn("mt-6 text-center text-sm sm:text-base", mk.muted)}>
         Manage multiple projects independently inside one account.
       </p>
-      <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+      <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {PROJECT_FEATURES.map((item) => (
-          <li key={item} className={cn("flex items-start gap-3 text-sm sm:text-base", mk.body)}>
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-            {item}
+          <li
+            key={item}
+            className={cn("rounded-2xl border p-5 shadow-sm", mk.card)}
+          >
+            <div className={cn("flex items-start gap-3 text-sm sm:text-base", mk.body)}>
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+              {item}
+            </div>
           </li>
         ))}
       </ul>

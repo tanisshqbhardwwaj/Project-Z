@@ -11,14 +11,18 @@ import {
   bulkMarkAttendance,
   listAttendanceRange,
   listAttendanceGrid,
-} from "@/services/attendance-payroll.service";
+} from "@/services/staff/attendance-payroll.service";
 import {
   checkInWithPin,
   checkInWithQrToken,
-  getAttendanceBoard,
   staffCheckIn,
   staffCheckOut,
-} from "@/services/attendance-checkin.service";
+} from "@/services/staff/attendance-checkin.service";
+import {
+  correctAttendanceRecord,
+  listStaffAttendanceHistory,
+  listTodayAttendanceBoard,
+} from "@/services/staff/attendance-scan.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import {
   upsertAttendanceSchema,
@@ -59,7 +63,7 @@ export async function GET(request: Request) {
     }
 
     const board = searchParams.get("board");
-    if (board === "1") {
+    if (board === "1" || board === "today") {
       const org = await prisma.organization.findUnique({
         where: { id: ctx.organizationId },
         select: { timezone: true },
@@ -67,7 +71,20 @@ export async function GET(request: Request) {
       const date =
         searchParams.get("date") ?? orgTodayKey(org?.timezone);
       dayKeySchema.parse(date);
-      const rows = await getAttendanceBoard(ctx.organizationId, date);
+      const rows = await listTodayAttendanceBoard(ctx.organizationId, date);
+      return apiSuccess(serializeBigInt(rows));
+    }
+
+    const historyStaffId = searchParams.get("historyStaffId");
+    if (historyStaffId && from && to) {
+      dayKeySchema.parse(from);
+      dayKeySchema.parse(to);
+      const rows = await listStaffAttendanceHistory(
+        ctx.organizationId,
+        historyStaffId,
+        from,
+        to
+      );
       return apiSuccess(serializeBigInt(rows));
     }
 
@@ -94,7 +111,7 @@ export async function POST(request: Request) {
         organizationId: ctx.organizationId,
         staffId: z.string().uuid().parse(body.staffId),
         markedById: ctx.userId,
-        method: z.enum(["MANUAL", "QUICK_CHECKIN", "PIN", "QR", "DEVICE", "GEO"]).parse(
+        method: z.enum(["MANUAL", "QUICK_CHECKIN", "PIN", "QR", "DEVICE", "GEO", "BARCODE"]).parse(
           body.method ?? "QUICK_CHECKIN"
         ),
         deviceFingerprint: body.deviceFingerprint ?? null,
@@ -111,7 +128,7 @@ export async function POST(request: Request) {
         organizationId: ctx.organizationId,
         staffId: z.string().uuid().parse(body.staffId),
         markedById: ctx.userId,
-        method: z.enum(["MANUAL", "QUICK_CHECKIN", "PIN", "QR", "DEVICE", "GEO"]).parse(
+        method: z.enum(["MANUAL", "QUICK_CHECKIN", "PIN", "QR", "DEVICE", "GEO", "BARCODE"]).parse(
           body.method ?? "QUICK_CHECKIN"
         ),
       });
@@ -137,6 +154,20 @@ export async function POST(request: Request) {
         staffId: z.string().uuid().parse(body.staffId),
         token: z.string().min(8).parse(body.token),
         markedById: ctx.userId,
+      });
+      return apiSuccess(serializeBigInt(row));
+    }
+
+    if (body.action === "correct") {
+      const row = await correctAttendanceRecord({
+        organizationId: ctx.organizationId,
+        attendanceId: z.string().uuid().parse(body.attendanceId),
+        userId: ctx.userId,
+        checkInAt: body.checkInAt,
+        checkOutAt: body.checkOutAt,
+        status: body.status,
+        notes: body.notes,
+        eventId: body.eventId,
       });
       return apiSuccess(serializeBigInt(row));
     }

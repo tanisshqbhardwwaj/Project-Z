@@ -5,9 +5,11 @@ import { cn } from "@/lib/utils";
 import { SectionEyebrow } from "@/components/marketing/marketing-footer";
 import { mk } from "@/components/marketing/marketing-theme";
 import {
-  PLAN_COMPARISON_CATEGORIES,
   comparisonPlanHeaders,
+  getSortedPlanComparisonCategories,
+  groupComparisonRows,
   type ComparisonCell,
+  type ComparisonRow,
 } from "@/lib/billing/plan-comparison";
 import type { BillingPlan } from "@prisma/client";
 import { PLAN_ORDER } from "@/lib/billing/plans";
@@ -30,8 +32,52 @@ function ComparisonCellDisplay({ value }: { value: ComparisonCell }) {
   return <span className={cn("text-sm font-medium", mk.bodyStrong)}>{value}</span>;
 }
 
+function ComparisonDataRow({
+  row,
+  headers,
+}: {
+  row: ComparisonRow;
+  headers: ReturnType<typeof comparisonPlanHeaders>;
+}) {
+  return (
+    <tr
+      className={cn("border-b last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30", mk.sectionBorder)}
+    >
+      <td className={cn("sticky left-0 px-6 py-4 text-sm", mk.sectionBase, mk.bodyStrong)}>{row.feature}</td>
+      {PLAN_ORDER.map((code) => {
+        const header = headers.find((h) => h.code === code);
+        return (
+          <td
+            key={code}
+            className={cn(
+              "px-4 py-4 text-center",
+              header?.mostPopular && "bg-slate-950/5 dark:bg-slate-800/30"
+            )}
+          >
+            <ComparisonCellDisplay value={row.values[code as BillingPlan]} />
+          </td>
+        );
+      })}
+    </tr>
+  );
+}
+
+function GroupSubheader({ label }: { label: string }) {
+  return (
+    <tr className={cn("border-b", mk.sectionBorder)}>
+      <td
+        colSpan={PLAN_ORDER.length + 1}
+        className={cn("sticky left-0 px-6 py-2 text-[11px] font-semibold uppercase tracking-wide", mk.muted, mk.sectionBase)}
+      >
+        {label}
+      </td>
+    </tr>
+  );
+}
+
 export function PlanComparisonTable() {
   const headers = comparisonPlanHeaders();
+  const categories = getSortedPlanComparisonCategories();
 
   return (
     <div className="space-y-12">
@@ -41,8 +87,9 @@ export function PlanComparisonTable() {
           Full feature comparison
         </h1>
         <p className={cn("text-base leading-relaxed sm:text-lg", mk.body)}>
-          See exactly what is included in Basic, Starter, Business, and Professional. Add-on
-          services are available on custom pricing —{" "}
+          Each section lists features included on <strong className={mk.heading}>every plan</strong> first, then
+          features that unlock as you move up from Basic → Starter → Business → Professional. Add-on services use
+          custom pricing —{" "}
           <Link href="/pricing#contact" className={cn("font-medium underline-offset-2 hover:underline", mk.heading)}>
             talk to our team
           </Link>
@@ -92,42 +139,29 @@ export function PlanComparisonTable() {
               </tr>
             </thead>
             <tbody>
-              {PLAN_COMPARISON_CATEGORIES.map((category) => (
-                <Fragment key={category.id}>
-                  <tr className={cn("border-b", mk.sectionBorder, mk.sectionAlt)}>
-                    <td
-                      colSpan={PLAN_ORDER.length + 1}
-                      className={cn("sticky left-0 px-6 py-3 text-xs font-semibold uppercase tracking-wide", mk.muted)}
-                    >
-                      {category.name}
-                    </td>
-                  </tr>
-                  {category.rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className={cn("border-b last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30", mk.sectionBorder)}
-                    >
-                      <td className={cn("sticky left-0 px-6 py-4 text-sm", mk.sectionBase, mk.bodyStrong)}>
-                        {row.feature}
+              {categories.map((category) => {
+                const groups = groupComparisonRows(category.rows);
+                return (
+                  <Fragment key={category.id}>
+                    <tr className={cn("border-b", mk.sectionBorder, mk.sectionAlt)}>
+                      <td
+                        colSpan={PLAN_ORDER.length + 1}
+                        className={cn("sticky left-0 px-6 py-3 text-xs font-semibold uppercase tracking-wide", mk.muted)}
+                      >
+                        {category.name}
                       </td>
-                      {PLAN_ORDER.map((code) => {
-                        const header = headers.find((h) => h.code === code);
-                        return (
-                          <td
-                            key={code}
-                            className={cn(
-                              "px-4 py-4 text-center",
-                              header?.mostPopular && "bg-slate-950/5 dark:bg-slate-800/30"
-                            )}
-                          >
-                            <ComparisonCellDisplay value={row.values[code as BillingPlan]} />
-                          </td>
-                        );
-                      })}
                     </tr>
-                  ))}
-                </Fragment>
-              ))}
+                    {groups.map((group, groupIndex) => (
+                      <Fragment key={`${category.id}-${groupIndex}`}>
+                        {group.label ? <GroupSubheader label={group.label} /> : null}
+                        {group.rows.map((row) => (
+                          <ComparisonDataRow key={row.id} row={row} headers={headers} />
+                        ))}
+                      </Fragment>
+                    ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -160,53 +194,75 @@ export function PlanComparisonTable() {
               </p>
             </div>
             <div className={cn("divide-y", mk.sectionBorder)}>
-              {PLAN_COMPARISON_CATEGORIES.map((category) => (
-                <div key={category.id}>
-                  <p
-                    className={cn(
-                      "px-6 py-3 text-xs font-semibold uppercase tracking-wide",
-                      header.mostPopular ? "text-slate-400" : mk.muted
-                    )}
-                  >
-                    {category.name}
-                  </p>
-                  <ul className={cn("px-6 pb-4", header.mostPopular ? "text-slate-200" : mk.bodyStrong)}>
-                    {category.rows.map((row) => {
-                      const value = row.values[header.code as BillingPlan];
-                      return (
-                        <li key={row.id} className="flex items-start justify-between gap-4 py-2.5 text-sm">
-                          <span className={header.mostPopular ? "text-slate-300" : mk.body}>{row.feature}</span>
-                          <span className="shrink-0 text-right">
-                            {value === true ? (
-                              <Check
-                                className={cn(
-                                  "h-4 w-4",
-                                  header.mostPopular ? "text-emerald-400" : "text-emerald-600 dark:text-emerald-400"
-                                )}
-                              />
-                            ) : value === false ? (
-                              <X className={cn("h-4 w-4", mk.muted)} />
-                            ) : (
-                              <span className={cn("text-xs font-medium", header.mostPopular ? "text-white" : mk.heading)}>
-                                {value}
-                              </span>
+              {categories.map((category) => {
+                const groups = groupComparisonRows(category.rows);
+                return (
+                  <div key={category.id}>
+                    <p
+                      className={cn(
+                        "px-6 py-3 text-xs font-semibold uppercase tracking-wide",
+                        header.mostPopular ? "text-slate-400" : mk.muted
+                      )}
+                    >
+                      {category.name}
+                    </p>
+                    {groups.map((group, groupIndex) => (
+                      <div key={`${category.id}-${groupIndex}`} className={cn(groupIndex > 0 && "border-t", mk.sectionBorder)}>
+                        {group.label ? (
+                          <p
+                            className={cn(
+                              "px-6 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide",
+                              header.mostPopular ? "text-slate-500" : mk.muted
                             )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
+                          >
+                            {group.label}
+                          </p>
+                        ) : null}
+                        <ul className={cn("px-6 pb-4", header.mostPopular ? "text-slate-200" : mk.bodyStrong)}>
+                          {group.rows.map((row) => {
+                            const value = row.values[header.code as BillingPlan];
+                            return (
+                              <li key={row.id} className="flex items-start justify-between gap-4 py-2.5 text-sm">
+                                <span className={header.mostPopular ? "text-slate-300" : mk.body}>{row.feature}</span>
+                                <span className="shrink-0 text-right">
+                                  {value === true ? (
+                                    <Check
+                                      className={cn(
+                                        "h-4 w-4",
+                                        header.mostPopular ? "text-emerald-400" : "text-emerald-600 dark:text-emerald-400"
+                                      )}
+                                    />
+                                  ) : value === false ? (
+                                    <X className={cn("h-4 w-4", mk.muted)} />
+                                  ) : (
+                                    <span
+                                      className={cn(
+                                        "text-xs font-medium",
+                                        header.mostPopular ? "text-white" : mk.heading
+                                      )}
+                                    >
+                                      {value}
+                                    </span>
+                                  )}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </article>
         ))}
       </div>
 
       <p className={cn("text-sm sm:text-base", mk.muted)}>
-        Project management, partners, and web access are included on all plans. iOS app coming soon.
-        WhatsApp invoicing is available as an add-on from Basic. Multi-store is available as an
-        add-on from Business. Need custom setup?{" "}
+        Plans are ordered Basic → Starter → Business → Professional (lowest to highest). Project management,
+        partners, and web access are included on all plans. iOS app coming soon. WhatsApp invoicing is available
+        as an add-on from Basic. Multi-store is available as an add-on from Business. Need custom setup?{" "}
         <Link href="/pricing#contact" className={cn("font-medium underline-offset-2 hover:underline", mk.heading)}>
           Contact us for add-on pricing
         </Link>

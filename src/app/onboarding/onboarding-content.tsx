@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, setActiveOrganizationId } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { logoutUser } from "@/lib/auth/logout-client";
 import { AppLogo } from "@/components/brand/app-logo";
 import { AppearanceMenu } from "@/components/theme/appearance-menu";
+import { OrgModuleToggles } from "@/components/org/org-module-toggles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,25 +32,37 @@ import {
   defaultSectorsForOffering,
   sectorsForOffering,
   type ShopOfferingKind,
-} from "@/lib/shop/onboarding-sectors";
+} from "@/lib/shop/branch/onboarding-sectors";
+import { moduleLabel, type ModuleKey } from "@/lib/org/modules";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import type { BillingPlan } from "@prisma/client";
+
+const STEP_LABELS = ["Basics", "Profile", "Features", "Defaults", "Review"] as const;
 
 export default function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewOrg = searchParams.get("new") === "1";
+  const stepParam = Number(searchParams.get("step") ?? "1");
+  const step = Number.isFinite(stepParam) ? Math.min(5, Math.max(1, stepParam)) : 1;
+
   const { bootstrap, status, initialized } = useAuthStore();
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("CONTRACTOR");
   const [businessTypes, setBusinessTypes] = useState<ShopSector[]>(["CLOTHING"]);
   const [offeringKind, setOfferingKind] = useState<ShopOfferingKind>("PRODUCTS");
-  const [shopSectorStep, setShopSectorStep] = useState<"offering" | "sectors">("offering");
   const [customBusinessType, setCustomBusinessType] = useState("");
   const [enableStaff, setEnableStaff] = useState(false);
+  const [moduleToggles, setModuleToggles] = useState<Partial<Record<ModuleKey, boolean>>>({});
+  const [timezone, setTimezone] = useState("Asia/Kolkata");
+  const [defaultCompletionDays, setDefaultCompletionDays] = useState("30");
+  const [brandName, setBrandName] = useState("");
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const [loading, setLoading] = useState(false);
   const [orgCount, setOrgCount] = useState(0);
+
+  const plan: BillingPlan = isShopVertical(businessType) ? "BASIC" : "BUSINESS";
 
   useEffect(() => {
     if (!initialized) bootstrap();
@@ -67,45 +80,40 @@ export default function OnboardingContent() {
       });
   }, [isNewOrg, router, status]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function goToStep(next: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("step", String(next));
+    if (isNewOrg) params.set("new", "1");
+    router.push(`/onboarding?${params.toString()}`);
+  }
+
+  function validateStep(current: number): boolean {
     clear();
+    if (current === 1) {
+      const msg = requireOrganizationName(name);
+      if (msg) {
+        showWarning(msg);
+        return false;
+      }
+    }
+    if (current === 2 && businessType === "SHOPKEEPER") {
+      if (businessTypes.length === 0) {
+        showWarning("Select at least one business type");
+        return false;
+      }
+      if (businessTypes.includes("OTHER") && !customBusinessType.trim()) {
+        showWarning("Tell us what your custom business type is");
+        return false;
+      }
+    }
+    return true;
+  }
 
-    const validationMessage = requireOrganizationName(name);
-    if (validationMessage) {
-      showWarning(validationMessage);
-      return;
-    }
-
-    if (businessType === "SHOPKEEPER" && shopSectorStep === "offering") {
-      showWarning("Continue and pick your business type");
-      return;
-    }
-    if (businessType === "SHOPKEEPER" && businessTypes.length === 0) {
-      showWarning("Select at least one business type");
-      return;
-    }
-    if (
-      businessType === "SHOPKEEPER" &&
-      businessTypes.includes("OTHER") &&
-      !customBusinessType.trim()
-    ) {
-      showWarning("Tell us what your custom business type is");
-      return;
-    }
-    if (
-      businessType === "SHOPKEEPER" &&
-      businessTypes.includes("OTHER") &&
-      customBusinessType.trim().length > FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX
-    ) {
-      showWarning(
-        `Custom business type must be at most ${FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX} characters`
-      );
-      return;
-    }
+  async function handleCreate() {
+    clear();
+    if (!validateStep(1) || !validateStep(2)) return;
 
     setLoading(true);
-
     try {
       const created = await apiFetch<{ id: string }>("/api/v1/organizations", {
         method: "POST",
@@ -113,32 +121,30 @@ export default function OnboardingContent() {
           name,
           businessType,
           ...(businessType === "SHOPKEEPER"
-            ? { shopSector: businessTypes[0], enableStaff }
+            ? {
+                shopSector: businessTypes[0],
+                shopBusinessTypes: businessTypes,
+                shopCustomBusinessType: businessTypes.includes("OTHER")
+                  ? customBusinessType.trim()
+                  : null,
+                enableStaff,
+              }
             : businessType === "SERVICE"
               ? { enableStaff }
               : {}),
+          timezone,
+          defaultCompletionDays: Number(defaultCompletionDays) || 30,
+          settings: {
+            modules: moduleToggles,
+            ...(isShopVertical(businessType) && brandName.trim()
+              ? { shop: { brandName: brandName.trim() } }
+              : {}),
+          },
         }),
       });
-      if (businessType === "SHOPKEEPER" && businessTypes.length > 0) {
-        setActiveOrganizationId(created.id);
-        await apiFetch("/api/v1/organizations", {
-          method: "PATCH",
-          body: JSON.stringify({
-            shopBusinessTypes: businessTypes,
-            shopCustomBusinessType: businessTypes.includes("OTHER")
-              ? customBusinessType.trim()
-              : null,
-          }),
-        }).catch(() => {
-          // Non-fatal: the org already exists with its primary type and the
-          // owner can finish the selection in Manage Organization.
-        });
-      }
+      setActiveOrganizationId(created.id);
       await bootstrap();
-      router.push(
-        isShopVertical(businessType) && enableStaff ? "/staff" : "/dashboard"
-      );
-      router.refresh();
+      window.location.assign("/dashboard?setup=1");
     } catch (err) {
       applyError(err, "Failed to create organization");
     } finally {
@@ -150,235 +156,282 @@ export default function OnboardingContent() {
     await logoutUser();
   }
 
-  if (!initialized) return <PageLoader label="Loading..." />;
-
-  const selected = BUSINESS_TYPE_CONFIG[businessType];
   const visibleSectors = sectorsForOffering(offeringKind);
+  const selected = BUSINESS_TYPE_CONFIG[businessType];
 
-  function selectOffering(offering: ShopOfferingKind) {
-    setOfferingKind(offering);
-    setBusinessTypes(defaultSectorsForOffering(offering));
-    if (offering === "SERVICES" || offering === "FOOD") {
-      setShopSectorStep("sectors");
-    }
-  }
+  const reviewModules = useMemo(() => {
+    return Object.entries(moduleToggles)
+      .filter(([, on]) => on)
+      .map(([key]) => moduleLabel(key as ModuleKey, businessType));
+  }, [moduleToggles, businessType]);
+
+  if (!initialized) return <PageLoader label="Loading..." />;
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
         <AppearanceMenu />
       </div>
-      <div className="mb-8 w-full max-w-lg">
+      <div className="mb-6 w-full max-w-lg">
         <AppLogo href="/dashboard" variant="full" brandMode="dual" className="mx-auto w-full" />
+      </div>
+      <div className="mb-4 flex w-full max-w-lg gap-1">
+        {STEP_LABELS.map((label, i) => (
+          <div
+            key={label}
+            className={cn(
+              "h-1 flex-1 rounded-full",
+              i + 1 <= step ? "bg-primary" : "bg-muted"
+            )}
+            title={label}
+          />
+        ))}
       </div>
       <Card className="w-full max-w-lg rounded-2xl shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">
-            {isNewOrg ? "Create Organization" : `Welcome to BusinessOS`}
+            {isNewOrg ? "Create Organization" : "Welcome to BusinessOS"}
           </CardTitle>
           <CardDescription>
-            {isNewOrg
-              ? `Add another organization (${orgCount}/3 used)`
-              : "Tell us what you do — we’ll tailor labels and defaults"}
+            Step {step} of 5 · {STEP_LABELS[step - 1]}
+            {isNewOrg ? ` (${orgCount}/3 used)` : ""}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <FormFeedback warning={warning} error={error} />
-            {error?.toLowerCase().includes("session") && (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full rounded-xl"
-                onClick={handleLogout}
-              >
-                Log out and start fresh
-              </Button>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="orgName">Organization name</Label>
-              <Input
-                id="orgName"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={FIELD_LIMITS.ORG_NAME_MAX}
-                className="h-12 rounded-xl"
-                required
-              />
-              <FieldHint>
-                {FIELD_LIMITS.ORG_NAME_MIN}–{FIELD_LIMITS.ORG_NAME_MAX} characters
-              </FieldHint>
-            </div>
+        <CardContent className="space-y-5">
+          <FormFeedback warning={warning} error={error} />
 
-            <div className="space-y-2">
-              <Label>I am a…</Label>
+          {step === 1 && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="orgName">Organization name</Label>
+                <Input
+                  id="orgName"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-12 rounded-xl"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>I am a…</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {onboardingBusinessTypes().map((type) => {
+                    const config = BUSINESS_TYPE_CONFIG[type];
+                    const active = businessType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setBusinessType(type)}
+                        className={cn(
+                          "rounded-xl border p-3 text-left transition-colors",
+                          active
+                            ? "border-primary bg-primary/5 ring-1 ring-primary"
+                            : "border-border hover:bg-accent/50"
+                        )}
+                      >
+                        <p className="text-sm font-semibold">{config.label}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{config.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">{selected.onboardingBlurb}</p>
+              </div>
+            </>
+          )}
+
+          {step === 2 && businessType === "SHOPKEEPER" && (
+            <>
+              <div className="space-y-2">
+                <Label>What do you sell?</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {OFFERING_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setOfferingKind(opt.id);
+                        setBusinessTypes(defaultSectorsForOffering(opt.id));
+                      }}
+                      className={cn(
+                        "rounded-xl border p-3 text-left",
+                        offeringKind === opt.id && "border-primary bg-primary/5 ring-1 ring-primary"
+                      )}
+                    >
+                      <p className="text-sm font-semibold">{opt.label}</p>
+                      <p className="text-xs text-muted-foreground">{opt.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                {onboardingBusinessTypes().map((type) => {
-                  const config = BUSINESS_TYPE_CONFIG[type];
-                  const active = businessType === type;
+                {visibleSectors.map((sector) => {
+                  const config = SHOP_SECTOR_CONFIG[sector];
+                  const active = businessTypes.includes(sector);
                   return (
                     <button
-                      key={type}
+                      key={sector}
                       type="button"
-                      onClick={() => setBusinessType(type)}
+                      onClick={() =>
+                        setBusinessTypes((prev) =>
+                          prev.includes(sector)
+                            ? prev.filter((s) => s !== sector).length > 0
+                              ? prev.filter((s) => s !== sector)
+                              : prev
+                            : [...prev, sector]
+                        )
+                      }
                       className={cn(
-                        "rounded-xl border p-3 text-left transition-colors",
-                        active
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : "border-border hover:bg-accent/50"
+                        "rounded-xl border p-3 text-left",
+                        active && "border-primary bg-primary/5 ring-1 ring-primary"
                       )}
                     >
                       <p className="text-sm font-semibold">{config.label}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{config.description}</p>
                     </button>
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground">{selected.onboardingBlurb}</p>
-            </div>
+              {businessTypes.includes("OTHER") ? (
+                <Input
+                  value={customBusinessType}
+                  onChange={(e) => setCustomBusinessType(e.target.value)}
+                  placeholder="Custom business type"
+                  className="h-12 rounded-xl"
+                />
+              ) : null}
+            </>
+          )}
 
-            {businessType === "SHOPKEEPER" && (
-              <div className="space-y-3">
-                {shopSectorStep === "offering" ? (
-                  <>
-                    <Label>What do you sell?</Label>
-                    <p className="text-xs text-muted-foreground">
-                      We&apos;ll tailor your catalog, labels, and defaults.
-                    </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {OFFERING_OPTIONS.map((opt) => {
-                        const active = offeringKind === opt.id;
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => selectOffering(opt.id)}
-                            className={cn(
-                              "rounded-xl border p-3 text-left transition-colors",
-                              active
-                                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                : "border-border hover:bg-accent/50"
-                            )}
-                          >
-                            <p className="text-sm font-semibold">{opt.label}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {opt.description}
-                            </p>
-                          </button>
-                        );
-                      })}
+          {step === 2 && businessType !== "SHOPKEEPER" && (
+            <p className="text-sm text-muted-foreground">
+              Your {selected.label} workspace uses sensible defaults. Continue to choose features.
+            </p>
+          )}
+
+          {step === 3 && (
+            <>
+              {isShopVertical(businessType) && (
+                <div className="rounded-xl border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Allow staff?</p>
+                      <p className="text-xs text-muted-foreground">
+                        Optional attendance and payroll tracking.
+                      </p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 w-full rounded-xl"
-                      onClick={() => setShopSectorStep("sectors")}
-                    >
-                      Continue
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between gap-2">
-                      <Label>My business is</Label>
-                      <button
-                        type="button"
-                        onClick={() => setShopSectorStep("offering")}
-                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                      >
-                        Change offering
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Pick every type you sell. You can change this later.
-                    </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {visibleSectors.map((sector) => {
-                        const config = SHOP_SECTOR_CONFIG[sector];
-                        const active = businessTypes.includes(sector);
-                        return (
-                          <button
-                            key={sector}
-                            type="button"
-                            aria-pressed={active}
-                            onClick={() =>
-                              setBusinessTypes((prev) =>
-                                prev.includes(sector)
-                                  ? prev.filter((s) => s !== sector).length > 0
-                                    ? prev.filter((s) => s !== sector)
-                                    : prev
-                                  : [...prev, sector]
-                              )
-                            }
-                            className={cn(
-                              "rounded-xl border p-3 text-left transition-colors",
-                              active
-                                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                : "border-border hover:bg-accent/50"
-                            )}
-                          >
-                            <span className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-semibold">
-                                {config.label}
-                              </span>
-                              {active ? (
-                                <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
-                                  {businessTypes[0] === sector ? "Primary" : "✓"}
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="mt-0.5 block text-xs text-muted-foreground">
-                              {config.description}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-                {businessTypes.includes("OTHER") ? (
-                  <div className="space-y-1.5 pt-1">
-                    <Label htmlFor="onboarding-custom-type">
-                      What is your business?
-                    </Label>
-                    <Input
-                      id="onboarding-custom-type"
-                      value={customBusinessType}
-                      onChange={(e) => setCustomBusinessType(e.target.value)}
-                      className="h-12 rounded-xl"
-                      placeholder="e.g. Mobile Repair & Accessories"
-                      maxLength={FIELD_LIMITS.CUSTOM_BUSINESS_TYPE_MAX}
-                    />
+                    <Switch checked={enableStaff} onCheckedChange={setEnableStaff} />
                   </div>
-                ) : null}
+                </div>
+              )}
+              <OrgModuleToggles
+                businessType={businessType}
+                primaryShopSector={businessTypes[0] ?? null}
+                plan={plan}
+                moduleToggles={moduleToggles}
+                enableStaff={enableStaff}
+                onToggle={(key, next) =>
+                  setModuleToggles((prev) => ({ ...prev, [key]: next }))
+                }
+              />
+            </>
+          )}
+
+          {step === 4 && (
+            <>
+              <div className="space-y-2">
+                <Label>Timezone</Label>
+                <Input
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="h-12 rounded-xl"
+                />
               </div>
-            )}
-
-            {isShopVertical(businessType) && (
-              <div className="rounded-xl border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold">Allow staff?</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Optional. Track attendance and pay salary from days worked.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={enableStaff}
-                    onCheckedChange={setEnableStaff}
+              {!isShopVertical(businessType) && (
+                <div className="space-y-2">
+                  <Label>Default completion days</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={defaultCompletionDays}
+                    onChange={(e) => setDefaultCompletionDays(e.target.value)}
+                    className="h-12 rounded-xl"
                   />
                 </div>
-              </div>
-            )}
+              )}
+              {isShopVertical(businessType) && (
+                <div className="space-y-2">
+                  <Label>Brand name (optional)</Label>
+                  <Input
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    className="h-12 rounded-xl"
+                    placeholder="Shown on invoices"
+                  />
+                </div>
+              )}
+            </>
+          )}
 
-            <Button type="submit" className="h-12 w-full rounded-xl" size="lg" disabled={loading}>
-              {loading ? "Creating..." : "Create Organization"}
-            </Button>
-          </form>
+          {step === 5 && (
+            <div className="space-y-3 rounded-xl border p-4 text-sm">
+              <p>
+                <span className="font-semibold">Name:</span> {name}
+              </p>
+              <p>
+                <span className="font-semibold">Type:</span> {selected.label}
+              </p>
+              {businessType === "SHOPKEEPER" && (
+                <p>
+                  <span className="font-semibold">Sectors:</span>{" "}
+                  {businessTypes.map((s) => SHOP_SECTOR_CONFIG[s].label).join(", ")}
+                </p>
+              )}
+              {reviewModules.length > 0 && (
+                <p>
+                  <span className="font-semibold">Features:</span> {reviewModules.join(", ")}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            {step > 1 ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 flex-1 rounded-xl"
+                onClick={() => goToStep(step - 1)}
+              >
+                Back
+              </Button>
+            ) : null}
+            {step < 5 ? (
+              <Button
+                type="button"
+                className="h-12 flex-1 rounded-xl"
+                onClick={() => {
+                  if (validateStep(step)) goToStep(step + 1);
+                }}
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="h-12 flex-1 rounded-xl"
+                disabled={loading}
+                onClick={handleCreate}
+              >
+                {loading ? "Creating..." : "Create organization"}
+              </Button>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-4 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+            className="w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
           >
             Log out
           </button>

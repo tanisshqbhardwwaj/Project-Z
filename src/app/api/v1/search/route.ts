@@ -1,5 +1,5 @@
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
-import { globalSearch } from "@/services/search.service";
+import { globalSearch } from "@/services/shared/search.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function GET(request: Request) {

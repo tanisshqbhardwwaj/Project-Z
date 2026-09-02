@@ -1,8 +1,8 @@
 import {
   resolveShopDashboardBounds,
   type ShopDashboardPeriod,
-} from "@/lib/shop/dashboard-period";
-import { isBranchAll } from "@/lib/shop/branch-context";
+} from "@/lib/shop/reports/dashboard-period";
+import { isBranchAll } from "@/lib/shop/branch/branch-context";
 import { getServiceDashboardSummary } from "./service-dashboard.service";
 
 export async function getServiceDashboard(

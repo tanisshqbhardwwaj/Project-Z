@@ -2,7 +2,7 @@ import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
 import {
   parsePricingJson,
   type StoredInvoicePricing,
-} from "@/lib/shop/invoice-pricing";
+} from "@/lib/shop/invoices/invoice-pricing";
 
 export type ProjectInvoiceLineJson = {
   name: string;

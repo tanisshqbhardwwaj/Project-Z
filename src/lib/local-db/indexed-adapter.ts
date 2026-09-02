@@ -138,6 +138,7 @@ const KV_STORES: LocalStoreName[] = [
   "purchases",
   "expenses",
   "staff",
+  "attendance",
 ];
 
 export async function exportIndexedOrg(orgId: string): Promise<ShopDiskSnapshot> {

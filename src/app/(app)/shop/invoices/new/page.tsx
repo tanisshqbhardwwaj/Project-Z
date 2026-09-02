@@ -10,12 +10,15 @@ import { moduleLabel } from "@/lib/org/modules";
 import { InvoiceEntryForm } from "@/components/shop/invoice-entry-form";
 import { InvoiceLivePreview, buildDraftInvoice } from "@/components/shop/invoice-live-preview";
 import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
-import { computeInvoicePricing } from "@/lib/shop/invoice-pricing";
+import { computeInvoicePricing } from "@/lib/shop/invoices/invoice-pricing";
 import {
   buildInvoiceWhatsAppMessage,
   shareInvoiceOnWhatsAppWithPdf,
-} from "@/lib/shop/invoice-share";
-import { generateInvoicePdfBlob } from "@/lib/shop/invoice-pdf";
+} from "@/lib/shop/invoices/invoice-share";
+import { generateInvoicePdfBlob } from "@/lib/shop/invoices/invoice-pdf";
+import { previewRailWidthClass } from "@/lib/shop/print/invoice-print-layout";
+import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Download, MessageCircle, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +65,7 @@ export default function NewInvoicePage() {
   const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
 
   const { toast } = useToast();
+  const template = useShopInvoiceTemplate();
 
   const { printInvoice, PrintLayer } = useShopInvoicePrint({
     onComplete: () => {
@@ -164,7 +168,7 @@ export default function NewInvoicePage() {
           <div>
             <h1 className="text-2xl font-bold sm:text-3xl">New invoice</h1>
             <p className="text-sm text-muted-foreground">
-              Live preview on the left updates as you add items on the right
+              Live preview and billing form side by side — preview sized to your paper
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -229,10 +233,16 @@ export default function NewInvoicePage() {
           </div>
         ) : null}
 
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <div className="shop-invoice-print-mount order-2 min-w-0 lg:order-1 lg:sticky lg:top-4 lg:self-start max-lg:pointer-events-none max-lg:fixed max-lg:left-[-9999px] max-lg:top-0 max-lg:z-0 max-lg:opacity-0">
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <aside
+            className={cn(
+              "shop-invoice-print-mount order-2 shrink-0 lg:order-1 lg:sticky lg:top-4 lg:self-start",
+              previewRailWidthClass(template.paperSize),
+              "max-lg:pointer-events-none max-lg:fixed max-lg:left-[-9999px] max-lg:top-0 max-lg:z-0 max-lg:opacity-0"
+            )}
+          >
             <InvoiceLivePreview invoice={draft} cashTender={printCashTender} />
-          </div>
+          </aside>
           <div className="order-1 min-w-0 lg:order-2">
             <InvoiceEntryForm
               resetKey={resetKey}

@@ -9,6 +9,8 @@ import {
   FilePlus2,
   FolderKanban,
   Building2,
+  UsersRound,
+  CreditCard,
   Loader2,
   type LucideIcon,
 } from "lucide-react";
@@ -112,13 +114,40 @@ function PaletteContent() {
         ]
       : [];
 
-    const navigate: PaletteItem[] = navItems.map((i) => ({
-      id: `nav-${i.key}`,
-      group: "Navigate",
-      label: i.label,
-      icon: i.icon,
-      href: i.href,
-    }));
+    const settingsDeepLinks: PaletteItem[] = [
+      {
+        id: "settings-organization",
+        group: "Settings",
+        label: "Organization settings",
+        icon: Building2,
+        href: "/settings/organization",
+      },
+      {
+        id: "settings-members",
+        group: "Settings",
+        label: "Members",
+        icon: UsersRound,
+        href: "/settings/members",
+      },
+      {
+        id: "settings-billing",
+        group: "Settings",
+        label: "Billing",
+        icon: CreditCard,
+        href: "/settings/billing",
+      },
+    ];
+
+    const navigate: PaletteItem[] = [
+      ...navItems.map((i) => ({
+        id: `nav-${i.key}`,
+        group: "Navigate",
+        label: i.label,
+        icon: i.icon,
+        href: i.href,
+      })),
+      ...settingsDeepLinks,
+    ];
 
     if (!needle) {
       return [...actions, ...navigate];

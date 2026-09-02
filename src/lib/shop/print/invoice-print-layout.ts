@@ -69,6 +69,19 @@ export function clearInvoicePrintVariables(): void {
   root.style.removeProperty("--invoice-page-margin");
 }
 
+/** Max width for the live-preview rail (paper + frame padding). */
+export function previewRailWidthClass(paperSize: InvoicePaperSize): string {
+  switch (paperSize) {
+    case "58mm":
+      return "w-[calc(58mm+2rem)] max-w-[calc(58mm+2rem)]";
+    case "A4":
+      return "w-[min(210mm,calc(100vw-28rem))] max-w-[min(210mm,calc(100vw-28rem))]";
+    case "80mm":
+    default:
+      return "w-[calc(80mm+2rem)] max-w-[calc(80mm+2rem)]";
+  }
+}
+
 export function paperSizeLabel(paperSize: InvoicePaperSize): string {
   switch (paperSize) {
     case "58mm":

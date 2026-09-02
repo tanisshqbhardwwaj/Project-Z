@@ -10,7 +10,7 @@ import {
   inviteProjectPartner,
   createProjectInviteLink,
   canManageProject,
-} from "@/services/project.service";
+} from "@/services/projects/project.service";
 import { prisma } from "@/lib/db/prisma";
 import { getClientIp } from "@/lib/rate-limit";
 import { serializeBigInt } from "@/lib/db/prisma";

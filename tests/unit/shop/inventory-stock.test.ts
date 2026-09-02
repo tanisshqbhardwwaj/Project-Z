@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   availableQtyForInventoryLine,
   validateCartStock,
-} from "@/lib/shop/inventory";
+} from "@/lib/shop/inventory/inventory";
 
 describe("cart stock validation", () => {
   const inventory = [

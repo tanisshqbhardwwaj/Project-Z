@@ -9,7 +9,12 @@ import {
   adjustStockOffline,
   upsertCustomerOffline,
 } from "@/lib/sync/offline-writes";
-import { normalizeLocalSaleRecord } from "@/lib/shop/sale-invoice-mapper";
+import { normalizeLocalSaleRecord } from "@/lib/shop/invoices/sale-invoice-mapper";
+import {
+  deriveAttendanceSessionStatus,
+  formatTimeLabel,
+  formatWorkingDuration,
+} from "@/lib/staff/attendance-duration";
 
 const LOCAL_FIRST_POST = new Set([
   "/api/v1/shop/sales",
@@ -18,6 +23,7 @@ const LOCAL_FIRST_POST = new Set([
   "/api/v1/shop/purchases",
   "/api/v1/shop/expenses",
   "/api/v1/shop/customers",
+  "/api/v1/staff/attendance/scan",
 ]);
 
 function orgId(): string {
@@ -38,7 +44,11 @@ export function shouldHandleLocally(path: string, method: string): boolean {
   const m = method.toUpperCase();
   const p = pathOnly(path);
   if (isOffline()) {
-    return p.startsWith("/api/v1/shop/") || p.startsWith("/api/v1/sync/");
+    return (
+      p.startsWith("/api/v1/shop/") ||
+      p.startsWith("/api/v1/sync/") ||
+      p.startsWith("/api/v1/staff/attendance/")
+    );
   }
   if (m === "POST" && LOCAL_FIRST_POST.has(p)) return true;
   if (m === "PATCH" && /^\/api\/v1\/shop\/inventory\/[^/]+$/.test(p)) return true;
@@ -170,6 +180,81 @@ export async function handleLocalApi<T>(path: string, options: RequestInit): Pro
       await adjustStockOffline(id, itemId, body.quantity);
     }
     return body as T;
+  }
+
+  if (method === "POST" && p === "/api/v1/staff/attendance/scan") {
+    const { applyBarcodeScanOffline } = await import("@/lib/staff/offline-attendance-scan");
+    try {
+      return (await applyBarcodeScanOffline({
+        orgId: id,
+        userId: "local-user",
+        barcode: String(body.barcode ?? ""),
+        confirmCheckout: Boolean(body.confirmCheckout),
+        eventId: typeof body.eventId === "string" ? body.eventId : undefined,
+        deviceId: typeof body.deviceId === "string" ? body.deviceId : null,
+      })) as T;
+    } catch (err) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code: string }).code)
+          : "SCAN_FAILED";
+      throw new Error(`${code}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (method === "GET" && p === "/api/v1/staff/attendance") {
+    const board = url.searchParams.get("board");
+    if (board === "1" || board === "today") {
+      const date = (url.searchParams.get("date") ?? new Date().toISOString().slice(0, 10)).slice(
+        0,
+        10
+      );
+      const staffRows = await getLocalDb().getAll<{
+        id: string;
+        name: string;
+        roleTitle?: string;
+        roleKey?: string;
+        attendanceBarcode?: string | null;
+        status?: string;
+      }>("staff", id);
+      const attendanceRows = await getLocalDb().getAll<{
+        id: string;
+        staffId: string;
+        date: string;
+        checkInAt?: string | null;
+        checkOutAt?: string | null;
+        status?: string;
+      }>("attendance", id);
+      const byStaff = new Map(
+        attendanceRows
+          .filter((row) => String(row.date).slice(0, 10) === date)
+          .map((row) => [row.staffId, row])
+      );
+      return staffRows
+        .filter((s) => s.status !== "LEFT")
+        .map((staff) => {
+          const attendance = byStaff.get(staff.id) ?? null;
+          const sessionStatus = attendance
+            ? deriveAttendanceSessionStatus(attendance)
+            : null;
+          return {
+            staff,
+            attendance,
+            sessionStatus,
+            checkInLabel: attendance?.checkInAt
+              ? formatTimeLabel(attendance.checkInAt)
+              : null,
+            checkOutLabel: attendance?.checkOutAt
+              ? formatTimeLabel(attendance.checkOutAt)
+              : null,
+            durationLabel:
+              attendance?.checkInAt != null
+                ? formatWorkingDuration(attendance.checkInAt, attendance.checkOutAt)
+                : null,
+            date,
+          };
+        }) as T;
+    }
   }
 
   throw new Error("This action needs internet. Reconnect to continue.");

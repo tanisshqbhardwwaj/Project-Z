@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import type { AppointmentStatus, Prisma } from "@prisma/client";
 import { requireModule } from "@/lib/org/require-module";
-import { createAuditLog } from "../audit.service";
-import { createShopSale, type ShopSaleItem } from "../shop.service";
+import { createAuditLog } from "../shared/audit.service";
+import { createShopSale, type ShopSaleItem } from "../shop/shop.service";
 import { redeemCustomerPackage } from "./service-package.service";
 
 export type ServiceAppointmentItem = {

@@ -6,7 +6,7 @@ import {
   catalogSubCategoryLabel,
   customCategoryKey,
   isCustomCategoryKey,
-} from "@/lib/shop/category-catalog";
+} from "@/lib/shop/inventory/category-catalog";
 import { SHOP_SECTORS } from "@/lib/org/shop-sector";
 import {
   inventoryCategoriesForSector,
@@ -16,7 +16,7 @@ import {
   mergeInventorySectorMeta,
   parseInventoryCategory,
   parseInventorySubcategory,
-} from "@/lib/shop/inventory-categories";
+} from "@/lib/shop/inventory/inventory-categories";
 
 describe("category catalog", () => {
   it("covers every business type", () => {

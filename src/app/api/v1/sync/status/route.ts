@@ -1,5 +1,5 @@
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
-import { getShopSyncStatus } from "@/services/shop-sync.service";
+import { getShopSyncStatus } from "@/services/shop/shop-sync.service";
 import { requireShopScanAccess } from "@/lib/staff/shop-access";
 import { serializeBigInt } from "@/lib/db/prisma";
 

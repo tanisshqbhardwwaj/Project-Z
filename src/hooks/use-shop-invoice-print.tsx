@@ -4,19 +4,25 @@ import { useCallback, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { printShopInvoice } from "@/lib/shop/print/invoice-print-service";
-import type { CashTender } from "@/lib/shop/invoice-receipt-print";
+import type { CashTender } from "@/lib/shop/invoices/invoice-receipt-print";
 import { paperSizeLabel } from "@/lib/shop/print/invoice-print-layout";
+import type { InvoicePaperSize } from "@/lib/org/shop-settings";
 
 export type { CashTender };
 
 type UseShopInvoicePrintOptions = {
   /** Called after the user closes the print dialog (or cancels). */
   onComplete?: () => void;
+  /** Override org default paper size for this print session. */
+  paperSize?: InvoicePaperSize;
+  printMarginMm?: number;
 };
 
 export function useShopInvoicePrint(options: UseShopInvoicePrintOptions = {}) {
-  const { onComplete } = options;
+  const { onComplete, paperSize: paperSizeOverride, printMarginMm: marginOverride } = options;
   const template = useShopInvoiceTemplate();
+  const paperSize = paperSizeOverride ?? template.paperSize;
+  const printMarginMm = marginOverride ?? template.printMarginMm;
   const [printing, setPrinting] = useState(false);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -26,8 +32,8 @@ export function useShopInvoicePrint(options: UseShopInvoicePrintOptions = {}) {
     try {
       await printShopInvoice(
         {
-          paperSize: template.paperSize,
-          printMarginMm: template.printMarginMm,
+          paperSize,
+          printMarginMm,
           template,
         },
         {
@@ -41,7 +47,7 @@ export function useShopInvoicePrint(options: UseShopInvoicePrintOptions = {}) {
       setPrinting(false);
       onCompleteRef.current?.();
     }
-  }, [template]);
+  }, [template, paperSize, printMarginMm]);
 
   function PrintLayer() {
     if (!printing) return null;
@@ -58,7 +64,7 @@ export function useShopInvoicePrint(options: UseShopInvoicePrintOptions = {}) {
           </div>
           <p className="text-base font-semibold">Printing bill…</p>
           <p className="max-w-xs text-center text-xs text-muted-foreground">
-            Paper: {paperSizeLabel(template.paperSize)} — printing exactly what you see in the
+            Paper: {paperSizeLabel(paperSize)} — printing exactly what you see in the
             preview. Select your printer once; Chrome usually remembers it.
             {template.defaultCopies > 1
               ? ` Suggested copies: ${template.defaultCopies}.`

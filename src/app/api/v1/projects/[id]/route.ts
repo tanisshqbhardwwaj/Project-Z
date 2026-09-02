@@ -11,7 +11,7 @@ import {
   getProjectSummary,
   hardDeleteProject,
   updateProjectDetails,
-} from "@/services/project.service";
+} from "@/services/projects/project.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 const hardDeleteSchema = z.object({

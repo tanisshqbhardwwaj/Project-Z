@@ -4,7 +4,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getReturnableLines } from "@/services/shop-return.service";
+import { getReturnableLines } from "@/services/shop/shop-return.service";
 import { requireShopReturns } from "@/lib/staff/shop-access";
 
 type RouteParams = { params: Promise<{ saleId: string }> };

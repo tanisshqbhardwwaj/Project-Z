@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadMoreTrigger } from "@/components/ui/load-more-trigger";
 import { ListFetchIndicator } from "@/components/ui/list-fetch-indicator";
-import { formatCustomerLabel } from "@/lib/shop/customer";
+import { formatCustomerLabel } from "@/lib/shop/customers/customer";
 import { useInfiniteShopList } from "@/hooks/use-infinite-shop-list";
 
 type ShopCustomerRow = {
@@ -84,7 +84,7 @@ export default function ShopCustomersPage() {
         </p>
       </div>
 
-      <div className="relative max-w-xl">
+      <div className="relative w-full">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}

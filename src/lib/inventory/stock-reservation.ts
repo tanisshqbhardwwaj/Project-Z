@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
-import type { SaleLine } from "@/lib/shop/invoice-cart";
-import { isInfiniteStock } from "@/lib/shop/inventory";
+import type { SaleLine } from "@/lib/shop/invoices/invoice-cart";
+import { isInfiniteStock } from "@/lib/shop/inventory/inventory";
 
 type Tx = Prisma.TransactionClient;
 

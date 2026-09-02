@@ -6,7 +6,7 @@ import {
   ApiError,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getProjectInvoice } from "@/services/project-invoice.service";
+import { getProjectInvoice } from "@/services/projects/project-invoice.service";
 
 export async function GET(
   request: Request,

@@ -4,7 +4,7 @@ import {
   staffAccessFromForm,
   type StaffAccess,
 } from "@/lib/staff/access";
-import { ensureCatalogSchema } from "@/lib/shop/ensure-catalog-schema";
+import { ensureCatalogSchema } from "@/lib/shop/schema/ensure-catalog-schema";
 
 function parseAccessJsonColumn(raw: string | null | undefined): StaffAccess {
   if (!raw) return parseStaffAccess(null);

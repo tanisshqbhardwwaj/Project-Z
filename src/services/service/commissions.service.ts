@@ -1,5 +1,5 @@
 import { parseYearMonth } from "@/lib/date/org-day";
-import { isBranchAll } from "@/lib/shop/branch-context";
+import { isBranchAll } from "@/lib/shop/branch/branch-context";
 import {
   computeStaffCommission,
   listServiceStaffCommissions,

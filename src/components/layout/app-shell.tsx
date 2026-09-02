@@ -31,6 +31,12 @@ function isNavActive(pathname: string, href: string) {
   if (href === "/settings/profile") {
     return pathname.startsWith("/settings") && !pathname.startsWith("/settings/billing");
   }
+  if (href === "/settings/billing") {
+    return pathname.startsWith("/settings/billing");
+  }
+  if (href.startsWith("/settings/")) {
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
   if (href === "/dashboard" || href === "/cashier") {
     return pathname === href || (href === "/dashboard" && pathname === "/");
   }
@@ -77,7 +83,12 @@ function SidebarSection({
                   </span>
                 ) : null}
               </span>
-              {item.label}
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {item.badge ? (
+                <span className="shrink-0 rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                  {item.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}
@@ -186,7 +197,7 @@ export function MobileNav() {
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md md:hidden">
         <div
-          className="mx-auto grid h-[3.75rem] max-w-lg px-1"
+          className="mx-auto grid h-[3.75rem] w-full max-w-none px-1"
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
         >
           {visibleItems.map((item) => {
@@ -321,23 +332,22 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
       <CashierModeBanner />
       <header
       className={cn(
-        "sticky top-0 z-40 flex shrink-0 items-center justify-between gap-2 border-b bg-card/95 px-3 backdrop-blur-md md:gap-3 md:px-6",
+        "sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur-md md:gap-3 md:px-6",
         APP_SHELL_HEADER_HEIGHT
       )}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-        <AppLogo
-          href="/dashboard"
-          variant="compact"
-          brandMode="product"
-          className="shrink-0 md:hidden"
-          showCompanyTagline={false}
-        />
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <OrgSwitcher currentOrgName={orgName} />
-          <BranchSwitcher />
-        </div>
+      <AppLogo
+        href="/dashboard"
+        variant="compact"
+        brandMode="product"
+        className="shrink-0 md:hidden"
+        showCompanyTagline={false}
+      />
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+        <OrgSwitcher currentOrgName={orgName} />
+        <BranchSwitcher />
       </div>
+      <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
@@ -364,6 +374,7 @@ export function AppHeader({ orgName }: { userName?: string; orgName?: string }) 
       </Button>
       <SyncBadge />
       <AppearanceMenu />
+      </div>
     </header>
     </>
   );

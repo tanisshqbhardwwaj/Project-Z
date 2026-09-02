@@ -5,8 +5,8 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { listShopCustomers, searchShopCustomers } from "@/services/shop.service";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
+import { listShopCustomers, searchShopCustomers } from "@/services/shop/shop.service";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

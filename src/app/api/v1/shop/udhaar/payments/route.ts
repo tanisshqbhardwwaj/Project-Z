@@ -6,7 +6,7 @@ import {
   requireUdhaarWrite,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { recordCustomerPayment } from "@/services/shop-credit.service";
+import { recordCustomerPayment } from "@/services/shop/shop-credit.service";
 
 const paymentSchema = z.object({
   creditId: z.string().uuid(),

@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { handleApi, apiSuccess, ApiError } from "@/lib/api/context";
-import { acceptInvite } from "@/services/organization.service";
+import { acceptInvite } from "@/services/org/organization.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { prisma } from "@/lib/db/prisma";

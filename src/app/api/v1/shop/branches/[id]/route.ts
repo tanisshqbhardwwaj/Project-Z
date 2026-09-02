@@ -7,7 +7,7 @@ import {
   ApiError,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { updateShopBranch } from "@/services/shop-branch.service";
+import { updateShopBranch } from "@/services/shop/shop-branch.service";
 
 const patchSchema = z.object({
   name: z.string().min(1).max(80).optional(),

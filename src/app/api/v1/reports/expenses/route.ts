@@ -4,7 +4,7 @@ import {
   handleApi,
   requireProjectAccess,
 } from "@/lib/api/context";
-import { listExpenses } from "@/services/expense.service";
+import { listExpenses } from "@/services/finance/expense.service";
 import { paiseToRupees } from "@/lib/finance/money";
 import { prisma } from "@/lib/db/prisma";
 import { getAccessibleProjectIds } from "@/lib/permissions/project-scope";

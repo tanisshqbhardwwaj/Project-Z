@@ -8,46 +8,75 @@ import {
 import { InvoicePreviewRoot } from "@/components/shop/invoice-preview-root";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
+import type { InvoicePaperSize } from "@/lib/org/shop-settings";
+import { InvoicePaperSizeControls } from "@/components/shop/invoice-paper-size-controls";
 import type { DiscountBasis } from "@/lib/org/shop-settings";
 import {
   computeInvoicePricing,
   resolveInvoiceLineAllocations,
   type InvoicePricingResult,
   type StoredInvoicePricing,
-} from "@/lib/shop/invoice-pricing";
+} from "@/lib/shop/invoices/invoice-pricing";
 
 type InvoiceLivePreviewProps = {
   invoice: ShopInvoiceData;
   className?: string;
   /** Shown on preview when printing cash sales so print matches screen. */
   cashTender?: CashTenderInfo | null;
+  paperSize?: InvoicePaperSize;
+  printMarginMm?: number;
+  showPaperSizeControls?: boolean;
+  onPaperSizeChange?: (size: InvoicePaperSize) => void;
+  onPrintMarginChange?: (mm: number) => void;
 };
 
 export function InvoiceLivePreview({
   invoice,
   className,
   cashTender,
+  paperSize: paperSizeProp,
+  printMarginMm: printMarginMmProp,
+  showPaperSizeControls = false,
+  onPaperSizeChange,
+  onPrintMarginChange,
 }: InvoiceLivePreviewProps) {
   const template = useShopInvoiceTemplate();
-  const layout = resolvePaperLayout(template.paperSize, template.printMarginMm);
+  const paperSize = paperSizeProp ?? template.paperSize;
+  const printMarginMm = printMarginMmProp ?? template.printMarginMm;
+  const layout = resolvePaperLayout(paperSize, printMarginMm);
 
   return (
     <div
-      className={`shop-invoice-print-mount min-w-0 max-w-full overflow-x-auto rounded-2xl border bg-white shadow-sm ${className ?? ""}`}
+      className={`shop-invoice-print-mount w-fit max-w-full overflow-x-auto rounded-2xl border bg-white shadow-sm ${className ?? ""}`}
     >
       <div className="print-hidden border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
-        Invoice preview
-        {!invoice.billNumber || invoice.billNumber === "DRAFT" ? (
-          <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
-            Draft
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span>
+            Invoice preview
+            {!invoice.billNumber || invoice.billNumber === "DRAFT" ? (
+              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
+                Draft
+              </span>
+            ) : null}
           </span>
+        </div>
+        {showPaperSizeControls && onPaperSizeChange && onPrintMarginChange ? (
+          <div className="mt-3 border-t border-border/60 pt-3">
+            <InvoicePaperSizeControls
+              compact
+              paperSize={paperSize}
+              printMarginMm={printMarginMm}
+              onPaperSizeChange={onPaperSizeChange}
+              onPrintMarginChange={onPrintMarginChange}
+            />
+          </div>
         ) : null}
       </div>
-      <div className="max-w-full bg-neutral-50/80 py-4">
-        <div className="flex min-w-min justify-center px-3">
+      <div className="bg-neutral-50/80 py-4">
+        <div className="flex justify-center px-3">
         <InvoicePreviewRoot
-          paperSize={template.paperSize}
-          printMarginMm={template.printMarginMm}
+          paperSize={paperSize}
+          printMarginMm={printMarginMm}
           framed
         >
           <ShopInvoicePrint

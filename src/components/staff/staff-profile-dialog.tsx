@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { FormFeedback } from "@/components/ui/form-feedback";
+import { StaffAttendanceBarcodePanel } from "@/components/staff/staff-attendance-barcode-panel";
 import {
   FIELD_LIMITS,
   firstValidationIssue,
@@ -146,6 +147,9 @@ export function StaffProfileDialog({
   errorMessage,
   onSubmit,
   showAccessToggles = false,
+  staffId,
+  attendanceBarcode,
+  orgName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -156,6 +160,9 @@ export function StaffProfileDialog({
   onSubmit: (values: StaffProfileValues) => Promise<void> | void;
   /** Owner-only: login permissions when an email is set. */
   showAccessToggles?: boolean;
+  staffId?: string;
+  attendanceBarcode?: string | null;
+  orgName?: string;
 }) {
   // The parent remounts this dialog per person via a `key`, so seeding state
   // once from `initial` is enough — no effect needed to re-sync.
@@ -652,6 +659,18 @@ export function StaffProfileDialog({
               </div>
             </div>
           </section>
+
+          {staffId && showAccessToggles ? (
+            <StaffAttendanceBarcodePanel
+              staffId={staffId}
+              staffName={values.name || "Staff"}
+              roleTitle={values.roleTitle || "Staff"}
+              phone={values.phone}
+              email={values.email}
+              attendanceBarcode={attendanceBarcode}
+              orgName={orgName}
+            />
+          ) : null}
 
           <FormFeedback
             warning={warning ?? undefined}

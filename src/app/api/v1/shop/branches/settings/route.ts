@@ -6,7 +6,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { updateMultiStoreSettings } from "@/services/shop-branch.service";
+import { updateMultiStoreSettings } from "@/services/shop/shop-branch.service";
 
 const schema = z.object({
   enabled: z.boolean().optional(),
@@ -16,7 +16,7 @@ const schema = z.object({
 export async function GET(request: Request) {
   return handleApi(async () => {
     const ctx = await getAuthContext(request.headers.get("X-Organization-Id"));
-    const { getMultiStoreConfig } = await import("@/services/shop-branch.service");
+    const { getMultiStoreConfig } = await import("@/services/shop/shop-branch.service");
     const config = await getMultiStoreConfig(ctx.organizationId);
     return apiSuccess(serializeBigInt(config));
   });

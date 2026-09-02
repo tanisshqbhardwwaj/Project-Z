@@ -15,7 +15,7 @@ import {
   reopenOccurrence,
   skipOccurrence,
   syncRecurringExpenseReminders,
-} from "@/services/shop-recurring-expense.service";
+} from "@/services/shop/shop-recurring-expense.service";
 
 const actionSchema = z.object({
   occurrenceId: z.string().uuid(),

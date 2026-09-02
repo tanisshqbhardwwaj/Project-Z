@@ -24,7 +24,7 @@ import {
   type CommissionType,
   type StaffProfileValues,
 } from "@/components/staff/staff-profile-dialog";
-import { Pencil, Search, UserPlus, UsersRound, LogIn, LogOut } from "lucide-react";
+import { Pencil, Search, UserPlus, UsersRound } from "lucide-react";
 import { parseStaffAccess } from "@/lib/staff/access";
 import {
   Dialog,
@@ -51,9 +51,6 @@ import {
   useStaffAdvances,
   useCreateStaffAdvance,
   useAttendanceRegularity,
-  useStaffCheckIn,
-  useStaffCheckOut,
-  useSetAttendancePin,
   type AttendanceRow,
   type PayrollRow,
   type StaffMember,
@@ -61,20 +58,18 @@ import {
   type StaffAdvanceRow,
   type AttendanceRegularityRow,
 } from "@/hooks/queries/use-staff";
-import { useFetch } from "@/hooks/use-fetch";
-import { apiFetch } from "@/lib/api/client";
 import type { AttendanceStatus } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions/rbac";
 import type { OrgRole } from "@prisma/client";
-import { AttendancePinKiosk } from "@/components/staff/attendance-pin-kiosk";
+import { StaffAttendanceScanner } from "@/components/staff/staff-attendance-scanner";
+import { StaffBulkBarcodeActions } from "@/components/staff/staff-bulk-barcode-actions";
+import { StaffTodayAttendanceBoard } from "@/components/staff/staff-today-attendance-board";
+import {
+  StaffAttendanceReportDownload,
+  StaffPayrollReportDownload,
+} from "@/components/staff/staff-report-download";
 
 type Tab = "people" | "attendance" | "payroll";
-
-/**
- * Geolocation/PIN attendance check-in is planned for a later stage. The backend
- * APIs and hooks exist, but the UI is hidden behind this flag until then.
- */
-const ATTENDANCE_CHECKIN_ENABLED = false;
 
 const ATTENDANCE_STATUSES: { id: AttendanceStatus; label: string }[] = [
   { id: "PRESENT", label: "Present" },
@@ -332,18 +327,6 @@ export default function StaffHubPage() {
     year,
     month,
   });
-  const { data: orgMembers } = useFetch(
-    canManageStaff && activeOrganizationId
-      ? `org:${activeOrganizationId}:members-link`
-      : null,
-    () =>
-      apiFetch<
-        Array<{
-          role: string;
-          user: { id: string; name: string; email: string };
-        }>
-      >(`/api/v1/organizations/${activeOrganizationId}/members`)
-  );
   const attendanceQuery = useAttendance(date);
   const gridMonthKey = tab === "attendance" ? parseDayKey(date) : { year, month };
   const gridQuery = useAttendanceGrid(gridMonthKey.year, gridMonthKey.month);
@@ -357,9 +340,6 @@ export default function StaffHubPage() {
 
   const markMutation = useMarkAttendance(date);
   const bulkMutation = useBulkMarkAttendance(date);
-  const checkInMutation = useStaffCheckIn(date);
-  const checkOutMutation = useStaffCheckOut(date);
-  const setAttendancePinMutation = useSetAttendancePin();
   const todayKey = orgTodayKey(timezone);
   const isToday = date === todayKey;
   const createStaffMutation = useCreateStaff();
@@ -500,12 +480,6 @@ export default function StaffHubPage() {
           status: values.status,
         });
         showLoginInviteFeedback(updated.loginInvite);
-        if (values.attendancePin.trim().length >= 4) {
-          await setAttendancePinMutation.mutateAsync({
-            staffId: profileTarget.id,
-            pin: values.attendancePin.trim(),
-          });
-        }
       } else {
         const created = await createStaffMutation.mutateAsync(payload);
         showLoginInviteFeedback(created.loginInvite);
@@ -546,18 +520,6 @@ export default function StaffHubPage() {
       });
     } catch (err) {
       applyError(err, "Failed to update staff status");
-    }
-  }
-
-  async function linkStaffLogin(staffId: string, userId: string | null) {
-    clear();
-    try {
-      await updateStaffMutation.mutateAsync({
-        id: staffId,
-        userId,
-      });
-    } catch (err) {
-      applyError(err, "Failed to link login");
     }
   }
 
@@ -618,12 +580,13 @@ export default function StaffHubPage() {
 
       {tab === "attendance" && (
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)]">
-          {ATTENDANCE_CHECKIN_ENABLED && canMark ? (
-            <div className="xl:col-span-2">
-              <AttendancePinKiosk date={todayKey} />
+          {canMark ? (
+            <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
+              <StaffAttendanceScanner label="Scan Staff" />
             </div>
           ) : null}
           <div className="min-w-0 space-y-5">
+            {isToday ? <StaffTodayAttendanceBoard date={date} /> : null}
             <Card className="rounded-2xl border-0 shadow-md">
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="text-lg">Mark attendance</CardTitle>
@@ -634,6 +597,9 @@ export default function StaffHubPage() {
                     toDate={parseISO(orgTodayKey(timezone))}
                     className="h-10 w-auto rounded-xl"
                   />
+                  {canViewStaffHub ? (
+                    <StaffAttendanceReportDownload from={date} to={date} />
+                  ) : null}
                   {canMark && (
                     <Button
                       variant="outline"
@@ -674,6 +640,12 @@ export default function StaffHubPage() {
                         <p className="font-medium">{staff.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {staff.roleTitle}
+                          {attendance?.checkInAt
+                            ? ` · In ${new Date(attendance.checkInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                            : ""}
+                          {attendance?.checkOutAt
+                            ? ` · Out ${new Date(attendance.checkOutAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                            : ""}
                           {staff.wagePaise
                             ? ` · ₹${paiseToRupees(BigInt(staff.wagePaise))}${
                                 staff.wagePeriod === "DAILY" ? "/day" : "/mo"
@@ -713,48 +685,6 @@ export default function StaffHubPage() {
                           );
                         })}
                       </div>
-                      {ATTENDANCE_CHECKIN_ENABLED && canMark && isToday ? (
-                        <div className="mt-2 flex gap-2 lg:mt-0 lg:shrink-0">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 rounded-lg text-xs"
-                            disabled={
-                              checkInMutation.isPending || !!attendance?.checkInAt
-                            }
-                            onClick={() =>
-                              checkInMutation.mutate(staff.id, {
-                                onError: (err) =>
-                                  applyError(err, "Could not check in"),
-                              })
-                            }
-                          >
-                            <LogIn className="mr-1 h-3 w-3" />
-                            In
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 rounded-lg text-xs"
-                            disabled={
-                              checkOutMutation.isPending ||
-                              !attendance?.checkInAt ||
-                              !!attendance?.checkOutAt
-                            }
-                            onClick={() =>
-                              checkOutMutation.mutate(staff.id, {
-                                onError: (err) =>
-                                  applyError(err, "Could not check out"),
-                              })
-                            }
-                          >
-                            <LogOut className="mr-1 h-3 w-3" />
-                            Out
-                          </Button>
-                        </div>
-                      ) : null}
                     </div>
                   ))
                 )}
@@ -924,6 +854,7 @@ export default function StaffHubPage() {
               </select>
               {canPayroll && (
                 <>
+                  <StaffPayrollReportDownload year={year} month={month} />
                   <Button
                     variant="outline"
                     className="h-10 rounded-xl"
@@ -1282,6 +1213,11 @@ export default function StaffHubPage() {
               )}
             </div>
           </CardHeader>
+          {canManageStaff ? (
+            <CardContent className="border-b pb-4">
+              <StaffBulkBarcodeActions staffList={staffList} />
+            </CardContent>
+          ) : null}
           <CardContent>
             {staffQuery.isLoading ? (
               <PageLoader label="Loading team..." />
@@ -1395,63 +1331,38 @@ export default function StaffHubPage() {
                       </div>
                     </div>
 
-                    {canManageStaff && (
-                      <div className="mt-3 space-y-2">
-                        <div>
-                          <p className="mb-1 text-xs text-muted-foreground">
-                            Login link
-                          </p>
-                          <select
-                            value={s.userId ?? ""}
-                            disabled={s.status === "LEFT"}
-                            onChange={(e) =>
-                              linkStaffLogin(
-                                s.id,
-                                e.target.value ? e.target.value : null
-                              )
-                            }
-                            className="h-9 w-full rounded-lg border bg-background px-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <option value="">No login</option>
-                            {(orgMembers ?? []).map((m) => (
-                              <option key={m.user.id} value={m.user.id}>
-                                {m.user.name} ({m.role})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
+                    {canManageStaff ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => openStaffProfile(s)}
+                        >
+                          <Pencil className="mr-1 h-3.5 w-3.5" />
+                          Edit profile
+                        </Button>
+                        {s.status === "ACTIVE" ? (
                           <Button
                             variant="outline"
                             size="sm"
                             className="rounded-lg"
-                            onClick={() => openStaffProfile(s)}
+                            onClick={() => markStaffLeft(s.id, s.name)}
                           >
-                            <Pencil className="mr-1 h-3.5 w-3.5" />
-                            Edit profile
+                            Mark left
                           </Button>
-                          {s.status === "ACTIVE" ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-lg"
-                              onClick={() => markStaffLeft(s.id, s.name)}
-                            >
-                              Mark left
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              className="rounded-lg"
-                              disabled={updateStaffMutation.isPending}
-                              onClick={() => rehireStaff(s.id, s.name)}
-                            >
-                              Rehire
-                            </Button>
-                          )}
-                        </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="rounded-lg"
+                            disabled={updateStaffMutation.isPending}
+                            onClick={() => rehireStaff(s.id, s.name)}
+                          >
+                            Rehire
+                          </Button>
+                        )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -1513,6 +1424,9 @@ export default function StaffHubPage() {
         errorMessage={error}
         onSubmit={saveStaffProfile}
         showAccessToggles={Boolean(canManageStaff)}
+        staffId={profileTarget?.id}
+        attendanceBarcode={profileTarget?.attendanceBarcode}
+        orgName={undefined}
       />
 
       {canPayroll && (

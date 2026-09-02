@@ -6,7 +6,7 @@ import {
   requireProjectAccess,
   apiSuccess,
 } from "@/lib/api/context";
-import { createProject, listProjects, getProjectSummary } from "@/services/project.service";
+import { createProject, listProjects, getProjectSummary } from "@/services/projects/project.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { rupeesToPaise } from "@/lib/finance/money";
 import { z } from "zod";

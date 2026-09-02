@@ -1,5 +1,5 @@
 import { getAuthContext, handleApi, apiSuccess, requirePermission } from "@/lib/api/context";
-import { getAuditLogs } from "@/services/audit.service";
+import { getAuditLogs } from "@/services/shared/audit.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 
 export async function GET(request: Request) {

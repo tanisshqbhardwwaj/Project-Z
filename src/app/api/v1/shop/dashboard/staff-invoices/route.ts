@@ -6,9 +6,9 @@ import {
 } from "@/lib/api/context";
 import { hasPermission } from "@/lib/permissions/rbac";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { parseShopDashboardPeriod } from "@/lib/shop/dashboard-period";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
-import { getStaffSalesInvoices } from "@/services/shop.service";
+import { parseShopDashboardPeriod } from "@/lib/shop/reports/dashboard-period";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
+import { getStaffSalesInvoices } from "@/services/shop/shop.service";
 import { requireAllSalesRead, allSalesStaffScope } from "@/lib/staff/shop-access";
 
 export async function GET(request: Request) {

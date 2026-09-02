@@ -12,13 +12,13 @@ import { queryKeys } from "@/lib/query/keys";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
 import { formatINR } from "@/lib/finance/money";
-import { isInfiniteStock } from "@/lib/shop/inventory";
+import { isInfiniteStock } from "@/lib/shop/inventory/inventory";
 import {
   inventoryCategoryLabel,
   inventorySubcategoryLabel,
   parseInventoryCategory,
   parseInventorySubcategory,
-} from "@/lib/shop/inventory-categories";
+} from "@/lib/shop/inventory/inventory-categories";
 
 type ReportItem = {
   id: string;

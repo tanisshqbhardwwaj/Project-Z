@@ -1,6 +1,6 @@
 import { getAuthContext, handleApi, apiSuccess } from "@/lib/api/context";
 import { getSignedDownloadUrl } from "@/lib/storage";
-import { getOrgScopedExtraction } from "@/services/extraction.service";
+import { getOrgScopedExtraction } from "@/services/shared/extraction.service";
 
 export async function GET(
   request: Request,

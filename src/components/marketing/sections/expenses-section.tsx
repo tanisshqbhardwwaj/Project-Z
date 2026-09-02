@@ -52,12 +52,11 @@ export function ExpensesSection() {
       </div>
       <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {EXPENSE_FEATURES.map((item) => (
-          <li
-            key={item}
-            className={cn("flex items-start gap-3 rounded-xl border px-5 py-4 text-sm sm:text-base", mk.card, mk.bodyStrong)}
-          >
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-            {item}
+          <li key={item} className={cn("rounded-2xl border p-5 shadow-sm", mk.card)}>
+            <div className={cn("flex items-start gap-3 text-sm sm:text-base", mk.bodyStrong)}>
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+              {item}
+            </div>
           </li>
         ))}
       </ul>

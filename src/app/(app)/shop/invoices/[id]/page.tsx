@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { queryKeys } from "@/lib/query/keys";
+import { TwoColumn } from "@/components/layout/two-column";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,18 +17,17 @@ import {
 } from "@/components/shop/shop-invoice-print";
 import { InvoicePreviewRoot } from "@/components/shop/invoice-preview-root";
 import { formatINR } from "@/lib/finance/money";
-import { saleToShopInvoice, saleLineItems, type NormalizedSaleRecord } from "@/lib/shop/sale-invoice-mapper";
+import { saleToShopInvoice, type NormalizedSaleRecord } from "@/lib/shop/invoices/sale-invoice-mapper";
 import { InvoiceReturnPanel } from "@/components/shop/invoice-return-panel";
 import { useShopInvoiceTemplate } from "@/hooks/use-shop-invoice-template";
 import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
-import { useShopStaffUi } from "@/hooks/use-shop-staff-ui";
 import { resolvePaperLayout } from "@/lib/shop/print/invoice-print-layout";
 import {
   buildInvoiceWhatsAppMessage,
   downloadInvoiceViaPrint,
   shareInvoiceOnWhatsAppWithPdf,
-} from "@/lib/shop/invoice-share";
-import { generateInvoicePdfBlob } from "@/lib/shop/invoice-pdf";
+} from "@/lib/shop/invoices/invoice-share";
+import { generateInvoicePdfBlob } from "@/lib/shop/invoices/invoice-pdf";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
@@ -51,12 +51,6 @@ export default function ShopInvoicePage() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
   const activeOrganizationName = useAuthStore((s) => s.activeOrganizationName);
   const userName = useAuthStore((s) => s.user?.name);
-  const {
-    isStaffLimitedView,
-    canPrintFullInvoice,
-    canViewCustomerDetails,
-    canProcessReturns,
-  } = useShopStaffUi();
   const template = useShopInvoiceTemplate();
   const layout = resolvePaperLayout(template.paperSize, template.printMarginMm);
   const [duplicateCopy, setDuplicateCopy] = useState(false);
@@ -84,7 +78,7 @@ export default function ShopInvoicePage() {
   if (isLoading) return <PageLoader label="Loading invoice..." />;
   if (error) {
     return (
-      <div className="mx-auto max-w-lg space-y-4 p-8 text-center">
+      <div className="p-8 text-center">
         <p className="text-destructive">
           {error instanceof Error ? error.message : "Failed to load invoice"}
         </p>
@@ -110,77 +104,6 @@ export default function ShopInvoicePage() {
   }
 
   const sale = data;
-  const lineItems = saleLineItems(sale);
-
-  if (isStaffLimitedView) {
-    return (
-      <div className="mx-auto max-w-lg space-y-4 p-4 pb-8">
-        <Link
-          href="/shop/invoices"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          My bills
-        </Link>
-
-        <div className="space-y-1">
-          <h1 className="font-mono text-lg font-bold">{sale.billNumber ?? "Bill"}</h1>
-          <p className="text-sm font-semibold tabular-nums">
-            Total {formatINR(sale.totalPaise ?? "0")}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {new Date(sale.createdAt ?? "").toLocaleString("en-IN", {
-              dateStyle: "medium",
-              timeStyle: "short",
-            })}
-          </p>
-        </div>
-
-        <div className="rounded-xl border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">Items on this bill</h2>
-          {lineItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No line items recorded.</p>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {lineItems.map((item, index) => (
-                <li key={`${item.name}-${index}`} className="leading-snug">
-                  <span className="font-medium">{item.name}</span>
-                  {item.qty > 1 ? (
-                    <span className="text-muted-foreground"> — qty {item.qty}</span>
-                  ) : null}
-                  {item.variantLabel ? (
-                    <span className="text-muted-foreground"> ({item.variantLabel})</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {canProcessReturns ? (
-          <>
-            <Button
-              size="sm"
-              className="rounded-xl"
-              onClick={() => setReturnOpen(true)}
-            >
-              <RotateCcw className="mr-1 h-3.5 w-3.5" />
-              Return
-            </Button>
-            <InvoiceReturnPanel
-              saleId={sale.id}
-              billNumber={sale.billNumber ?? null}
-              customerName={null}
-              hideActions
-              returnOpen={returnOpen}
-              onReturnOpenChange={setReturnOpen}
-            />
-          </>
-        ) : null}
-      </div>
-    );
-  }
-
   const invoice = saleToShopInvoice(sale, {
     orgName: activeOrganizationName,
     cashierName: userName,
@@ -244,141 +167,138 @@ export default function ShopInvoicePage() {
   return (
     <>
       <PrintLayer />
-      <div className="mx-auto max-w-lg space-y-3 p-3 pb-8 sm:p-4 print-hidden">
-        <div className="space-y-1">
-          <Link
-            href="/shop/invoices"
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Invoices
-          </Link>
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <h1 className="font-mono text-lg font-bold">{sale.billNumber ?? "Invoice"}</h1>
-            {sale.paymentStatus && sale.paymentStatus !== "PAID" ? (
-              <Badge variant="secondary" className="h-5 rounded-full text-[10px] capitalize">
-                {sale.paymentStatus.replace(/_/g, " ").toLowerCase()}
-              </Badge>
-            ) : null}
-            <span className="text-sm font-semibold tabular-nums text-muted-foreground">
-              {formatINR(sale.totalPaise ?? invoice.totalPaise)}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {new Date(sale.createdAt ?? invoice.createdAt).toLocaleString("en-IN", {
-              dateStyle: "medium",
-              timeStyle: "short",
-            })}
-            {canViewCustomerDetails ? (
-              <>
-                {" · "}
-                {sale.customerName?.trim() || "Walk-in"}
-              </>
-            ) : null}
-            {" · "}
-            {String(sale.paymentMethod).replace(/_/g, " ")}
-          </p>
-        </div>
+      <div className="space-y-4 p-3 pb-8 sm:p-4 print-hidden">
+        <TwoColumn
+          sideWidth="400px"
+          side={
+            <div className="shop-invoice-print-mount flex justify-center xl:sticky xl:top-4 xl:self-start">
+              <div className="flex justify-center rounded-lg bg-muted/40 py-3">
+                <InvoicePreviewRoot
+                  paperSize={template.paperSize}
+                  printMarginMm={template.printMarginMm}
+                  framed
+                >
+                  <ShopInvoicePrint
+                    invoice={invoice}
+                    template={template}
+                    compact={layout.compact}
+                    barcodeHeight={layout.barcodeHeight}
+                    duplicateCopy={duplicateCopy}
+                  />
+                </InvoicePreviewRoot>
+              </div>
+            </div>
+          }
+          main={
+            <div className="min-w-0 space-y-3">
+              <div className="space-y-1">
+                <Link
+                  href="/shop/invoices"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Invoices
+                </Link>
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <h1 className="font-mono text-lg font-bold">{sale.billNumber ?? "Invoice"}</h1>
+                  {sale.paymentStatus && sale.paymentStatus !== "PAID" ? (
+                    <Badge variant="secondary" className="h-5 rounded-full text-[10px] capitalize">
+                      {sale.paymentStatus.replace(/_/g, " ").toLowerCase()}
+                    </Badge>
+                  ) : null}
+                  <span className="text-sm font-semibold tabular-nums text-muted-foreground">
+                    {formatINR(sale.totalPaise ?? invoice.totalPaise)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(sale.createdAt ?? invoice.createdAt).toLocaleString("en-IN", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                  {" · "}
+                  {sale.customerName?.trim() || "Walk-in"}
+                  {" · "}
+                  {String(sale.paymentMethod).replace(/_/g, " ")}
+                </p>
+              </div>
 
-        {canPrintFullInvoice ? (
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            size="sm"
-            className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
-            onClick={() => void printInvoice()}
-          >
-            <Printer className="mr-1 h-3.5 w-3.5 shrink-0" />
-            Print
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
-            onClick={savePdf}
-          >
-            <Download className="mr-1 h-3.5 w-3.5 shrink-0" />
-            PDF
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
-            disabled={sharingWhatsApp}
-            onClick={() => void shareWhatsApp()}
-          >
-            <MessageCircle className="mr-1 h-3.5 w-3.5 shrink-0" />
-            {sharingWhatsApp ? "…" : "WhatsApp"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
-            disabled={printing}
-            onClick={() => void printDuplicateCopy()}
-          >
-            <Copy className="mr-1 h-3.5 w-3.5 shrink-0" />
-            {printing && duplicateCopy ? "…" : "Duplicate"}
-          </Button>
-          <Button
-            size="sm"
-            className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
-            onClick={() => setReturnOpen(true)}
-          >
-            <RotateCcw className="mr-1 h-3.5 w-3.5 shrink-0" />
-            Return
-          </Button>
-          <Link href="/shop/returns" className="min-w-0">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
-            >
-              <History className="mr-1 h-3.5 w-3.5 shrink-0" />
-              History
-            </Button>
-          </Link>
-        </div>
-        ) : null}
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  size="sm"
+                  className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
+                  onClick={() => void printInvoice()}
+                >
+                  <Printer className="mr-1 h-3.5 w-3.5 shrink-0" />
+                  Print
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
+                  onClick={savePdf}
+                >
+                  <Download className="mr-1 h-3.5 w-3.5 shrink-0" />
+                  PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
+                  disabled={sharingWhatsApp}
+                  onClick={() => void shareWhatsApp()}
+                >
+                  <MessageCircle className="mr-1 h-3.5 w-3.5 shrink-0" />
+                  {sharingWhatsApp ? "…" : "WhatsApp"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
+                  disabled={printing}
+                  onClick={() => void printDuplicateCopy()}
+                >
+                  <Copy className="mr-1 h-3.5 w-3.5 shrink-0" />
+                  {printing && duplicateCopy ? "…" : "Duplicate"}
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
+                  onClick={() => setReturnOpen(true)}
+                >
+                  <RotateCcw className="mr-1 h-3.5 w-3.5 shrink-0" />
+                  Return
+                </Button>
+                <Link href="/shop/returns" className="min-w-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-10 w-full justify-center rounded-lg px-2 text-xs sm:text-sm"
+                  >
+                    <History className="mr-1 h-3.5 w-3.5 shrink-0" />
+                    History
+                  </Button>
+                </Link>
+              </div>
 
-        {canProcessReturns ? (
-        <>
-        <InvoiceReturnPanel
-          saleId={sale.id}
-          billNumber={sale.billNumber ?? null}
-          customerName={sale.customerName}
-          hideActions
-          returnOpen={returnOpen}
-          onReturnOpenChange={setReturnOpen}
+              <InvoiceReturnPanel
+                saleId={sale.id}
+                billNumber={sale.billNumber ?? null}
+                customerName={sale.customerName}
+                hideActions
+                returnOpen={returnOpen}
+                onReturnOpenChange={setReturnOpen}
+              />
+
+              {sale.paymentStatus && sale.paymentStatus !== "PAID" ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/30">
+                  Paid {formatINR(sale.paidAmountPaise ?? 0)} of{" "}
+                  {formatINR(sale.totalPaise ?? invoice.totalPaise)}
+                </div>
+              ) : null}
+            </div>
+          }
         />
-        </>
-        ) : null}
-
-        {sale.paymentStatus && sale.paymentStatus !== "PAID" ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/30">
-            Paid {formatINR(sale.paidAmountPaise ?? 0)} of {formatINR(sale.totalPaise ?? invoice.totalPaise)}
-          </div>
-        ) : null}
       </div>
-
-      {canPrintFullInvoice ? (
-      <div className="shop-invoice-print-mount mx-auto flex max-w-lg justify-center px-3 pb-8 sm:px-4">
-        <div className="flex justify-center rounded-lg bg-muted/40 py-3">
-          <InvoicePreviewRoot
-            paperSize={template.paperSize}
-            printMarginMm={template.printMarginMm}
-            framed
-          >
-            <ShopInvoicePrint
-              invoice={invoice}
-              template={template}
-              compact={layout.compact}
-              barcodeHeight={layout.barcodeHeight}
-              duplicateCopy={duplicateCopy}
-            />
-          </InvoicePreviewRoot>
-        </div>
-      </div>
-      ) : null}
     </>
   );
 }

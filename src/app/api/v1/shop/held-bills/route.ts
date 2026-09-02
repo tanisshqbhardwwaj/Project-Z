@@ -9,9 +9,9 @@ import {
   createHeldBill,
   listActiveHeldBills,
   resumeHeldBill,
-} from "@/services/shop-held-bill.service";
+} from "@/services/shop/shop-held-bill.service";
 import { requireShopBilling } from "@/lib/staff/shop-access";
-import { getShopBranchContext } from "@/lib/shop/branch-context";
+import { getShopBranchContext } from "@/lib/shop/branch/branch-context";
 
 export async function GET(request: Request) {
   return handleApi(async () => {

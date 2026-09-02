@@ -10,6 +10,8 @@ export type LocalMeta = {
   deviceCode?: string;
   /** Store code learned from the last pull, used for offline bill numbers. */
   storeCode?: string;
+  /** Optional cloud device UUID when paired. */
+  deviceId?: string;
   storage?: {
     usedBytes: string;
     quotaBytes: string;
@@ -40,4 +42,5 @@ export type LocalStoreName =
   | "creditEntries"
   | "purchases"
   | "expenses"
-  | "staff";
+  | "staff"
+  | "attendance";

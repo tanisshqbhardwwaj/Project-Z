@@ -8,17 +8,37 @@ import {
   requirePermission,
 } from "@/lib/api/context";
 import { z } from "zod";
-import { createOrganization, updateOrganization } from "@/services/organization.service";
+import { createOrganization, updateOrganization } from "@/services/org/organization.service";
 import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { BUSINESS_TYPES } from "@/lib/org/business-type";
 import { SHOP_SECTORS } from "@/lib/org/shop-sector";
 import { organizationNameSchema } from "@/lib/validation/fields";
+import { coerceModuleToggle } from "@/lib/org/modules";
+
+const moduleToggleSchema = z
+  .union([z.boolean(), z.number(), z.string(), z.null()])
+  .transform((value) => coerceModuleToggle(value));
 
 const schema = z.object({
   name: organizationNameSchema,
   businessType: z.enum(BUSINESS_TYPES).default("CONTRACTOR"),
   shopSector: z.enum(SHOP_SECTORS).optional().nullable(),
+  shopBusinessTypes: z.array(z.enum(SHOP_SECTORS)).min(1).max(14).optional(),
+  shopCustomBusinessType: z.string().max(120).optional().nullable(),
   enableStaff: z.boolean().optional(),
+  timezone: z.string().optional(),
+  defaultCompletionDays: z.number().int().min(1).max(3650).optional(),
+  settings: z
+    .object({
+      modules: z.record(z.string(), moduleToggleSchema).optional(),
+      shop: z
+        .object({
+          brandName: z.string().max(80).optional(),
+          logoUrl: z.string().max(500_000).optional().nullable(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 const updateSchema = z.object({
@@ -31,11 +51,21 @@ const updateSchema = z.object({
   enableStaff: z.boolean().optional(),
   timezone: z.string().optional(),
   defaultCompletionDays: z.number().int().min(1).max(3650).optional(),
+  onboardingComplete: z.boolean().optional(),
   settings: z
     .object({
-      modules: z.record(z.string(), z.boolean()).optional(),
+      modules: z.record(z.string(), moduleToggleSchema).optional(),
       weeklyOffDays: z.array(z.number().int().min(0).max(6)).optional(),
       unmarkedDayPolicy: z.enum(["PRESENT", "ABSENT", "EXCLUDED"]).optional(),
+      staffBarcodeLabel: z
+        .object({
+          showName: z.boolean().optional(),
+          showPhone: z.boolean().optional(),
+          showEmail: z.boolean().optional(),
+          showRole: z.boolean().optional(),
+          showOrgName: z.boolean().optional(),
+        })
+        .optional(),
       shop: z
         .object({
           brandName: z.string().max(80).optional(),
@@ -114,9 +144,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, businessType, shopSector, enableStaff } = schema.parse(body);
+    const parsed = schema.parse(body);
+    const {
+      name,
+      businessType,
+      shopSector,
+      shopBusinessTypes,
+      shopCustomBusinessType,
+      enableStaff,
+      timezone,
+      defaultCompletionDays,
+      settings,
+    } = parsed;
 
-    if (businessType === "SHOPKEEPER" && !shopSector) {
+    if (businessType === "SHOPKEEPER" && !shopSector && !shopBusinessTypes?.length) {
       return NextResponse.json(
         {
           error: {
@@ -148,7 +189,12 @@ export async function POST(request: Request) {
       userId: session.user.id,
       businessType,
       shopSector,
+      shopBusinessTypes,
+      shopCustomBusinessType,
       enableStaff,
+      timezone,
+      defaultCompletionDays,
+      settings,
     });
     return NextResponse.json({ data: serializeBigInt(org) }, { status: 201 });
   });

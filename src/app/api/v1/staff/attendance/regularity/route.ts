@@ -4,7 +4,7 @@ import {
   requirePermission,
   apiSuccess,
 } from "@/lib/api/context";
-import { getAttendanceRegularityStats } from "@/services/attendance-payroll.service";
+import { getAttendanceRegularityStats } from "@/services/staff/attendance-payroll.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import { prisma } from "@/lib/db/prisma";
 

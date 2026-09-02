@@ -10,7 +10,7 @@ import {
   listPayroll,
   updatePayroll,
   markPayrollPaid,
-} from "@/services/attendance-payroll.service";
+} from "@/services/staff/attendance-payroll.service";
 import { serializeBigInt } from "@/lib/db/prisma";
 import {
   generatePayrollSchema,

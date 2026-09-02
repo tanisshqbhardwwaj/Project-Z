@@ -4,7 +4,7 @@ import {
   apiSuccess,
 } from "@/lib/api/context";
 import { serializeBigInt } from "@/lib/db/prisma";
-import { getShopSale } from "@/services/shop.service";
+import { getShopSale } from "@/services/shop/shop.service";
 import { assertSaleReadAccess } from "@/lib/staff/shop-access";
 import {
   redactSaleCustomerFields,

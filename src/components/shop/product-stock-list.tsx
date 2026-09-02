@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input";
 import { PageLoader } from "@/components/ui/page-loader";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatINR } from "@/lib/finance/money";
-import { formatStockDisplay } from "@/lib/shop/inventory";
+import { formatStockDisplay } from "@/lib/shop/inventory/inventory";
 import {
   matchesVariantSearch,
   variantSearchHaystack,
-} from "@/lib/shop/variant-display";
-import { variantSubtitle } from "@/lib/shop/variant-display";
+} from "@/lib/shop/inventory/variant-display";
+import { variantSubtitle } from "@/lib/shop/inventory/variant-display";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
