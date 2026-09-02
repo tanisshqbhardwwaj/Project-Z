@@ -1,0 +1,44 @@
+# Fly.io — BusinessOS / Project Z
+# Mumbai (bom) is not available for new GitHub launches; Singapore is closest to India.
+# See: https://fly.io/docs/reference/regions/
+
+app = "econsole"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3000"
+  HOSTNAME = "0.0.0.0"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[http_service.checks]]
+  grace_period = "60s"
+  interval = "15s"
+  method = "GET"
+  path = "/api/v1/health"
+  timeout = "5s"
+
+# Persistent SQLite — create once: fly volumes create data --region sin --size 5 -a econsole
+[mounts]
+  source = "data"
+  destination = "/data"
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
