@@ -1,6 +1,18 @@
 ﻿import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
+  appendVaryAccept,
+  preferredType,
+  PRODUCES,
+} from "@/lib/agent/accept-negotiation";
+import { createNotFoundResponse } from "@/lib/agent/not-found-content";
+import {
+  isMarketingPath,
+  isPublicPath,
+  isUnknownPublicPath,
+  stripMarkdownSuffix,
+} from "@/lib/agent/site-routes";
+import {
   isAllowedApiOrigin,
   isAllowedNativeOrigin,
   isSameOriginRequest,
@@ -13,22 +25,13 @@ function newCorrelationId(): string {
   return globalThis.crypto.randomUUID();
 }
 
-function isMarketingPath(pathname: string) {
-  return pathname === "/" || pathname === "/pricing" || pathname.startsWith("/pricing/");
+function hasSession(request: NextRequest): boolean {
+  const sessionToken =
+    request.cookies.get("authjs.session-token")?.value ??
+    request.cookies.get("__Secure-authjs.session-token")?.value;
+  const bearer = request.headers.get("authorization")?.startsWith("Bearer ");
+  return Boolean(sessionToken || bearer);
 }
-
-const publicPaths = [
-  "/",
-  "/pricing",
-  "/login",
-  "/register",
-  "/verify-email",
-  "/forgot-password",
-  "/reset-password",
-  "/invite",
-  "/project-invite",
-  "/onboarding",
-];
 
 function corsHeaders(origin: string): HeadersInit {
   return {
@@ -38,6 +41,53 @@ function corsHeaders(origin: string): HeadersInit {
     "Access-Control-Allow-Headers": NATIVE_CORS_HEADERS,
     Vary: "Origin",
   };
+}
+
+function notAcceptableResponse(): Response {
+  return new Response(
+    `Not Acceptable\n\nAvailable: ${PRODUCES.join(", ")}\n`,
+    {
+      status: 406,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        Vary: "Accept, Accept-Encoding",
+      },
+    }
+  );
+}
+
+function rewriteToMarkdown(request: NextRequest, pathname: string): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = `/api/markdown${pathname === "/" ? "" : pathname}`;
+  const rewritten = NextResponse.rewrite(url);
+  appendVaryAccept(rewritten.headers);
+  return rewritten;
+}
+
+function handleMarketingNegotiation(request: NextRequest, pathname: string): NextResponse | Response | null {
+  if (!isMarketingPath(pathname)) return null;
+
+  const acceptHeader = request.headers.get("accept");
+
+  if (pathname.endsWith(".md")) {
+    const stripped = stripMarkdownSuffix(pathname);
+    if (!isMarketingPath(stripped)) {
+      return createNotFoundResponse(acceptHeader);
+    }
+    return rewriteToMarkdown(request, stripped);
+  }
+
+  const chosen = preferredType(acceptHeader);
+
+  if (chosen === "text/markdown") {
+    return rewriteToMarkdown(request, pathname);
+  }
+
+  if (chosen === null && acceptHeader) {
+    return notAcceptableResponse();
+  }
+
+  return null;
 }
 
 export default async function middleware(request: NextRequest) {
@@ -100,28 +150,29 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(dest);
   }
 
-
-  const isPublic = publicPaths.some((p) => {
-    if (p === "/") return pathname === "/";
-    return pathname === p || pathname.startsWith(`${p}/`);
-  });
-
-  if (!isPublic) {
-    const sessionToken =
-      request.cookies.get("authjs.session-token")?.value ??
-      request.cookies.get("__Secure-authjs.session-token")?.value;
-    const bearer = request.headers.get("authorization")?.startsWith("Bearer ");
-
-    if (!sessionToken && !bearer) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+  if (isUnknownPublicPath(pathname) && !hasSession(request)) {
+    return createNotFoundResponse(request.headers.get("accept"));
   }
 
-  return NextResponse.next();
+  const negotiated = handleMarketingNegotiation(request, pathname);
+  if (negotiated) return negotiated;
+
+  if (!isPublicPath(pathname) && !hasSession(request)) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const response = NextResponse.next();
+  if (isMarketingPath(pathname) || isPublicPath(pathname)) {
+    appendVaryAccept(response.headers);
+  }
+  return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  matcher: [
+    "/((?!_next|.*\\..*).*)",
+    "/:path*.md",
+  ],
 };

@@ -46,4 +46,5 @@ export const KV_STORES = [
   "purchases",
   "expenses",
   "staff",
+  "attendance",
 ] as const;

@@ -29,6 +29,9 @@ const nextConfig: NextConfig = {
       ? {}
       : { output: "standalone" as const }),
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "tesseract.js", "inngest", "heic-convert", "sql.js"],
+  outputFileTracingIncludes: {
+    "*": ["./content/marketing/**/*.md"],
+  },
   turbopack: {
     resolveAlias: {
       "sql.js": "./src/lib/local-db/sqljs-browser-stub.ts",

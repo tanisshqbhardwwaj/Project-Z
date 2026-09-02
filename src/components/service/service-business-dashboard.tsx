@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MoneyDisplay } from "@/components/finance/money-display";
 import { formatCustomerLabel } from "@/lib/shop/customers/customer";
+import { StaffAttendanceScanner } from "@/components/staff/staff-attendance-scanner";
 import { cn } from "@/lib/utils";
 
 type ServiceDashboardData = {
@@ -68,6 +69,7 @@ export function ServiceBusinessDashboard() {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
   const { enabledModules } = useAuthStore();
   const appointmentsEnabled = isModuleEnabled(enabledModules, "service_appointments");
+  const staffEnabled = isModuleEnabled(enabledModules, "staff");
 
   const { data, isLoading, error } = useQuery({
     queryKey: orgId ? queryKeys.modules.service.dashboard(orgId) : ["disabled"],
@@ -299,6 +301,9 @@ export function ServiceBusinessDashboard() {
               Invoices
             </Button>
           </Link>
+          {staffEnabled ? (
+            <StaffAttendanceScanner variant="tile" label="Scan Staff" />
+          ) : null}
         </CardContent>
       </Card>
     </div>

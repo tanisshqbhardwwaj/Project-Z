@@ -6,13 +6,16 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Button } from "@/components/ui/button";
 import { outlineCta } from "@/components/marketing/cta";
 import { mk } from "@/components/marketing/marketing-theme";
+import { marketingPageMetadata } from "@/lib/agent/marketing-metadata";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: "Compare Plans — E-console",
   description:
     "Full feature comparison for Basic, Starter, Business, and Professional plans. See billing, inventory, staff, expenses, and project features side by side.",
-};
+  path: "/pricing/compare",
+  markdownPath: "/pricing/compare.md",
+});
 
 export default function ComparePlansPage() {
   return (

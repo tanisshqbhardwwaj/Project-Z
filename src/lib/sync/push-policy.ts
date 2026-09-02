@@ -5,6 +5,8 @@ import { SYNC_KINDS, type SyncKind } from "@/lib/sync/kinds";
 export const CASHIER_SYNC_KINDS: readonly SyncKind[] = [
   "sale.create",
   "return.create",
+  "attendance.check_in",
+  "attendance.check_out",
 ];
 
 export function isSyncKind(kind: string): kind is SyncKind {
@@ -29,6 +31,9 @@ export function roleMayPushKind(role: OrgRole, kind: string): boolean {
     "purchase.create": "shop.purchase.manage",
     "expense.create": "shop.expense.manage",
     "udhaar.payment": "payment.create",
+    "attendance.check_in": "attendance.mark",
+    "attendance.check_out": "attendance.mark",
+    "attendance.correct": "attendance.mark",
   };
   return hasPermission(role, need[kind]);
 }

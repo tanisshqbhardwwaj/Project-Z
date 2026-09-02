@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   ScanBarcode,
+  ScanLine,
   Bell,
   Settings,
   CreditCard,
@@ -192,6 +193,15 @@ export function useNavGroups(): NavGroups {
         icon: ScanBarcode,
         label: "Scan",
         key: "scan",
+      });
+    }
+
+    if (isModuleEnabled(enabledModules, "staff")) {
+      tools.push({
+        href: "/staff/scan",
+        icon: ScanLine,
+        label: "Staff attendance",
+        key: "staff_scan",
       });
     }
 

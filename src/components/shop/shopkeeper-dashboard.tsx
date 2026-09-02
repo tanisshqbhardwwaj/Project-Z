@@ -43,6 +43,7 @@ import { DashboardInvoiceFilters } from "@/components/shop/dashboard-invoice-fil
 import { SetupChecklist } from "@/components/org/setup-checklist";
 import { PageContainer } from "@/components/layout/page-container";
 import { TwoColumn } from "@/components/layout/two-column";
+import { StaffAttendanceScanner } from "@/components/staff/staff-attendance-scanner";
 import { cn } from "@/lib/utils";
 
 type DashboardPeriod = ShopDashboardPeriod;
@@ -90,6 +91,7 @@ export function ShopkeeperDashboard() {
   const salesEnabled = isModuleEnabled(enabledModules, "shop_sales");
   const inventoryEnabled = isModuleEnabled(enabledModules, "shop_inventory");
   const udhaarEnabled = isModuleEnabled(enabledModules, "shop_udhaar");
+  const staffEnabled = isModuleEnabled(enabledModules, "staff");
   const [period, setPeriod] = useState<ReportPeriodPreset>("today");
   const [exactDate, setExactDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
@@ -624,6 +626,9 @@ export function ShopkeeperDashboard() {
               Offers & discounts
             </Button>
           </Link>
+          {staffEnabled ? (
+            <StaffAttendanceScanner variant="tile" label="Scan Staff" />
+          ) : null}
         </CardContent>
       </Card>
           </div>

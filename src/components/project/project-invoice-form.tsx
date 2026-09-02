@@ -25,9 +25,10 @@ import {
 import type { ShopInvoiceData } from "@/components/shop/shop-invoice-print";
 import { computeInvoicePricing } from "@/lib/shop/invoices/invoice-pricing";
 import { projectInvoiceToShopInvoice } from "@/lib/project/project-invoice-mapper";
-import {
-  useShopInvoicePrint,
-} from "@/hooks/use-shop-invoice-print";
+import { useShopInvoicePrint } from "@/hooks/use-shop-invoice-print";
+import type { InvoicePaperSize } from "@/lib/org/shop-settings";
+import { previewRailWidthClass } from "@/lib/shop/print/invoice-print-layout";
+import { cn } from "@/lib/utils";
 
 type LineItem = {
   name: string;
@@ -71,6 +72,8 @@ export function ProjectInvoiceForm({
   defaultClientPhone,
 }: ProjectInvoiceFormProps) {
   const template = useShopInvoiceTemplate();
+  const [paperSize, setPaperSize] = useState<InvoicePaperSize>(template.paperSize);
+  const [printMarginMm, setPrintMarginMm] = useState(template.printMarginMm);
   const { toast } = useToast();
   const [clientName, setClientName] = useState(defaultClientName ?? "");
   const [clientPhone, setClientPhone] = useState(defaultClientPhone ?? "");
@@ -90,6 +93,8 @@ export function ProjectInvoiceForm({
   } | null>(null);
 
   const { printInvoice, PrintLayer } = useShopInvoicePrint({
+    paperSize,
+    printMarginMm,
     onComplete: () => {
       setLastSaved(null);
       setLines([emptyLine()]);
@@ -248,8 +253,24 @@ export function ProjectInvoiceForm({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-5">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <aside
+          className={cn(
+            "shop-invoice-print-mount order-2 shrink-0 lg:order-1 lg:sticky lg:top-4 lg:self-start",
+            previewRailWidthClass(paperSize)
+          )}
+        >
+          <InvoiceLivePreview
+            invoice={previewInvoice}
+            paperSize={paperSize}
+            printMarginMm={printMarginMm}
+            showPaperSizeControls
+            onPaperSizeChange={setPaperSize}
+            onPrintMarginChange={setPrintMarginMm}
+          />
+        </aside>
+
+        <div className="order-1 min-w-0 space-y-5 lg:order-2">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="clientName">Client name</Label>
@@ -427,8 +448,6 @@ export function ProjectInvoiceForm({
             </Link>
           </div>
         </div>
-
-        <InvoiceLivePreview invoice={previewInvoice} />
       </div>
 
       <PrintLayer />

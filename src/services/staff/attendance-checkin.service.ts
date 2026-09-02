@@ -82,6 +82,7 @@ export async function staffCheckIn(input: {
   markedById: string;
   method: AttendanceCheckMethod;
   deviceFingerprint?: string | null;
+  deviceId?: string | null;
   geoVerified?: boolean | null;
   geoDistanceMeters?: number | null;
   latitude?: number | null;
@@ -117,6 +118,7 @@ export async function staffCheckIn(input: {
       checkInAt: now,
       checkInMethod: input.method,
       deviceFingerprint: input.deviceFingerprint ?? null,
+      deviceId: input.deviceId ?? null,
       geoVerified: geo.geoVerified,
       geoDistanceMeters: geo.geoDistanceMeters,
       markedById: input.markedById,

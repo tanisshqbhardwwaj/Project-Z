@@ -10,7 +10,7 @@ import { mergeShopOrgSettings, type ShopOrgSettings } from "@/lib/org/shop-setti
 import { isShopSector } from "@/lib/org/shop-sector";
 import { isShopVertical } from "@/lib/org/business-type";
 import { isServiceVerticalEnabled } from "@/lib/org/service-vertical";
-import type { ModuleKey } from "@/lib/org/modules";
+import type { ModuleKey, OrgSettingsJson } from "@/lib/org/modules";
 import { defaultEnabledModules } from "@/lib/org/modules";
 import { effectiveModulesForPlan } from "@/lib/billing/entitlements";
 import { listActiveOrgAddonKeys } from "@/lib/billing/org-addon.service";
@@ -523,6 +523,7 @@ export async function updateOrganization(input: {
     modules?: Partial<Record<ModuleKey, boolean>>;
     weeklyOffDays?: number[];
     unmarkedDayPolicy?: "PRESENT" | "ABSENT" | "EXCLUDED";
+    staffBarcodeLabel?: OrgSettingsJson["staffBarcodeLabel"];
     shop?: ShopOrgSettings;
   };
 }) {
@@ -644,6 +645,12 @@ export async function updateOrganization(input: {
     }
     if (input.settings?.unmarkedDayPolicy) {
       nextSettings.unmarkedDayPolicy = input.settings.unmarkedDayPolicy;
+    }
+    if (input.settings?.staffBarcodeLabel) {
+      nextSettings.staffBarcodeLabel = {
+        ...(nextSettings.staffBarcodeLabel ?? {}),
+        ...input.settings.staffBarcodeLabel,
+      };
     }
     const shopPatch = { ...(input.settings?.shop ?? {}), ...shopTypePatch };
     if (Object.keys(shopPatch).length > 0) {

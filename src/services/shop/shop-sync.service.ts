@@ -10,6 +10,7 @@ import { recordCustomerPayment } from "@/services/shop/shop-credit.service";
 import { createShopExpense } from "@/services/shop/shop-expense.service";
 import { createShopPurchase } from "@/services/shop/shop-purchase.service";
 import { upsertCustomerRaw } from "@/lib/shop/customers/customer-store";
+import { applyBarcodeScan, correctAttendanceRecord } from "@/services/staff/attendance-scan.service";
 import { parseShopInvoiceSettings } from "@/lib/org/shop-settings";
 import { fiscalYearLabel, resolveStoreCode } from "@/lib/shop/invoices/bill-number";
 import { ensureSyncSchema } from "@/lib/shop/schema/ensure-sync-schema";
@@ -215,6 +216,31 @@ async function applyOne(input: {
       });
       return expense.id;
     }
+    case "attendance.check_in":
+    case "attendance.check_out": {
+      const result = await applyBarcodeScan({
+        organizationId: input.organizationId,
+        userId: input.userId,
+        barcode: String(p.barcode ?? ""),
+        confirmCheckout: input.kind === "attendance.check_out" ? true : Boolean(p.confirmCheckout),
+        eventId: input.clientId,
+        deviceId: (p.deviceId as string | null) ?? null,
+      });
+      return "attendanceId" in result ? result.attendanceId ?? input.clientId : input.clientId;
+    }
+    case "attendance.correct": {
+      const row = await correctAttendanceRecord({
+        organizationId: input.organizationId,
+        attendanceId: String(p.attendanceId),
+        userId: input.userId,
+        checkInAt: p.checkInAt as string | null | undefined,
+        checkOutAt: p.checkOutAt as string | null | undefined,
+        status: p.status as never,
+        notes: p.notes as string | null | undefined,
+        eventId: input.clientId,
+      });
+      return row.id;
+    }
     default:
       throw new ApiError(400, "UNKNOWN_KIND", `Unknown sync kind: ${input.kind}`);
   }
@@ -271,6 +297,7 @@ export async function pullShopSnapshot(input: {
     purchases,
     expenses,
     staff,
+    attendance,
     storage,
   ] = await Promise.all([
     prisma.shopSale.findMany({
@@ -320,7 +347,14 @@ export async function pullShopSnapshot(input: {
         cashierCode: true,
         roleTitle: true,
         roleKey: true,
+        status: true,
+        attendanceBarcode: true,
       },
+    }),
+    prisma.staffAttendance.findMany({
+      where: { organizationId: input.organizationId, date: { gte: since } },
+      orderBy: { date: "desc" },
+      take: 5000,
     }),
     getStorageUsageBreakdown(input.organizationId),
   ]);
@@ -337,6 +371,7 @@ export async function pullShopSnapshot(input: {
     purchases,
     expenses,
     staff,
+    attendance,
     invoiceSettings: parseShopInvoiceSettings(org.settings ?? {}),
     billSeq: billCounter?.seq ?? 0,
     storeCode: resolveStoreCode(

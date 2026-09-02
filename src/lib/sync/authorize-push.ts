@@ -34,10 +34,13 @@ export async function assertSyncPushKindAllowed(
       await requireShopReturns(ctx);
       return;
     }
+    if (kind === "attendance.check_in" || kind === "attendance.check_out") {
+      return;
+    }
     throw new ApiError(
       403,
       "FORBIDDEN",
-      "Staff can only sync sales and returns they are allowed to create"
+      "Staff can only sync sales, returns, and attendance they are allowed to create"
     );
   }
 

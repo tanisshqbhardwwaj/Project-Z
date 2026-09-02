@@ -13,6 +13,11 @@ import { MAX_ORGANIZATIONS } from "@/lib/org/constants";
 import { BUSINESS_TYPES } from "@/lib/org/business-type";
 import { SHOP_SECTORS } from "@/lib/org/shop-sector";
 import { organizationNameSchema } from "@/lib/validation/fields";
+import { coerceModuleToggle } from "@/lib/org/modules";
+
+const moduleToggleSchema = z
+  .union([z.boolean(), z.number(), z.string(), z.null()])
+  .transform((value) => coerceModuleToggle(value));
 
 const schema = z.object({
   name: organizationNameSchema,
@@ -25,7 +30,7 @@ const schema = z.object({
   defaultCompletionDays: z.number().int().min(1).max(3650).optional(),
   settings: z
     .object({
-      modules: z.record(z.string(), z.boolean()).optional(),
+      modules: z.record(z.string(), moduleToggleSchema).optional(),
       shop: z
         .object({
           brandName: z.string().max(80).optional(),
@@ -49,9 +54,18 @@ const updateSchema = z.object({
   onboardingComplete: z.boolean().optional(),
   settings: z
     .object({
-      modules: z.record(z.string(), z.boolean()).optional(),
+      modules: z.record(z.string(), moduleToggleSchema).optional(),
       weeklyOffDays: z.array(z.number().int().min(0).max(6)).optional(),
       unmarkedDayPolicy: z.enum(["PRESENT", "ABSENT", "EXCLUDED"]).optional(),
+      staffBarcodeLabel: z
+        .object({
+          showName: z.boolean().optional(),
+          showPhone: z.boolean().optional(),
+          showEmail: z.boolean().optional(),
+          showRole: z.boolean().optional(),
+          showOrgName: z.boolean().optional(),
+        })
+        .optional(),
       shop: z
         .object({
           brandName: z.string().max(80).optional(),

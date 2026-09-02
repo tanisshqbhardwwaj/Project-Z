@@ -177,6 +177,31 @@ export async function appFetch(path: string, options: RequestInit = {}): Promise
   if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
+  const orgId = getActiveOrganizationId();
+  if (orgId) {
+    headers.set("X-Organization-Id", orgId);
+  }
+  const branchId = getActiveBranchId();
+  if (branchId) {
+    headers.set("X-Branch-Id", branchId);
+  }
   await buildAuthHeaders(headers);
   return fetch(resolveAppFetchUrl(path), { ...init, headers });
+}
+
+/** Download binary exports (CSV/PDF) with auth + org headers. */
+export async function apiFetchBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const init = nativeFetchInit(options);
+  const headers = new Headers(init.headers);
+  const orgId = getActiveOrganizationId();
+  if (orgId) headers.set("X-Organization-Id", orgId);
+  const branchId = getActiveBranchId();
+  if (branchId) headers.set("X-Branch-Id", branchId);
+  await buildAuthHeaders(headers);
+  const res = await fetch(resolveAppFetchUrl(path), { ...init, headers });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ApiClientError(res.status, "DOWNLOAD_FAILED", text || "Download failed");
+  }
+  return res.blob();
 }

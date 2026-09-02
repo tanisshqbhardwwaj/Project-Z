@@ -55,7 +55,15 @@ import {
 import {
   type ModuleKey,
   type OrgSettingsJson,
+  normalizeModuleToggleMap,
+  serializeModuleTogglesForApi,
 } from "@/lib/org/modules";
+import {
+  DEFAULT_STAFF_BARCODE_LABEL,
+  readStaffBarcodeLabelSettings,
+  type StaffBarcodeLabelFields,
+} from "@/lib/staff/barcode-label-settings";
+import { StaffBarcodeLabelSettingsCard } from "@/components/staff/staff-barcode-label-settings";
 
 type OrgData = {
   id: string;
@@ -79,6 +87,7 @@ type OrgFormSnapshot = {
   defaultCompletionDays: string;
   brandName: string;
   logoUrl: string | null;
+  staffBarcodeLabel: StaffBarcodeLabelFields;
 };
 
 function SectionCard({
@@ -163,6 +172,9 @@ export default function OrganizationSettingsPage() {
   const [defaultCompletionDays, setDefaultCompletionDays] = useState("30");
   const [brandName, setBrandName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [staffBarcodeLabel, setStaffBarcodeLabel] = useState<StaffBarcodeLabelFields>({
+    ...DEFAULT_STAFF_BARCODE_LABEL,
+  });
   const { warning, error, clear, showWarning, applyError } = useFormFeedback();
   const plan = useActivePlan();
   const { addonKeys } = useOrgAddons();
@@ -180,6 +192,7 @@ export default function OrganizationSettingsPage() {
     setDefaultCompletionDays(snapshot.defaultCompletionDays);
     setBrandName(snapshot.brandName);
     setLogoUrl(snapshot.logoUrl);
+    setStaffBarcodeLabel(snapshot.staffBarcodeLabel);
   }
 
   function buildSnapshot(org: OrgData): OrgFormSnapshot {
@@ -192,11 +205,15 @@ export default function OrganizationSettingsPage() {
       businessTypes: sectors,
       customBusinessType: resolveCustomBusinessTypeLabel(org.settings ?? {}) ?? "",
       enableStaff: Boolean(org.enableStaff),
-      moduleToggles: org.settings?.modules ?? {},
+      moduleToggles: normalizeModuleToggleMap(
+        org.settings?.modules,
+        Boolean(org.enableStaff)
+      ),
       unmarkedPolicy: org.settings?.unmarkedDayPolicy ?? "EXCLUDED",
       defaultCompletionDays: String(org.defaultCompletionDays ?? 30),
       brandName: org.settings?.shop?.brandName ?? "",
       logoUrl: org.settings?.shop?.logoUrl ?? null,
+      staffBarcodeLabel: readStaffBarcodeLabelSettings(org.settings),
     };
   }
 
@@ -288,11 +305,9 @@ export default function OrganizationSettingsPage() {
               }
             : { shopSector: null }),
           settings: {
-            modules: {
-              ...moduleToggles,
-              staff: moduleToggles.staff ?? enableStaff,
-            },
+            modules: serializeModuleTogglesForApi(moduleToggles, enableStaff),
             unmarkedDayPolicy: unmarkedPolicy,
+            staffBarcodeLabel,
             ...(businessType === "SHOPKEEPER"
               ? {
                   shop: {
@@ -325,11 +340,15 @@ export default function OrganizationSettingsPage() {
         businessTypes: businessType === "SHOPKEEPER" ? businessTypes : [],
         customBusinessType,
         enableStaff: Boolean(updated.settings?.modules?.staff ?? updated.enableStaff),
-        moduleToggles: updated.settings?.modules ?? moduleToggles,
+        moduleToggles: normalizeModuleToggleMap(
+          updated.settings?.modules ?? moduleToggles,
+          Boolean(updated.settings?.modules?.staff ?? updated.enableStaff)
+        ),
         unmarkedPolicy,
         defaultCompletionDays: String(updated.defaultCompletionDays ?? days),
         brandName,
         logoUrl,
+        staffBarcodeLabel,
       });
       setInitialBusinessType(updated.businessType ?? businessType);
     } catch (err) {
@@ -534,8 +553,127 @@ export default function OrganizationSettingsPage() {
 
         {isShopVertical(businessType) ? (
           <SettingsCardGrid className="gap-4 lg:gap-5">
+            <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
+              <SectionCard title="Defaults">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Unmarked days</Label>
+                    <select
+                      value={unmarkedPolicy}
+                      disabled={!isOwner}
+                      onChange={(e) =>
+                        setUnmarkedPolicy(
+                          e.target.value as "PRESENT" | "ABSENT" | "EXCLUDED"
+                        )
+                      }
+                      className="h-12 w-full rounded-xl border bg-background px-3"
+                    >
+                      <option value="EXCLUDED">Working (full month for monthly salary)</option>
+                      <option value="PRESENT">Present</option>
+                      <option value="ABSENT">Absent</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="completion-days">Completion days</Label>
+                    <Input
+                      id="completion-days"
+                      type="number"
+                      min={1}
+                      max={3650}
+                      value={defaultCompletionDays}
+                      onChange={(e) => setDefaultCompletionDays(e.target.value)}
+                      className="h-12 rounded-xl"
+                      disabled={!isOwner}
+                    />
+                  </div>
+                </div>
+              </SectionCard>
+
+              {staffEnabled ? (
+                <StaffBarcodeLabelSettingsCard
+                  value={staffBarcodeLabel}
+                  disabled={!isOwner}
+                  onChange={setStaffBarcodeLabel}
+                />
+              ) : null}
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
+              <SectionCard
+                title="Shop label printing"
+                description="Brand name and logo on price tags."
+              >
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="brand-name">Brand name (small tags)</Label>
+                    <Input
+                      id="brand-name"
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      className="h-12 rounded-xl"
+                      placeholder={name || "Your brand"}
+                      disabled={!isOwner}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shop-logo">Shop logo (full tags)</Label>
+                    <Input
+                      id="shop-logo"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="h-12 rounded-xl"
+                      disabled={!isOwner}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 200_000) {
+                          showWarning("Logo must be under 200 KB");
+                          e.target.value = "";
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => setLogoUrl(String(reader.result));
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    {logoUrl ? (
+                      <div className="flex items-center gap-3 rounded-xl border p-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={logoUrl} alt="Shop logo" className="h-10 w-10 object-contain" />
+                        {isOwner ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto rounded-xl text-destructive"
+                            onClick={() => setLogoUrl(null)}
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                title="Invoice template"
+                description="Header, GSTIN, footer and print fields."
+              >
+                <Link href="/shop/invoices/settings">
+                  <Button variant="outline" className="rounded-xl">
+                    Configure invoice template
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </Link>
+              </SectionCard>
+            </div>
+          </SettingsCardGrid>
+        ) : (
+          <div className="space-y-4">
             <SectionCard title="Defaults">
-              <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 sm:max-w-2xl">
                 <div className="space-y-2">
                   <Label>Unmarked days</Label>
                   <select
@@ -569,112 +707,14 @@ export default function OrganizationSettingsPage() {
               </div>
             </SectionCard>
 
-            <SectionCard
-              title="Shop label printing"
-              description="Brand name and logo on price tags."
-            >
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="brand-name">Brand name (small tags)</Label>
-                  <Input
-                    id="brand-name"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    className="h-12 rounded-xl"
-                    placeholder={name || "Your brand"}
-                    disabled={!isOwner}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="shop-logo">Shop logo (full tags)</Label>
-                  <Input
-                    id="shop-logo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    className="h-12 rounded-xl"
-                    disabled={!isOwner}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 200_000) {
-                        showWarning("Logo must be under 200 KB");
-                        e.target.value = "";
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onload = () => setLogoUrl(String(reader.result));
-                      reader.readAsDataURL(file);
-                    }}
-                  />
-                  {logoUrl ? (
-                    <div className="flex items-center gap-3 rounded-xl border p-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={logoUrl} alt="Shop logo" className="h-10 w-10 object-contain" />
-                      {isOwner ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="ml-auto rounded-xl text-destructive"
-                          onClick={() => setLogoUrl(null)}
-                        >
-                          Remove
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="Invoice template"
-              description="Header, GSTIN, footer and print fields."
-              className="lg:col-span-2"
-            >
-              <Link href="/shop/invoices/settings">
-                <Button variant="outline" className="rounded-xl">
-                  Configure invoice template
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
-            </SectionCard>
-          </SettingsCardGrid>
-        ) : (
-          <SectionCard title="Defaults">
-            <div className="grid gap-4 sm:grid-cols-2 sm:max-w-2xl">
-              <div className="space-y-2">
-                <Label>Unmarked days</Label>
-                <select
-                  value={unmarkedPolicy}
-                  disabled={!isOwner}
-                  onChange={(e) =>
-                    setUnmarkedPolicy(
-                      e.target.value as "PRESENT" | "ABSENT" | "EXCLUDED"
-                    )
-                  }
-                  className="h-12 w-full rounded-xl border bg-background px-3"
-                >
-                  <option value="EXCLUDED">Working (full month for monthly salary)</option>
-                  <option value="PRESENT">Present</option>
-                  <option value="ABSENT">Absent</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="completion-days">Completion days</Label>
-                <Input
-                  id="completion-days"
-                  type="number"
-                  min={1}
-                  max={3650}
-                  value={defaultCompletionDays}
-                  onChange={(e) => setDefaultCompletionDays(e.target.value)}
-                  className="h-12 rounded-xl"
-                  disabled={!isOwner}
-                />
-              </div>
-            </div>
-          </SectionCard>
+            {staffEnabled ? (
+              <StaffBarcodeLabelSettingsCard
+                value={staffBarcodeLabel}
+                disabled={!isOwner}
+                onChange={setStaffBarcodeLabel}
+              />
+            ) : null}
+          </div>
         )}
 
         <SectionCard title="Quick links">

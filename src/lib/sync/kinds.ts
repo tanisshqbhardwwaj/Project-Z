@@ -6,6 +6,9 @@ export const SYNC_KINDS = [
   "udhaar.payment",
   "purchase.create",
   "expense.create",
+  "attendance.check_in",
+  "attendance.check_out",
+  "attendance.correct",
 ] as const;
 
 export type SyncKind = (typeof SYNC_KINDS)[number];
@@ -36,6 +39,7 @@ export type SyncPullSnapshot = {
   purchases: unknown[];
   expenses: unknown[];
   staff: unknown[];
+  attendance: unknown[];
   invoiceSettings: unknown;
   /** Server-authoritative bill sequence for the current fiscal year. */
   billSeq: number;

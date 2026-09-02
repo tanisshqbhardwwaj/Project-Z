@@ -4,13 +4,15 @@ import { DownloadApps } from "@/components/marketing/download-apps";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { PublicPricing } from "@/components/marketing/public-pricing";
 import { mk } from "@/components/marketing/marketing-theme";
+import { marketingPageMetadata } from "@/lib/agent/marketing-metadata";
 import { cn } from "@/lib/utils";
 import { getPublicMarketingConfig } from "@/lib/marketing/public-config";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: "Pricing — E-console",
   description: "Simple monthly plans for shops. Contact us for yearly or multi-shop rates.",
-};
+  path: "/pricing",
+});
 
 export default function PricingPage() {
   const config = getPublicMarketingConfig();

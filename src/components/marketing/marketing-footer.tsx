@@ -15,11 +15,20 @@ const FOOTER_COLUMNS = [
     ],
   },
   {
+    title: "Company",
+    links: [
+      { href: "/about", label: "About" },
+      { href: "/contact", label: "Contact" },
+      { href: "/privacy", label: "Privacy" },
+    ],
+  },
+  {
     title: "Resources",
     links: [
       { href: "/#faq", label: "FAQ" },
       { href: "/#projects", label: "Projects" },
       { href: "/#billing", label: "Billing & invoices" },
+      { href: "/llms.txt", label: "llms.txt" },
     ],
   },
   {
