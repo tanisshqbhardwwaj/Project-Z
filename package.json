@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/vercel-build.mjs",
+    "build:docker": "node scripts/docker-build.mjs",
     "build:local": "npx prisma generate && npx next build",
     "validate:env": "node scripts/validate-production-env.mjs",
     "start": "next start",
@@ -28,7 +29,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('npx prisma generate',{stdio:'inherit'})}\""
+    "postinstall": "node -e \"const fs=require('fs');if(!process.env.VERCEL&&fs.existsSync('prisma/schema.prisma')){require('child_process').execSync('npx prisma generate',{stdio:'inherit'})}\""
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
